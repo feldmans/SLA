@@ -1,6 +1,7 @@
 library(stringr)
+library(dplyr)
 
-manage_date_ND <- function(vec){ #vec doit être un vecteur avec éléments de la forme 04/04/1989 ou "04/04/1989"
+manage_date_ND <- function(vec){ #vec doit être un vecteur avec éléments de la forme 04/04/1989(facteur) ou "04/04/1989"(character)
   vec <- as.character(vec)
   #browser()
   exist_year <-!is.na(str_sub(vec, 7, 10))
@@ -118,7 +119,7 @@ names_double_diag <- names(tab2[tab2>1])
 pw <- pw [!pw$PATIENT %in% names_double_diag, ]
 
 #head(pv[, c("PATIENT", "CENTRE", "MODULE", "FORM", "DATE_DIAG", "DIAGNOS")]) : ne plus utiliser DATE_DIAG, transformee en date!
-pw <- pw[ , !colnames(pw)%in%c("DATE_DIAG.diag","DATE_DIAG.ccl")]
+pw <- pw[ , !colnames(pw)%in%c("DATE_DIAG.diag","DATE_DIAG.ccl")] #je garde date.diag et date.ccl
 length(unique(pw$PATIENT))
 
 names_sla_date <- unique(pw$PATIENT)
@@ -178,7 +179,7 @@ table(is.na(vni_vent$date_vni))
 
 no_prevent_line <- names_idpw[! names_idpw %in% names_vni]
 
-vni_vent <- vni_vent[ !vni_vent$PATIENT %in% names_vni_duplicated,  ]
+vni_vent <- vni_vent[ !vni_vent$PATIENT %in% names_vni_duplicated, colnames(vni_vent) %in% c("PATIENT","MODULE","FORM","date_vni") ] 
 
 #MERGE idpw et vni_vent
 idpw_vni <-merge(idpw, vni_vent, by="PATIENT", all.x=F, all.y=F)
@@ -230,7 +231,59 @@ print(length(unique(idpw_vni$PATIENT)))
 sink()
 
 #--------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------
+#RAJOUT DES DATES DE DECES
 
+
+DCD <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/20150827/DCD.csv")
+DCD$PATIENT <- as.character(DCD$PATIENT)
+#la fonction manage_date_ND prend déjà en charge les dates en facteur
+
+#selected_names : patients de la pitié avec diagnostic de SLA(1) daté(fichier DIAG) et avec une date de début de vni(fichier VNI)
+dcd <- DCD %>% filter(PATIENT %in% selected_names)
+dcd <- droplevels(dcd)
+
+#Description de dcd pour les 212 patients selectionnes:
+table(dcd$FORM)
+#150 lignes ccl examen avec les dates de DC
+#212 lignes identités avec le centre
+
+#-------------------------------------------------------------
+#Gestion des dates ND
+
+#Je sors les ND:
+ND_dcd <- who_is_date_ND (dcd$PATIENT,dcd$DATE_DCD)
+# Je remplace ND jour et mois par 01/07 (pas de cas ici) et ND jour uniquement par 15 :
+dcd$date_dcd <- manage_date_ND(dcd$DATE_DCD)
+table(!is.na(dcd$date_dcd[dcd$FORM != "ID"]))
+
+#---------------------------------------------------------------
+#Données manquantes et doublons
+table(table(dcd[dcd$FORM=="ID","PATIENT"]))#1 ligne ID par patient
+table(tab_2dc <- table(dcd[dcd$FORM!="ID","date_dcd"]))#2 dates de décès similaire (voir si pose pb pour une des méthodes)
+table(tab_2dc <- table(dcd[dcd$FORM!="ID","Patient"]))#les 150 patients dcd n'ont qu'une seule date de décès. Je déduis que les 212-150 autres patients sont vivants?
+
+#-------------------------------------------------------------
+#Merge date de décès et idpw_vni
+dcd_date <- dcd[dcd$FORM!="ID",c("PATIENT","date_dcd")]
+idpwvnidc <- merge(idpw_vni, dcd_date, by="PATIENT", all.x=T, all.y=F) #all.x=T pour garder les lignes sans date de DC
+
+#-------------------------------------------------
+#supprimer colonnes inutiles : diag .ccl
+#quand diagnos.ccl renseigner, la date et le diagnostique sont identiques entre .diag et .ccl
+idpwvnidc[!is.na(idpwvnidc$date.ccl),]
+table(idpwvnidc$date.diag==idpwvnidc$date.diag)
+idpwvnidc[idpwvnidc$date.diag==idpwvnidc$date.diag & !is.na(idpwvnidc$date.ccl),]
+
+idpwvnidc <- idpwvnidc[, ! colnames(idpwvnidc) %in% c("DIAGNOS.ccl","date.ccl")]
+saveRDS(idpwvnidc,file="data/idpwvnidc.rds")
+
+
+
+
+#------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------
+#Autres
 
 
 
