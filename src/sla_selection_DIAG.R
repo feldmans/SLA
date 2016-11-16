@@ -523,8 +523,8 @@ BDD <- merge(BDD, ALLCS, by="PATIENT", all.x = T, all.y=T) #ALLDC déjà mergé 
 #temps de suivi
 #si il y a eu décès, ddn=décès
 table((BDD$date_dc != BDD$ddn) & !is.na(BDD$date_dc))
-BDD$time <- as.numeric(BDD$ddn - BDD$date_diag)
-BDD$censor <- ifelse (!is.na(BDD$date_dc),1, 0)
+# BDD$time <- as.numeric(BDD$ddn - BDD$date_diag)
+# BDD$censor <- ifelse (!is.na(BDD$date_dc),1, 0)
 BDD$TTT_VNI <- ifelse (!is.na(BDD$DATEVNI),1,BDD$TTT_VNI)
 saveRDS(BDD,file="data/BDD.rds")
 
@@ -556,6 +556,7 @@ saveRDS(BDD,file="data/BDD.rds")
 #selection
 
 BDDSLA <- BDD[BDD$diagSLA==1 & !is.na(BDD$diagSLA) & !is.na(BDD$date_diag) & BDD$TTT_VNI==1 & !is.na(BDD$TTT_VNI) & !is.na(BDD$DATEVNI),]
+BDDSLA <- BDDSLA [ , ! colnames(BDDSLA) %in% c("identical_diag","identical_date_diag")]
 saveRDS(BDDSLA,file="data/BDDSLA.rds")
 
 #----------------------------------------------------------------------
