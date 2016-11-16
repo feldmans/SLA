@@ -15,13 +15,20 @@ manage_date_ND <- function(vec){ #vec doit être un vecteur avec éléments de l
 }
 
 who_is_date_ND <- function(vec_name,vec_date) {
+  #browser()
   vec_date <- as.character(vec_date)
   exist_year <-!is.na(str_sub(vec_date, 7, 10))
   exist_month <- !is.na(str_sub(vec_date,4,5))
   name_ND <- vec_name[grep("ND",vec_date[exist_year])]
-  date_ND <- vec_date[grep("ND",vec_date[exist_year])]
-  df_ND <- data.frame(name = name_ND, date = date_ND,
-                      N_ND = ifelse ( date_ND %in% vec_date[exist_month], "day", "day_month"))
+  if (length(name_ND)!=0){
+    date_ND <- vec_date[grep("ND",vec_date[exist_year])]
+    df_ND <- data.frame(name = name_ND, date = date_ND,
+                        N_ND = ifelse ( date_ND %in% vec_date[exist_month], "day", "day_month"))
+  } else {
+    df_ND <- data.frame(name = "no_ND", date = "no_ND",
+                       N_ND = "no_ND")
+  }
+  
   return(df_ND)
 }
 
@@ -283,6 +290,316 @@ saveRDS(idpwvnidc,file="data/idpwvnidc.rds")
 
 #------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------
+
+pat <-  read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/pat/PATIENT.csv")
+ttt <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/trt/PATIENT.csv")
+visite <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/visite/PATIENT2.csv") #Svérifier si ce sont les même patients que les 202
+
+#1 Selection du center SLA01
+visite <- visite[visite$CENTRE_M1=="SLA01",]
+
+
+#suppression des doublons
+visite$PATIENT <- as.character(visite$PATIENT)
+names2visite <- names(table(visite$PATIENT)[table(visite$PATIENT)>1])
+
+#-----------------------
+#impression des doublons
+print_double_unique <- function(data,name_pat){ #name_pat entre guillemet!
+  #browser()
+  wt1 <-data[data$PATIENT==name_pat, ]
+  wt <- wt1[1:(nrow(wt1)-1), ] == wt1[2:nrow(wt1),] #compare ligne du dessus à ligne du dessous
+  st <- apply(wt,2,all)
+  diff_coll <- c("PATIENT",names(st[st==F & !is.na(st)]))
+  if ( all(diff_coll=="PATIENT") ) res <- "no difference"
+  else res <- wt1[,diff_coll]
+  write.table(print(res),file="clipboard",sep="\t",dec=",",row.names=FALSE) 
+}
+print_double_unique (visite,"PETIT_BERNARD") #NB : on ne peut pas faire de lapply et do.call car pas meme nombre de colonne. Par conter on peut faire une boucle dans un fichier texte
+
+print_double <- function(data,vec_doublons,range_col){
+  #browser()
+  if ( ncol(data)<length(range_col) ) range_col <- 1:ncol(data)
+  if (range_col[1]==1) wt1 <- arrange(data[data$PATIENT %in% vec_doublons, range_col], PATIENT)
+  else wt1 <- arrange(data[data$PATIENT %in% vec_doublons, c(1,range_col)], PATIENT) #voir plus tard pour les repêcher
+  wt <- wt1[1:(nrow(wt1)-1), ] == wt1[2:nrow(wt1),] #suppose que chaque ligne est présente 2 fois uniquement
+  
+  wt <- wt[(1:nrow(wt))[(1:nrow(wt)) %in% seq(1,100,2)], ]
+  st <- apply(wt,2,all)
+  diff_coll <- c("PATIENT",names(st[st==F & !is.na(st)]))
+  if ( all(diff_coll=="PATIENT") ) res <- "no difference"
+  else res <- wt1[,diff_coll]
+  write.table(print(res),file="clipboard",sep="\t",dec=",",row.names=FALSE) 
+}
+print_double(visite,names2visite,500:700)
+#----------------------
+
+visite <- visite [! visite$PATIENT %in% names2visite,]
+
+ttt$PATIENT <- as.character(ttt$PATIENT)
+names2ttt <- names(table(ttt$PATIENT)[table(ttt$PATIENT)>1])
+arrange(ttt[ttt$PATIENT %in% names2ttt, 1:50],PATIENT) #voir plus tard pour les repêcher
+print_double(ttt,names2ttt,1:500)
+ttt <- ttt [! ttt$PATIENT %in% names(names2ttt) ,]
+#------------------------------
+#SELECT SLA
+#ALLDIAG <- visite[,colnames(visite)[grep("DIAG",colnames(visite))]] #Pas bon, sélectionne aussi les dates
+ALLDIAG <-visite[,colnames(visite)[str_sub(colnames(visite),1,8)=="DIAG_V_M" | str_sub(colnames(visite),1,12) == "NEW_DIAG_V_M"]]
+pick_diag <- lapply(1: nrow(ALLDIAG),function(.x){
+  #browser()
+  .l <- ALLDIAG[.x,]
+  .l <- .l[!is.na(.l)]
+  is.TRUE <- all(.l[1]==.l,na.rm=T) & length(.l)!=0
+  if (is.TRUE) diag <- .l[1]
+  else{ 
+    if (length(.l)==0) diag <- NA 
+    else diag <- "no identical diag" 
+  }
+  return(diag)
+})
+ALLDIAG$identical_diag <- do.call(rbind,pick_diag)
+ALLDIAG$PATIENT <- as.character(visite$PATIENT)
+no_identical_diag <- ALLDIAG[ALLDIAG$identical_diag=="no identical diag" & !is.na(ALLDIAG$identical_diag),]
+ALLDIAG$diagSLA <- ifelse(as.numeric(ALLDIAG$identical_diag)==1,1,0) #1:SLA, 0: autre diagnostic ou non identical diagnostic, NA: pas de diagnostic
+ALLDIAG <- ALLDIAG[, c("PATIENT","diagSLA","identical_diag")] 
+#même si le new diag vaut 1 alors que les précédents étaient autre, je ne garde pas le diagnostic. (à discuter) 
+
+#-----------------------------
+#SELECT ONE DATE DIAG (AND ERASE NON IDENTICAL DATE DIAG)
+
+ALLDATEDIAG <- visite[,colnames(visite)[grep("DATEDIAG_V_M",colnames(visite))]]
+DATEDIAG_ND <- lapply(colnames(ALLDATEDIAG),function(.x){
+  whoND <- who_is_date_ND(vec_name = visite$PATIENT,vec_date = visite[,.x])
+  whoND <- cbind (whoND,.x)
+  return(whoND)
+})
+DATEDIAG_ND <- do.call(rbind,DATEDIAG_ND)
+
+for (i in colnames(ALLDATEDIAG)){
+  ALLDATEDIAG[,i] <- manage_date_ND(ALLDATEDIAG[,i])
+}
+# identical_date_diag <- lapply(1: nrow(ALLDATEDIAG),function(.x){
+#   #browser()
+#   .l <- ALLDATEDIAG[.x,]
+#   .l <- .l[!is.na(.l)]
+#   .l <- as.Date(.l)
+#   is.TRUE <- all(.l[1]==.l,na.rm=T) & length(.l)!=0
+#   return(is.TRUE)
+# })
+# identical_date_diag <- do.call(rbind,identical_date_diag)
+
+pick_date_diag <- lapply(1: nrow(ALLDATEDIAG),function(.x){
+  #browser()
+  .l <- ALLDATEDIAG[.x,]
+  .l <- .l[!is.na(.l)]
+  .l <- as.Date(.l)
+  .l <- .l[!is.na(.l)]
+  is.TRUE <- all(.l[1]==.l,na.rm=T) & length(.l)!=0
+  if (is.TRUE) date <- as.Date(.l[1])
+  else{ 
+    if (length(.l)==0) date <- NA 
+    else date <- "no identical date" 
+  }
+  return(date)
+})
+ALLDATEDIAG$identical_date_diag <- do.call(rbind,pick_date_diag)
+
+table(ALLDATEDIAG$identical_date_diag=="no identical date")
+
+ALLDATEDIAG$PATIENT <- as.character(visite$PATIENT)
+no_identical_date_diag <- ALLDATEDIAG[ALLDATEDIAG$identical_date_diag =="no identical date" & !is.na(ALLDATEDIAG$identical_date_diag),]
+ALLDATEDIAG$date_diag <- as.Date(as.numeric(ALLDATEDIAG$identical_date_diag),origin="1970-01-01") #les no identical date sont transformées en NA par coercion
+ALLDATEDIAG <- ALLDATEDIAG[ , c("PATIENT","date_diag","identical_date_diag")]
+#ceux avec un nouveau diagnostic sont suprrimés même si le nouveau diagnostic est une SLA => que faire de ces pateints?
+
+#------------
+#Date VNI
+ALLVNI <- ttt[,colnames(ttt)[grep("VNI",colnames(ttt))]]
+vni_ND <- who_is_date_ND(vec_name =ttt$PATIENT,vec_date = ttt$DATEVNI)
+ALLVNI$DATEVNI <- manage_date_ND(ALLVNI$DATEVNI)
+table(ALLVNI[!is.na(ALLVNI$DATEVNI),"TTT_VNI"])
+head(ALLVNI)
+ALLVNI$PATIENT <- as.character(ttt$PATIENT)
+ALLVNI <- ALLVNI[ ,c("PATIENT","TTT_VNI","DATEVNI","DATEVNI_STOP") ]
+
+#--------------
+#Date Décès
+ALLDC <- visite[,colnames(visite)[grep("DATEDCD",colnames(visite))]]
+DC_ND <- lapply(colnames(ALLDC),function(.x){
+  whoND <- who_is_date_ND(vec_name = visite$PATIENT,vec_date = visite[,.x])
+  whoND <- cbind (whoND,.x)
+  return(whoND)
+  })
+DC_ND <- do.call(rbind,DC_ND) 
+
+for (i in colnames(ALLDC)){
+  ALLDC[,i] <- manage_date_ND(ALLDC[,i])
+}
+# pick_date_DC <- lapply(1: nrow(ALLDC),function(.x){
+#   #browser()
+#   .l <- ALLDC[.x,]
+#   .l <- .l[!is.na(.l)]
+#   .l <- as.Date(.l)
+#   .l <- .l[!is.na(.l)]
+#   is.TRUE <- all(.l[1]==.l,na.rm=T) & length(.l)!=0
+#   if (is.TRUE) date <- as.Date(.l[1])
+#   else{ 
+#     if (length(.l)==0) date <- NA 
+#     else date <- "no identical date" 
+#   }
+#   return(date)
+# })
+pick_date_DC <- lapply(1: nrow(ALLDC),function(.x){
+  #browser()
+  .l <- ALLDC[.x,]
+  .l <- .l[!is.na(.l)]
+  .l <- as.Date(.l)
+  .l <- .l[!is.na(.l)]
+  #is.TRUE <- all(.l[1]==.l,na.rm=T) & length(.l)!=0
+  is.TRUE <- length(.l)!=0 #si date de décès discordant, prendre la première
+  #if (is.TRUE) date <- as.Date(.l[1])
+  if (is.TRUE) date <- as.Date(min(.l,na.rm=T))
+  else date <- NA 
+  return(date)
+})
+ALLDC$identical_date_dc <- do.call(rbind,pick_date_DC)
+ALLDC$PATIENT <- as.character(visite$PATIENT)
+#no_identical_DC <- ALLDC[ALLDC$identical_date_dc=="no identical date" & !is.na(ALLDC$identical_date_dc),]
+ALLDC$date_dc <- as.Date(as.numeric(ALLDC$identical_date_dc),origin="1970-01-01") #les no identical date sont transformées en NA par coercion
+ALLDC <- ALLDC[ , c("PATIENT","date_dc")]
+
+#-----------
+#Date dernière nouvelle : DATEXAM_V_M
+ALLCSinit <- visite[,colnames(visite)[grep("DATEXAM_V_M",colnames(visite))]]
+CS_ND <- lapply(colnames(ALLCSinit),function(.x){
+  whoND <- who_is_date_ND(vec_name = visite$PATIENT,vec_date = visite[,.x])
+  whoND <- cbind (whoND,.x)
+  return(whoND)
+  })
+CS_ND <- do.call(rbind,CS_ND)
+
+for (i in colnames(ALLCSinit)){
+  ALLCSinit[,i] <- manage_date_ND(ALLCSinit[,i])
+}
+ALLCSinit$PATIENT <- as.character(visite$PATIENT)
+ALLCS <- merge(ALLCSinit,ALLDC,"PATIENT",all.x=T,all.y=F)
+pick_date_CS <- lapply(1: nrow(ALLCS),function(.x){
+  #browser()
+  .l <- ALLCS[.x,!colnames(ALLCS)%in%("PATIENT")]
+  if ( is.na(.l$date_dc) ){ 
+    .l <- .l[!is.na(.l)]
+    .l <- as.Date(.l) #utile s'il y a autre chose que des dates dans le tableau ALLCS : fonction tournera quand meme
+    .l <- .l[!is.na(.l)]
+    #.lsort <- sort(.l)
+    #if (all(sort(.l)==.l) & length(.l)!=0) ddn <- max(.l) #$178 inconsistency
+    if (length(.l)==0) ddn <- NA
+    else {
+      if ( max(sort(.l))==max(.l) ) ddn <- max(.l) #0 inconsistency
+      else ddn <- "date inconsistency"
+    }
+  } else {
+    ddn <- .l$date_dc
+  }
+  return(ddn)
+})
+
+ALLCS$identical_ddn <- do.call(rbind,pick_date_CS)
+#ALLCS$PATIENT <- as.character(visite$PATIENT) #déjà dans ALLCS avec merge
+no_identical_CS <- ALLCS[ALLCS$identical_ddn=="date inconsistency" & !is.na(ALLCS$identical_ddn),]
+ALLCS$ddn <- as.Date(as.numeric(ALLCS$identical_ddn),origin="1970-01-01") #pas de date insconsistency donc pas de NA par coercion
+#ALLCS <- ALLCS[ , c("PATIENT","ddn","identical_ddn")]
+ALLCS <- ALLCS[ , c("PATIENT","ddn","date_dc")]
+
+#----------------------
+table(ALLDIAG$PATIENT)[table(ALLDIAG$PATIENT)>1]
+table(ALLDATEDIAG$PATIENT)[table(ALLDATEDIAG$PATIENT)>1]
+#merge
+BDD <- merge(x=ALLDIAG,y=ALLDATEDIAG, by="PATIENT", all.x = T, all.y=T)
+BDD <- merge(BDD, ALLVNI, by="PATIENT", all.x = T, all.y=T)
+#BDD <- merge(BDD, ALLDC, by="PATIENT", all.x = T, all.y=T)
+BDD <- merge(BDD, ALLCS, by="PATIENT", all.x = T, all.y=T) #ALLDC déjà mergé dans ALLCS
+
+#-----------------------
+#temps de suivi
+#si il y a eu décès, ddn=décès
+table((BDD$date_dc != BDD$ddn) & !is.na(BDD$date_dc))
+BDD$time <- as.numeric(BDD$ddn - BDD$date_diag)
+BDD$censor <- ifelse (!is.na(BDD$date_dc),1, 0)
+BDD$TTT_VNI <- ifelse (!is.na(BDD$DATEVNI),1,BDD$TTT_VNI)
+saveRDS(BDD,file="data/BDD.rds")
+
+
+
+# #pb : certains décès ont lieu avant dernières nouvelles
+# BDD[BDD$ddn>BDD$date_dc & !is.na(BDD$ddn) & !is.na(BDD$date_dc),"PATIENT"]
+# #exemple : "ZOLNIEROWICZ_HENRIETTE"
+# 
+# #==> je fais une colonne ddn_corr : à cause des ddn>date_dc
+# BDD$ddn_corr <- BDD$ddn
+# #cas ddn NA et dc non NA
+# BDD$ddn_corr <- ifelse ( is.na(BDD$ddn_corr) & !is.na(BDD$date_dc) ,BDD$date_dc, BDD$ddn_corr)
+# #cas ddn et dc renseigné et ddn différent de dc => je garde dc. Rappel si ddn est na, prend la valeur de dc. si dc est NA alors on pends ddn. si les dc et ddn sont NA, alors reste NA. si ddn_corr est NA, c'est que dc aussi 
+# BDD$ddn_corr <- ifelse ( BDD$date_dc != BDD$ddn_corr, BDD$date_dc, BDD$ddn_corr) #ne donnera TRUE ou FALSE que si les 2 sont non NA
+# 
+# BDD2 <- BDD[BDD$PATIENT=="PETIT_BERNARD",]
+#     ifelse ( BDD2$date_dc != BDD2$ddn_corr, BDD$date_dc, BDD$ddn_corr)
+# BDD$ddn_corr <- ifelse ( BDD$date_dc != BDD$ddn_corr, BDD$date_dc, BDD$ddn_corr) #ne donnera TRUE ou FALSE que si les 2 sont non NA
+# # dc>ddn ou dc<ddn, on veut que la ddn soit dc
+# 
+# BDD$ddn_corr <- as.Date(BDD$ddn_corr,origin="1970-01-01")
+# 
+# BDD$time <- as.numeric(BDD$ddn_corr - BDD$date_diag) #temps en jours
+# 
+# BDD$censor <- ifelse (!is.na(BDD$date_dc),1, 0)
+
+
+#selection
+
+BDDSLA <- BDD[BDD$diagSLA==1 & !is.na(BDD$diagSLA) & !is.na(BDD$date_diag) & BDD$TTT_VNI==1 & !is.na(BDD$TTT_VNI) & !is.na(BDD$DATEVNI),]
+saveRDS(BDDSLA,file="data/BDDSLA.rds")
+
+#----------------------------------------------------------------------
+
+
+#cas pas de date de dernière nouvelle
+# > ddn <- NA
+# > dc <- as.Date("2010-01-01")
+# > ddn>dc
+# [1] NA
+# > new <- ifelse (ddn>dc,1,0)
+# > new
+# [1] NA
+#cas pas de décès
+ddn <- as.Date("2010-01-01")
+dc <- NA
+ddn!=dc
+
+
+#observation des dates pour les patients incohérents:
+ALLDATE <- visite[,colnames(visite)[grep("DATE",colnames(visite))]]
+ALLDATE$PATIENT <- as.character(visite$PATIENT)
+ALLDATE[ALLDATE$PATIENT=="ZOLNIEROWICZ_HENRIETTE",]
+
+
+# #Je transforme les facteurs en date
+# for (i in colnames(ALLDATE)){
+#   ALLDATE[,i] <- manage_date_ND(ALLDATE[,i])
+# }
+
+
+# #ALLDATE[,colnames(ALLDATE)] <- apply(ALLDATE,2,manage_date_ND)
+# ALLDATENA <- apply(ALLDATE,2,function(.x)!is.na(.x)) #si true = non NA
+# COLDATEnonNA <- colnames(ALLDATENA)[apply(ALLDATENA,2,sum)>0]
+# 
+# #Afficher les colonnes avec dates nonNA
+# head(ALLDATE[ ,COLDATEnonNA])
+# 
+# #Afficher l'histoire d'un patient
+# t(ALLDATE[1:5 ,COLDATEnonNA])
+
+
+
+
 #Autres
 
 
