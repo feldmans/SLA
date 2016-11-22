@@ -2,24 +2,62 @@ library(dplyr)
 library(stringr)
 library(survival)
 
-sla <- readRDS("data/BDDSLA.rds")
-sla$time <- as.numeric(sla$ddn - sla$date_diag)
-sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
+#sla <- readRDS("data/BDDSLA.rds")
+sla <- readRDS("data/BDDSLADEM.rds")
 
 table(is.na(sla$ddn))
+table(!is.na(sla$date_dc))
 
-attach (sla)
-idc.surv <- survfit(Surv(sla$time,sla$censor)~1)
+sla$time.vni <- as.numeric(sla$ddn - sla$DATEVNI)
+sla$time.diag <- as.numeric(sla$ddn - sla$date_diag)
+sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
+sla$SEX <- factor(sla$SEX, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Féminin' 
+
+#----------------------------------------------
+#VERSION : DATE DE DEBUT = DATE DE DIAGNOSTIC 
+
+#range date de début
+range(sla$date_diag)
+
+#survie
+idc.surv <- survfit(Surv(sla$time,sla$censor)~1, conf.int=.95)
 plot(idc.surv)
+min(idc.surv$time[idc.surv$surv<=0.5])#idc.surv
+#monthly estimates print:
+summary(idc.surv, seq(30,max(idc.surv$time),by=30))
+
+#suivi
+idc.suiv <- survfit(Surv(sla$time.diag,1-sla$censor)~1)
+
+#survie selon sexe :
+table(sla$SEX)
+sex.surv <- survfit(Surv(sla$time.diag,sla$censor)~sla$SEX, conf.int=.95)
+plot(sex.surv,col=c(2,4))
+legend (3000,1,c(levels(sla$SEX)),lty=c(1,1),col=c(2,4))
+#log rank:
+survdiff(Surv(sla$time.diag,sla$censor)~sla$SEX)
 
 
-idc.suiv <- survfit(Surv(sla$time,1-sla$censor)~1)
+#-------------------------------------------
+#VERSION DDEBUT = DATEVNI
 
+#range date de début
+range(sla$DATEVNI)
 
+#survie
+debvni <- survfit(Surv(sla$time.vni,sla$censor)~1, conf.int=.95)
+plot(debvni)
+min(debvni$time[debvni$surv<=0.5]) #debvni
 
+#suivi
+debvni.suiv <- survfit(Surv(sla$time.vni,1-sla$censor)~1)
 
-
-
+#survie selon sexe :
+sex.surv.vni <- survfit(Surv(sla$time.vni,sla$censor)~sla$SEX, conf.int=.95)
+plot(sex.surv.vni,col=c(2,4))
+legend (3000,1,c(levels(sla$SEX)),lty=c(1,1),col=c(2,4))
+#log rank:
+survdiff(Surv(sla$time.vni,sla$censor)~sla$SEX)
 
 
 
