@@ -8,7 +8,7 @@ source("src/fonctions_SLA.R")
 
 #vérifier si ce sont les même patients que les 202 de la version avec DIAG DCD VNI
 
-#pat <-  read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/pat/PATIENT.csv") #non utilisé
+pat <-  read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/pat/PATIENT.csv") #donnees demo
 ttt <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/trt/PATIENT.csv") #donne VNI
 visite <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/visite/PATIENT2.csv")
 
@@ -52,7 +52,7 @@ ALLDIAG$PATIENT <- as.character(visite$PATIENT)
 no_identical_diag <- ALLDIAG[ALLDIAG$identical_diag=="no identical diag" & !is.na(ALLDIAG$identical_diag),]
 ALLDIAG$diagSLA <- ifelse(as.numeric(ALLDIAG$identical_diag)==1,1,0) #1:SLA, 0: autre diagnostic ou non identical diagnostic, NA: pas de diagnostic
 ALLDIAG <- ALLDIAG[, c("PATIENT","diagSLA","identical_diag")] 
-#même si le new diag vaut 1 alors que les précédents étaient autre, je ne garde pas le diagnostic. (à discuter) 
+#même si le new diag vaut 1 alors que les précédents étaient autre, je ne garde pas le diagnostic. (? discuter) 
 
 #-----------------------------
 #SELECT ONE DATE DIAG (AND ERASE NON IDENTICAL DATE DIAG)
@@ -113,7 +113,7 @@ ALLVNI$PATIENT <- as.character(ttt$PATIENT)
 ALLVNI <- ALLVNI[ ,c("PATIENT","TTT_VNI","DATEVNI","DATEVNI_STOP") ]
 
 #--------------
-#Date Décès
+#Date Deces
 ALLDC <- visite[,colnames(visite)[grep("DATEDCD",colnames(visite))]]
 DC_ND <- lapply(colnames(ALLDC),function(.x){
   whoND <- who_is_date_ND(vec_name = visite$PATIENT,vec_date = visite[,.x])
@@ -207,6 +207,7 @@ table(ALLDATEDIAG$PATIENT)[table(ALLDATEDIAG$PATIENT)>1]
 BDD <- merge(x=ALLDIAG,y=ALLDATEDIAG, by="PATIENT", all.x = T, all.y=T)
 BDD <- merge(BDD, ALLVNI, by="PATIENT", all.x = T, all.y=T)
 BDD <- merge(BDD, ALLCS, by="PATIENT", all.x = T, all.y=T) #ALLDC déjà mergé dans ALLCS
+#BDD <- merge (BDD,DEMO,by="PATIENT", all.x=T,all.y=F)
 
 #-----------------------
 #temps de suivi
@@ -220,36 +221,37 @@ saveRDS(BDD,file="data/BDD.rds")
 #selection
 BDDSLA <- BDD[BDD$diagSLA==1 & !is.na(BDD$diagSLA) & !is.na(BDD$date_diag) & BDD$TTT_VNI==1 & !is.na(BDD$TTT_VNI) & !is.na(BDD$DATEVNI),]
 BDDSLA <- BDDSLA [ , ! colnames(BDDSLA) %in% c("identical_diag","identical_date_diag")]
-saveRDS(BDDSLA,file="data/BDDSLA.rds")
+#saveRDS(BDDSLA,file="data/BDDSLA.rds")
 
+#--------------------------------------------
+#Données démographiques
+pat$DOB <- manage_date_ND(pat$DOB)
+pat$SEX <- factor(pat$SEX)
+DEMO <- pat[,c("PATIENT","SEX","DOB")]
+
+DEMO <- DEMO[DEMO$PATIENT %in% BDDSLA$PATIENT,]
+#DEMO$PATIENT[duplicated(DEMO$PATIENT)]
+# [1] GUILLUY_NICOLE
+DEMO[DEMO$PATIENT=="GUILLUY_NICOLE",]
+# PATIENT SEX  DOB
+# 4533 GUILLUY_NICOLE   2 <NA>
+# 8391 GUILLUY_NICOLE   2 <NA>
+DEMO <- unique(DEMO)
+DEMO[DEMO$PATIENT=="GUILLUY_NICOLE",]
+BDDSLADEM <- merge(BDDSLA, DEMO, by="PATIENT", all.x=T,all.y=F)
+saveRDS(BDDSLADEM,file="data/BDDSLADEM.rds")
 #----------------------------------------------------------------------
-
-
-#cas pas de date de dernière nouvelle
-# > ddn <- NA
-# > dc <- as.Date("2010-01-01")
-# > ddn>dc
-# [1] NA
-# > new <- ifelse (ddn>dc,1,0)
-# > new
-# [1] NA
-#cas pas de décès
-ddn <- as.Date("2010-01-01")
-dc <- NA
-ddn!=dc
-
 
 #observation des dates pour les patients incohérents:
 ALLDATE <- visite[,colnames(visite)[grep("DATE",colnames(visite))]]
 ALLDATE$PATIENT <- as.character(visite$PATIENT)
-ALLDATE[ALLDATE$PATIENT=="ZOLNIEROWICZ_HENRIETTE",]
+ALLDATE[ALLDATE$PATIENT=="ZOLNIEROWICZ_HENRIETTE",] #EXAM M1 en 2009 et d?c?s en 1998
 
 
 # #Je transforme les facteurs en date
 # for (i in colnames(ALLDATE)){
 #   ALLDATE[,i] <- manage_date_ND(ALLDATE[,i])
 # }
-
 
 # #ALLDATE[,colnames(ALLDATE)] <- apply(ALLDATE,2,manage_date_ND)
 # ALLDATENA <- apply(ALLDATE,2,function(.x)!is.na(.x)) #si true = non NA
@@ -564,7 +566,7 @@ summary(as.numeric(vni$datevni))
 summary(vni$datevni)
 
 vni<-vni[!is.na(vni$datevni),]
-dim(vni) #Je tombe à 232 lignes
+dim(vni) #Je tombe ? 232 lignes
 
 
 #je ne garde que les patients satisfaisant centre=SLA01 et diagnostic=SLA cad presents dans idpw
