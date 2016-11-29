@@ -25,9 +25,11 @@ names2ttt <- names(table(ttt$PATIENT)[table(ttt$PATIENT)>1])
 arrange(ttt[ttt$PATIENT %in% names2ttt, 1:50],PATIENT) #voir plus tard pour les repêcher
 
 #impression des doublons
-print_double_unique (visite,"PETIT_BERNARD") #NB : on ne peut pas faire de lapply et do.call car pas meme nombre de colonne. Par conter on peut faire une boucle dans un fichier texte
+print_double_unique (visite,"P***-****D") #NB : on ne peut pas faire de lapply et do.call car pas meme nombre de colonne. Par conter on peut faire une boucle dans un fichier texte
 print_double(visite,names2visite,500:700)
 print_double(ttt,names2ttt,1:500)
+
+
 
 visite <- visite [! visite$PATIENT %in% names2visite,]
 ttt <- ttt [! ttt$PATIENT %in% names(names2ttt) ,]
@@ -50,6 +52,8 @@ pick_diag <- lapply(1: nrow(ALLDIAG),function(.x){
 ALLDIAG$identical_diag <- do.call(rbind,pick_diag)
 ALLDIAG$PATIENT <- as.character(visite$PATIENT)
 no_identical_diag <- ALLDIAG[ALLDIAG$identical_diag=="no identical diag" & !is.na(ALLDIAG$identical_diag),]
+saveRDS (no_identical_diag , "data/no_identical_diag.rds")
+
 ALLDIAG$diagSLA <- ifelse(as.numeric(ALLDIAG$identical_diag)==1,1,0) #1:SLA, 0: autre diagnostic ou non identical diagnostic, NA: pas de diagnostic
 ALLDIAG <- ALLDIAG[, c("PATIENT","diagSLA","identical_diag")] 
 #même si le new diag vaut 1 alors que les précédents étaient autre, je ne garde pas le diagnostic. (? discuter) 
@@ -230,16 +234,19 @@ pat$SEX <- factor(pat$SEX)
 DEMO <- pat[,c("PATIENT","SEX","DOB")]
 
 DEMO <- DEMO[DEMO$PATIENT %in% BDDSLA$PATIENT,]
-#DEMO$PATIENT[duplicated(DEMO$PATIENT)]
-# [1] GUILLUY_NICOLE
-DEMO[DEMO$PATIENT=="GUILLUY_NICOLE",]
+#DEMO$PATIENT[duplicated(DEMO$PATIENT)] #1 seul doublon
+DEMO[DEMO$PATIENT=="G*********E",]
 # PATIENT SEX  DOB
-# 4533 GUILLUY_NICOLE   2 <NA>
-# 8391 GUILLUY_NICOLE   2 <NA>
+# 4533 G*******E   2 <NA>
+# 8391 G*******E   2 <NA>
+
+#suppression des doublons 
 DEMO <- unique(DEMO)
-DEMO[DEMO$PATIENT=="GUILLUY_NICOLE",]
 BDDSLADEM <- merge(BDDSLA, DEMO, by="PATIENT", all.x=T,all.y=F)
 saveRDS(BDDSLADEM,file="data/BDDSLADEM.rds")
+
+selected_names_meth1 <- BDDSLA$PATIENT
+saveRDS(selected_names_meth1,"data/selected_names_meth1.rds")
 #----------------------------------------------------------------------
 
 #observation des dates pour les patients incohérents:
@@ -516,6 +523,43 @@ idpwvnidc[idpwvnidc$date.diag==idpwvnidc$date.diag & !is.na(idpwvnidc$date.ccl),
 
 idpwvnidc <- idpwvnidc[, ! colnames(idpwvnidc) %in% c("DIAGNOS.ccl","date.ccl")]
 saveRDS(idpwvnidc,file="data/idpwvnidc.rds")
+
+selected_names_meth2 <- idpwvnidc$PATIENT
+saveRDS(selected_names_meth2,"data/selected_names_meth2.rds")
+
+
+
+#---------------------------------
+#---------------------------------
+
+#Incoherence méthode 1 et méthode 2
+
+table(selected_names_meth2 %in% selected_names_meth1)
+name_inc2 <- sort(selected_names_meth2[!selected_names_meth2 %in% selected_names_meth1])
+
+table(selected_names_meth1 %in% selected_names_meth2)
+name_inc1 <- sort(selected_names_meth1[!selected_names_meth1 %in% selected_names_meth2])
+
+#12 patients de la méthode 2 ne sont pas dans le fichier visite (qui permet d'avoir diagnostic, date, ddn)
+table(selected_names_meth2 %in% visite$PATIENT) # 12 ne sont pas dans le fichier visite
+table(selected_names_meth2 %in% names2visite) #ce ne sont pas des doublons visite
+
+#tous les patients de la méthode 2 sont dans pat, et dans ttt et ne sont pas des doublons
+table(selected_names_meth2 %in% pat$PATIENT) # tous sont dans le fichier patient
+table(selected_names_meth2 %in% ttt$PATIENT) # tous sont dans le fichier ttt
+table(selected_names_meth2 %in% names2ttt) #ce ne sont pas des doublons ttt
+#1 seul doublons dans pat, une fois que les diag sont sélectionnés 
+
+# 3 sont éliminés à cause d'un  diagnostic icohérent et 5 autres à cause d'une date incohérente (ce sera le cas si 2 diag différents)
+selected_names_meth2[selected_names_meth2 %in% no_identical_diag$PATIENT]# éliminés à cause de du diagnostic : 3
+selected_names_meth2[selected_names_meth2 %in% no_identical_date_diag$PATIENT]#éliminés à cause de la date du diagnostic : 6
+
+#52 patients de la méthode 2 n'ont pas de diagnostic dans la méthode 1
+table(selected_names_meth2 %in% BDD$PATIENT)#tous les patients de la méthode 2 sont dans BDD
+table(selected_names_meth2 %in% BDD[BDD$diagSLA==1, "PATIENT"]) # mais 52 ne sont pas SLA dans cette BDD
+table(selected_names_meth2 %in% BDD[is.na(BDD$diagSLA), "PATIENT"]) #ces 52 sont en fait des NA
+table(selected_names_meth2 %in% no_identical_diag$PATIENT) #3 ont un diagnostic incohérent 
+table(selected_names_meth2[selected_names_meth2 %in% BDD[is.na(BDD$diagSLA), "PATIENT"]] %in% selected_names_meth2[!selected_names_meth2 %in% BDD[BDD$diagSLA==1, "PATIENT"]]) #vérif : oui ce sont les memes
 
 #---------------------------------------------------------------------------
 #---------------------------------------------------------------------------
