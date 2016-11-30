@@ -14,25 +14,27 @@ visite <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/visite/
 
 #1 Selection du center SLA01
 visite <- visite[visite$CENTRE_M1=="SLA01",]
+pat <- pat[pat$CENTRE=="SLA01",]
 
+visite$PATIENT <- as.character(visite$PATIENT)
+ttt$PATIENT <- as.character(ttt$PATIENT)
+pat$PATIENT <- as.character(pat$PATIENT)
+
+#ttt <- ttt[ttt$PATIENT %in% visite$PATIENT | ttt$PATIENT %in% pat$PATIENT, ]
 #---------------------------------------------------------
 #suppression des doublons
-visite$PATIENT <- as.character(visite$PATIENT)
 names2visite <- names(table(visite$PATIENT)[table(visite$PATIENT)>1])
-
-ttt$PATIENT <- as.character(ttt$PATIENT)
 names2ttt <- names(table(ttt$PATIENT)[table(ttt$PATIENT)>1])
-arrange(ttt[ttt$PATIENT %in% names2ttt, 1:50],PATIENT) #voir plus tard pour les repêcher
 
-#impression des doublons
-print_double_unique (visite,"P***-****D") #NB : on ne peut pas faire de lapply et do.call car pas meme nombre de colonne. Par conter on peut faire une boucle dans un fichier texte
-print_double(visite,names2visite,500:700)
-print_double(ttt,names2ttt,1:500)
+#arrange(ttt[ttt$PATIENT %in% names2ttt, 1:50],PATIENT) #voir plus tard pour les repêcher
 
-
+# #impression des doublons
+# print_double_unique (visite,"P***-****D") #NB : on ne peut pas faire de lapply et do.call car pas meme nombre de colonne. Par conter on peut faire une boucle dans un fichier texte
+# print_double(visite,names2visite,500:700)
+# print_double(ttt,names2ttt,1:500)
 
 visite <- visite [! visite$PATIENT %in% names2visite,]
-ttt <- ttt [! ttt$PATIENT %in% names(names2ttt) ,]
+ttt <- ttt [! ttt$PATIENT %in% names2ttt ,] #il était écrit names(names2ttt) => NULL donc il restait un doublon dans la base BDDSLADEM (donc 203 patients au lieu de 202)
 #------------------------------
 #SELECT SLA
 #ALLDIAG <- visite[,colnames(visite)[grep("DIAG",colnames(visite))]] #Pas bon, sélectionne aussi les dates
@@ -213,6 +215,8 @@ BDD <- merge(BDD, ALLVNI, by="PATIENT", all.x = T, all.y=T)
 BDD <- merge(BDD, ALLCS, by="PATIENT", all.x = T, all.y=T) #ALLDC déjà mergé dans ALLCS
 #BDD <- merge (BDD,DEMO,by="PATIENT", all.x=T,all.y=F)
 
+BDD$identical_diag <- as.vector(BDD$identical_diag)
+BDD$identical_date_diag <- as.vector(BDD$identical_date_diag)
 #-----------------------
 #temps de suivi
 
@@ -240,7 +244,7 @@ DEMO[DEMO$PATIENT=="G*********E",]
 # 4533 G*******E   2 <NA>
 # 8391 G*******E   2 <NA>
 
-#suppression des doublons 
+#suppression d'un des exemplaires du doublon
 DEMO <- unique(DEMO)
 BDDSLADEM <- merge(BDDSLA, DEMO, by="PATIENT", all.x=T,all.y=F)
 saveRDS(BDDSLADEM,file="data/BDDSLADEM.rds")
@@ -252,7 +256,7 @@ saveRDS(selected_names_meth1,"data/selected_names_meth1.rds")
 #observation des dates pour les patients incohérents:
 ALLDATE <- visite[,colnames(visite)[grep("DATE",colnames(visite))]]
 ALLDATE$PATIENT <- as.character(visite$PATIENT)
-ALLDATE[ALLDATE$PATIENT=="ZOLNIEROWICZ_HENRIETTE",] #EXAM M1 en 2009 et d?c?s en 1998
+#ALLDATE[ALLDATE$PATIENT=="Z********E",] #EXAM M1 en 2009 et d?c?s en 1998
 
 
 # #Je transforme les facteurs en date
@@ -269,6 +273,68 @@ ALLDATE[ALLDATE$PATIENT=="ZOLNIEROWICZ_HENRIETTE",] #EXAM M1 en 2009 et d?c?s en
 # 
 # #Afficher l'histoire d'un patient
 # t(ALLDATE[1:5 ,COLDATEnonNA])
+
+
+#--------------------------------------------
+#flow chart :
+#relancer tout sans suprrimer les doublons de visite et trt au départ
+
+table(ttt[ttt$DATEVNI!="", "PATIENT"] %in% visite$PATIENT) #35 patients avec une date de VNI ne sont pas dans visite (et n'ont donc pas de diagnostic)
+
+#Patients suivis dans SLA01
+length(unique(BDD$PATIENT)) #9755
+
+#Patients qui ne sont pas dans la base visite
+length(unique(ttt$PATIENT[!ttt$PATIENT %in% visite$PATIENT])) #5500
+names_notin_visite <- unique(ttt$PATIENT[!ttt$PATIENT %in% visite$PATIENT])
+length(names_notin_visite)
+
+#doublons visite et ttt (qui ne sont pas déjà comptés dans not in visite)
+length (names2visite) #12
+table(names2visite %in% names2ttt)
+length(names2ttt[names2ttt %in% names2visite])#12 doublons visite et ttt
+length(names2ttt[!names2ttt %in% names2visite & !names2ttt%in% names_notin_visite])
+#NB : un seul doublon pat complètement identique : j'ai gardé une des copies
+
+
+BDDbis <- BDD [! BDD$PATIENT %in% c(names_notin_visite,names2ttt,names2visite), ]
+
+BDDbis[duplicated(BDDbis$PATIENT),] #plus de duplicats
+
+#Patients avec plusieurs diagnostics, NA ou autre diagnostic
+table(BDDbis$identical_diag,useNA = "a")
+sum(table(BDDbis$identical_diag,useNA = "a")[c(-1,-11,-12)])
+
+#Patients  with ALS
+BDDbis <- BDDbis[BDDbis$diagSLA==1 & !is.na(BDDbis$diagSLA), ]
+dim(BDDbis)
+
+#Patients with a date diagnosis
+table(is.na(BDDbis$identical_date_diag))#653 without date
+table(BDDbis$identical_date_diag=="no identical date") #43 avec plusieurs date de diagnostique
+
+BDDbis <- BDDbis[!is.na(BDDbis$identical_date_diag) & BDDbis$identical_date_diag!="no identical date", ]
+BDDbis[is.na(BDDbis$date_diag),] #aucun patient sans date diag
+
+#Patients with a date of vni
+dim(BDDbis[!is.na(BDDbis$DATEVNI), ])
+dim(BDD[!is.na(BDD$DATEVNI) & !is.na(BDD$date_diag) & BDD$diagSLA==1 & !is.na(BDD$diagSLA) & (!BDD$PATIENT %in% c(names_notin_visite,names2ttt,names2visite)) , ])
+dim(BDD[!is.na(BDD$DATEVNI) & !is.na(BDD$identical_date_diag) & BDD$identical_date_diag!="no identical date" & BDD$diagSLA==1 & !is.na(BDD$diagSLA) & (!BDD$PATIENT %in% c(names_notin_visite,names2ttt,names2visite)) , ])
+
+dim(BDD[BDD$diagSLA==1 & !is.na(BDD$diagSLA) & !is.na(BDD$date_diag) & BDD$TTT_VNI==1 & !is.na(BDD$TTT_VNI) & !is.na(BDD$DATEVNI) &(!BDD$PATIENT %in% c(names_notin_visite,names2ttt,names2visite)),])
+dim(BDD[BDD$diagSLA==1 & !is.na(BDD$diagSLA) & !is.na(BDD$date_diag) & BDD$TTT_VNI==1 & !is.na(BDD$TTT_VNI) & !is.na(BDD$DATEVNI) &(!BDD$PATIENT %in% c(names2ttt,names2visite)),])
+
+
+#251 avec différents diagnostics consecutifs
+#1900 1
+#7666 NA dont 5500 qui ne sont pas dans la base
+table(unique(BDD[is.na(as.vector(BDD$identical_diag)),"PATIENT"]) %in% names_notin_visite) 
+unique(BDD[as.vector(BDD$identical_diag)==1,"PATIENT"])
+
+#Patients sans diagnostics
+> dim(BDDSLADEM[! BDDSLADEM$PATIENT %in%  BDDSLADEM[duplicated(BDDSLADEM$PATIENT),"PATIENT"], ])
+[1] 203  10
+
 
 
 #---------------------------------------------------------------------
