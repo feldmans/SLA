@@ -8,9 +8,9 @@ output: word_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-#1/ Bases utilisées pour la sélection des patients:
+#1/ Bases utilisees pour la selection des patients:
 
-Base construite à partir des fichiers:
+Base construite a partir des fichiers:
 pat <-  read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/pat/PATIENT.csv") #donnees demo
 ttt <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/trt/PATIENT.csv") #donne VNI
 visite <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/visite/PATIENT2.csv")
@@ -19,7 +19,7 @@ visite <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/visite/
 
 
 
-#3/ Description de la base filtrée:
+#3/ Description de la base filtree:
 
 ```{r, echo=FALSE, message=FALSE}
 library(knitr)
@@ -32,16 +32,17 @@ sla <- readRDS("F:/to push/sla_git/data/BDDSLADEM.rds")
 sla$time.vni <- as.numeric(sla$ddn - sla$DATEVNI)
 sla$time.diag <- as.numeric(sla$ddn - sla$date_diag)
 sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
-sla$SEX <- factor(sla$SEX, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Féminin'
+sla$SEX <- factor(sla$SEX, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Feminin'
 sla$age_diag <- round((sla$date_diag-sla$DOB)/365.25,0)
+sla <- sla[sla$time.vni>=0, ]
 ```
 
-##Nombre de données manquantes pour la date des dernières nouvelles: aucune
+##Nombre de donnees manquantes pour la date des dernieres nouvelles: aucune
 ```{r, echo=FALSE}
 table(is.na(sla$ddn))
 ```
 
-##Charactéristiques des patients
+##Characteristiques des patients
 
 ```{r, echo=FALSE}
 tabsexe <- as.numeric(table(sla$SEX))
@@ -54,14 +55,14 @@ descr <- t(data.frame(N=tabsexe,Nb_DC=tabDC,Age=tabAGE))
 kable(descr)
 ```
 
-#4/ Analyses de survie univariée
+#4/ Analyses de survie univariee
 
-##a- Version : date de début de suivi = date de diagnostic 
+##a- Version : date de debut de suivi = date de diagnostic 
 
-NB : Dans J Gonzalez 2013 c’est date de début des symptômes mais où la trouver dans le dossier ?
+NB : Dans J Gonzalez 2013 c'est date de debut des symptomes mais o� la trouver dans le dossier ?
 
 
-###range date de début
+###range date de debut
 
 ```{r, echo=FALSE}
 range(sla$date_diag)
@@ -71,15 +72,31 @@ range(sla$date_diag)
 
 ```{r, echo=FALSE}
 idc.surv <- survfit(Surv(sla$time.diag,sla$censor)~1, conf.int=.95)
-plot(idc.surv)
+plot(idc.surv, xlab = "time (days)")
 ```
 
-###Médiane de survie (en jour)
+###Mediane de suivi 
+
+```{r, echo=FALSE}
+idc.suiv <- survfit(Surv(sla$time.diag,1-sla$censor)~1)
+#min(idc.suiv$time[idc.suiv$surv<=0.5])
+j <- paste0 (summary(idc.suiv)$table['median']," [",summary(idc.suiv)$table['0.95LCL'],"-",summary(idc.suiv)$table['0.95UCL'],"]")
+an <- paste0 (round(summary(idc.suiv)$table['median']/365.25,2)," [",round(summary(idc.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(idc.suiv)$table['0.95UCL']/365.25,2),"]")
+```
+En jour : `r j`
+En annee : `r an`
+
+
+###Mediane de survie 
 
 ```{r, echo=FALSE}
 #min(idc.surv$time[idc.surv$surv<=0.5])
-paste0 (summary(idc.surv)$table['median']," [",summary(idc.surv)$table['0.95LCL'],"-",summary(idc.surv)$table['0.95UCL'],"]")
+j <- paste0 (summary(idc.surv)$table['median']," [",summary(idc.surv)$table['0.95LCL'],"-",summary(idc.surv)$table['0.95UCL'],"]")
+an <- paste0 (round(summary(idc.surv)$table['median']/365.25,2)," [",round(summary(idc.surv)$table['0.95LCL']/365.25,2),"-",round(summary(idc.surv)$table['0.95UCL']/365.25,2),"]")
 ```
+En jour : `r j`  
+En annee : `r an`
+
 
 ```{r,echo=FALSE, eval=FALSE}
 
@@ -88,20 +105,12 @@ summary(idc.surv, seq(30,max(idc.surv$time),by=30))
 
 ```
 
-###Médiane de suivi (en jour)
-
-```{r, echo=FALSE}
-idc.suiv <- survfit(Surv(sla$time.diag,1-sla$censor)~1)
-#min(idc.suiv$time[idc.suiv$surv<=0.5])
-paste0 (summary(idc.suiv)$table['median']," [",summary(idc.suiv)$table['0.95LCL'],"-",summary(idc.suiv)$table['0.95UCL'],"]")
-
-```
 
 ###Survie selon le sexe :
 
 ```{r, echo=FALSE}
 sex.surv <- survfit(Surv(sla$time.diag,sla$censor)~sla$SEX, conf.int=.95)
-plot(sex.surv,col=c(2,4))
+plot(sex.surv,col=c(2,4), xlab = "time (days)")
 legend (3000,1,c(levels(sla$SEX)),lty=c(1,1),col=c(2,4))
 ```
 
@@ -114,10 +123,19 @@ p.val <- round(1 - pchisq(sdf$chisq, length(sdf$n) - 1),4)
 pvalue = `r p.val`
 
 
+####Calcul du HR : f/h
 
-##b- Version : date de début de suivi = date de début de VNI
+```{r, echo=FALSE}
+HR <- (sdf$obs[2]/sdf$exp[2])/(sdf$obs[1]/sdf$exp[1])
+up95 <- exp(log(HR) + qnorm(0.975)*sqrt(1/sdf$exp[2]+1/sdf$exp[1]))
+low95 <- exp(log(HR) - qnorm(0.975)*sqrt(1/sdf$exp[2]+1/sdf$exp[1]))
+```
+HR [IC95%] : `r paste0(HR, " [",low95,"-",up95,"]")` 
 
-###range date de début
+
+##b- Version : date de debut de suivi = date de debut de VNI
+
+###range date de debut
 
 ```{r, echo=FALSE}
 range(sla$DATEVNI)
@@ -127,30 +145,36 @@ range(sla$DATEVNI)
 
 ```{r, echo=FALSE}
 debvni <- survfit(Surv(sla$time.vni,sla$censor)~1, conf.int=.95)
-plot(debvni)
+plot(debvni, xlab = "time (days)")
 ```
 
-###Médiane de survie (en jour)
-
-```{r, echo=FALSE}
-min(debvni$time[debvni$surv<=0.5]) #debvni
-paste0 (summary(debvni)$table['median']," [",summary(debvni)$table['0.95LCL'],"-",summary(debvni)$table['0.95UCL'],"]")
-```
-
-###Médiane de suivi (en jour)
+###Mediane de suivi (en jour)
 
 ```{r, echo=FALSE}
 debvni.suiv <- survfit(Surv(sla$time.vni,1-sla$censor)~1)
 #min(debvni.suiv$time[debvni.suiv$surv<=0.5])
-paste0 (summary(debvni.suiv)$table['median']," [",summary(debvni.suiv)$table['0.95LCL'],"-",summary(debvni.suiv)$table['0.95UCL'],"]")
-
+j <- paste0 (summary(debvni.suiv)$table['median']," [",summary(debvni.suiv)$table['0.95LCL'],"-",summary(debvni.suiv)$table['0.95UCL'],"]")
+an <- paste0 (round(summary(debvni.suiv)$table['median']/365.25,2)," [",round(summary(debvni.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(debvni.suiv)$table['0.95UCL']/365.25,2),"]")
 ```
+En jour : `r j`  
+En annee : `r an`
+
+###Mediane de survie (en jour)
+
+```{r, echo=FALSE}
+#min(debvni$time[debvni$surv<=0.5]) #debvni
+j <- paste0 (summary(debvni)$table['median']," [",summary(debvni)$table['0.95LCL'],"-",summary(debvni)$table['0.95UCL'],"]")
+an <- paste0 (round(summary(debvni)$table['median']/365.25,2)," [",round(summary(debvni)$table['0.95LCL']/365.25,2),"-",round(summary(debvni)$table['0.95UCL']/365.25,2),"]")
+```
+En jour : `r j`
+En annee : `r an`
+
 
 ###Survie selon le sexe :
 
 ```{r, echo=FALSE}
 sex.surv.vni <- survfit(Surv(sla$time.vni,sla$censor)~sla$SEX, conf.int=.95)
-plot(sex.surv.vni,col=c(2,4))
+plot(sex.surv.vni,col=c(2,4), xlab = "time (days)")
 legend (2700,1,c(levels(sla$SEX)),lty=c(1,1),col=c(2,4))
 ```
 
@@ -162,11 +186,41 @@ p.val <- round(1 - pchisq(sdf$chisq, length(sdf$n) - 1),4)
 ```
 pvalue = `r p.val`
 
+####Calcul du HR : f/h
 
-#5/ Incohérence : règles de décision
+```{r, echo=FALSE}
+HR <- (sdf$obs[2]/sdf$exp[2])/(sdf$obs[1]/sdf$exp[1])
+up95 <- exp(log(HR) + qnorm(0.975)*sqrt(1/sdf$exp[2]+1/sdf$exp[1]))
+low95 <- exp(log(HR) - qnorm(0.975)*sqrt(1/sdf$exp[2]+1/sdf$exp[1]))
 
--  Si 2 dates de décès différentes, on garde la plus récente
--  Si la dernière date de consult disponible n'est pas la plus grande, je garde la plus grande 
+# cph <- coxph(Surv(sla$time.vni,sla$censor)~sla$SEX)
+# .coef <- cph$coefficients
+# sd(.coef)
+# HR <- exp(coef)
+
+```
+HR [IC95%] : `r paste0(HR, " [",low95,"-",up95,"]")` 
+
+
+#5/ Incoherence : regles de decision
+
+```{r, eval=FALSE, echo=FALSE}
+sla[sla$ddn<sla$DATEVNI,]
+```
+
+
+-  Si 2 dates de deces differentes, on garde la plus recente
+-  Si la derniere date de consult disponible n'est pas la plus grande, je garde la plus grande 
 (ex : DATE_EXAM_M2 = 2015-02-01 DATE_EXAM_M3=2015-01-01)
-- Si 2 diagnostics différents, la ligne est supprimée (à discuter). NB : si finalement on les garde, quelle date de diagnostic garder?
-- 52 patients ont un diagnostic de SLA avec une date dans Diag.csv, mais n'ont pas de diagnostic dans visite/Patient2.csv (mais sont bien dans ce fichier) : pas réintégrés pour l'instant mais je peux les fusionner.
+- Si 2 diagnostics differents, la ligne est supprimee (a discuter). NB : si finalement on les garde, quelle date de diagnostic garder?
+- 52 patients ont un diagnostic de SLA avec une date dans Diag.csv, mais n'ont pas de diagnostic dans visite/Patient2.csv (mais sont bien dans ce fichier) : pas reintegres pour l'instant mais je peux les fusionner.  
+- certains patients ont date de deces anterieure a la date de premiere visite : supprimes
+- 1 patient perdu de vu a une date de derniere nouvelle (c'est a dire date_exam_M... renseign�e) ant�rieur � la date de VNI : supprime (j'essaye de le recuperer avec l'autre base?) 
+
+- 130 patients qui etaient selectionnes pour l'etude grâce aux bases Diag.csv et VNI.csv ne le sont plus car ces infos sont manquantes pour ces patients dans les bases visite/Patient2.csv et trt/Patient.csv:  
+    +  20 PATIENTS DIAG=NA et/ou DATEDIAG=NA
+    + 30 PATIENTS DIAG=NA et/ou DATEDIAG=NA ET DATEVNI=NA
+    + 79 PATIENTS DATEVNI=NA (dont 11 qui ne sont pas present dans la base visite donc non present dans base ALLDIAG et ALLDATEDIAG)
+    + 1 PATIENT qui a une DATEVNI non NA mais qui n'est pas dans visite  
+=> Faut-il reintegrer ces patients ? (sachant qu'ils ont tous, sauf les 12 qui ne sont pas dans visite/Patient2.csv, une date de derniere nouvelle)
+probleme : parmi les 30+79 patients sans date de VNI, 44 sont TTT_VNI=0 dans trt/Patient.csv mais ont une DATE_VNI non Na dans VNI.csv : considerer qu'ils sont TTT_VNI=1 ?

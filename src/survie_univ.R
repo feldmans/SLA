@@ -8,6 +8,7 @@ sla <- readRDS("data/BDDSLADEM.rds")
 table(is.na(sla$ddn))
 table(!is.na(sla$date_dc))
 
+
 sla$time.vni <- as.numeric(sla$ddn - sla$DATEVNI)
 sla$time.diag <- as.numeric(sla$ddn - sla$date_diag)
 sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
