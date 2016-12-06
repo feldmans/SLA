@@ -8,13 +8,15 @@ manage_date_ND <- function(vec){ #vec doit être un vecteur avec éléments de l
   exist_year <-!is.na(str_sub(vec, 7, 10))
   
   if (!length(grep("ND",vec[exist_year]))==0) {
-    vec[exist_year] <- gsub("ND/ND", "01/07",vec,fixed=T)
-    vec[exist_year] <- gsub("ND", "15",vec,fixed=T)
+    vec[exist_year] <- gsub("ND/ND", "01/07",vec[exist_year],fixed=T)
+    vec[exist_year] <- gsub("ND", "15",vec[exist_year],fixed=T)
   }
+  
   vec_d <- as.Date(vec,"%d/%m/%Y")
   return(vec_d)
 }
 
+#si ND dans la colonne, sort tous les ND, si pas de ND dans la colonne, renvoie une ligne non ND pour la colonne
 who_is_date_ND <- function(vec_name,vec_date) {
   #browser()
   vec_date <- as.character(vec_date)
