@@ -456,49 +456,62 @@ pat <-  read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/pat/PATIE
 ttt <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/trt/PATIENT.csv") #donne VNI
 visite <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/visite/PATIENT2.csv")
 
+.dir <- dir("C:/Users/4051268/Documents/sauvegarde data/sla/data/",full.names = T, recursive = T)
+.dir <- .dir[str_sub(.dir, -3, -1)=="csv"]
+
+get_ddn <- function (.path,.string) {
+  #browser()
+  df.tmp <- read.csv2(.path)
+  .table <- get_date_max_fun(df.tmp,.string)
+  max_ddn <- .table[[1]]
+  if (is.data.frame(max_ddn)) max_ddn$PATIENT <- as.character(max_ddn$PATIENT)
+  colnames_date <- .table[[2]]
+  list(ddn = max_ddn,colonnes_date = colnames_date, path= .path)
+  #list(.table,.path)
+}
+
+for (i in .dir) {
+  num <- which(.dir==i)
+  print(i)
+  a <- get_ddn(i,"DAT")
+  saveRDS(a,paste0("data/ddn/ddn",num,".rds"))
+  assign(paste0("ddn",num),a)
+}
+
+
+# for (i in .dir) {
+#   num <- which(.dir==i)
+#   saveRDS(get(paste0("ddn",num)),"data/ddn/ddn",num,".rds")
+# }
+#   get(paste0("ddn",num),a)
+
+
+
+for (i in .dir){
+  fic<-i
+  x<-scan(i, what=as.character(), sep="\n")
+  i<-grep(v, tolower(x));x[i]
+}
+list_mining <- lapply(.dir, function(i){
+  fic<-i
+  x<-scan(i, what=as.character(), sep="\n")
+  .i<-grep(v, tolower(x));
+  return(c(i,x[.i]))
+})
+
+
+
+
+
 v <- visite
 
+ddn_visite <- get_date_max_fun(visite)
 
 
+# v$PATIENT <- as.character(v$PATIENT)
+# #ALLDATE[ALLDATE$PATIENT=="Z********E",] #EXAM M1 en 2009 et d?c?s en 1998
 
-#essai <- get_date_max_fun(head(v,10))
-essaibis <- get_date_max_fun(head(v,10),version=2)
 
-
-X <- matrix(runif(20), nrow=4)
-rownames(X) <- paste0("foo", seq(nrow(X)))
-colnames(X) <- paste0("bar", seq(ncol(X)))
-
-X<- data.frame(X)
-max(X[2,])
-
-v$PATIENT <- as.character(v$PATIENT)
-#ALLDATE[ALLDATE$PATIENT=="Z********E",] #EXAM M1 en 2009 et d?c?s en 1998
-
-#Je transforme les facteurs en date
-for (i in colnames(v)){
-  v[,i] <- manage_date_ND(v[,i])
-}
-
-#ALLDATE[,colnames(ALLDATE)] <- apply(ALLDATE,2,manage_date_ND)
-vNA <- apply(v,2,function(.x)!is.na(.x)) #si true = non NA
-COLDATEnonNA <- colnames(vNA)[apply(vNA,2,sum)>0]
-
-#Date max par patient
-v$ddn <- pmax(v[,colnames(v[ ,COLDATEnonNA])])
-
-get_date_max <- function (data){
-  data <- data.frame(data)
-  data$max <- sapply(seq(nrow(data)), function(i) {
-    j <- which.max(data[i,])
-    #c(paste(rownames(data)[i], colnames(data)[j], sep='/'), data[i,j])
-    data[i,j]
-  })
-  data$max <- as.Date(as.numeric(data$max),origin="1970-01-01")
-  return(data$max)
-}
-
-get_date_max(v)
 
 #Afficher les colonnes avec dates nonNA
 head(v[ ,COLDATEnonNA])
