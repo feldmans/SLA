@@ -422,6 +422,10 @@ view_coldiff <- function (data,col1,col2) {
 view_coldiff(BDIAG,"diag1","diag2")#ok
 view_coldiff(BDIAG,"date_diag1","date_diag2")
 diffVNI <- view_coldiff(BDIAG,"DATEVNI1","DATEVNI2")
+dim(diffVNI)
+table(diffVNI$DATEVNI1>diffVNI$DATEVNI2)
+median(abs(diffVNI$DATEVNI1-diffVNI$DATEVNI2)) 
+
 view_coldiff(BDIAG,"date_dc1","date_dc2")#ok
 
 #certains patients ont une date de VNI antérieure aux premiers symptomes
@@ -439,35 +443,91 @@ BDIAG$date_dc <- as.Date(as.numeric(BDIAG$date_dc),origin="1970-01-01")
 BDIAG$DATEVNI <- ifelse(!is.na(BDIAG$DATEVNI1),BDIAG$DATEVNI1, BDIAG$DATEVNI2)
 BDIAG$DATEVNI <- as.Date(as.numeric(BDIAG$DATEVNI),origin="1970-01-01")
 
-BDIAG <- BDIAG[ ,c("PATIENT","diag","date_diag","date_1sympt","TTT_VNI","DATEVNI","date_dc","ddn")]
 
-saveRDS(BDIAG,"data/BDIAG.rds")
+bd <- BDIAG[ ,c("PATIENT","diag","date_diag","date_1sympt","TTT_VNI","DATEVNI","date_dc","ddn")]
+
+saveRDS(bd,"data/BDIAG.rds")
+
+dim(BDIAG)
+
+#-----------------------------
+#-----------------------------
+pat <-  read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/pat/PATIENT.csv") #donnees demo
+ttt <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/trt/PATIENT.csv") #donne VNI
+visite <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/visite/PATIENT2.csv")
+
+v <- visite
 
 
+
+
+#essai <- get_date_max_fun(head(v,10))
+essaibis <- get_date_max_fun(head(v,10),version=2)
+
+
+X <- matrix(runif(20), nrow=4)
+rownames(X) <- paste0("foo", seq(nrow(X)))
+colnames(X) <- paste0("bar", seq(ncol(X)))
+
+X<- data.frame(X)
+max(X[2,])
+
+v$PATIENT <- as.character(v$PATIENT)
+#ALLDATE[ALLDATE$PATIENT=="Z********E",] #EXAM M1 en 2009 et d?c?s en 1998
+
+#Je transforme les facteurs en date
+for (i in colnames(v)){
+  v[,i] <- manage_date_ND(v[,i])
+}
+
+#ALLDATE[,colnames(ALLDATE)] <- apply(ALLDATE,2,manage_date_ND)
+vNA <- apply(v,2,function(.x)!is.na(.x)) #si true = non NA
+COLDATEnonNA <- colnames(vNA)[apply(vNA,2,sum)>0]
+
+#Date max par patient
+v$ddn <- pmax(v[,colnames(v[ ,COLDATEnonNA])])
+
+get_date_max <- function (data){
+  data <- data.frame(data)
+  data$max <- sapply(seq(nrow(data)), function(i) {
+    j <- which.max(data[i,])
+    #c(paste(rownames(data)[i], colnames(data)[j], sep='/'), data[i,j])
+    data[i,j]
+  })
+  data$max <- as.Date(as.numeric(data$max),origin="1970-01-01")
+  return(data$max)
+}
+
+get_date_max(v)
+
+#Afficher les colonnes avec dates nonNA
+head(v[ ,COLDATEnonNA])
+
+#Afficher l'histoire d'un patient
+t(v[1:5 ,COLDATEnonNA])
 
 #------------------------------
 #------------------------------
 
 #observation des dates pour les patients incohérents:
-ALLDATE <- visite[,colnames(visite)[grep("DATE",colnames(visite))]]
+ALLDATE <- visite[,colnames(visite)[grep("DAT",colnames(visite))]]
 ALLDATE$PATIENT <- as.character(visite$PATIENT)
 #ALLDATE[ALLDATE$PATIENT=="Z********E",] #EXAM M1 en 2009 et d?c?s en 1998
 
+#Je transforme les facteurs en date
+for (i in colnames(ALLDATE)){
+  ALLDATE[,i] <- manage_date_ND(ALLDATE[,i])
+}
 
-# #Je transforme les facteurs en date
-# for (i in colnames(ALLDATE)){
-#   ALLDATE[,i] <- manage_date_ND(ALLDATE[,i])
-# }
+#ALLDATE[,colnames(ALLDATE)] <- apply(ALLDATE,2,manage_date_ND)
+ALLDATENA <- apply(ALLDATE,2,function(.x)!is.na(.x)) #si true = non NA
+COLDATEnonNA <- colnames(ALLDATENA)[apply(ALLDATENA,2,sum)>0]
 
-# #ALLDATE[,colnames(ALLDATE)] <- apply(ALLDATE,2,manage_date_ND)
-# ALLDATENA <- apply(ALLDATE,2,function(.x)!is.na(.x)) #si true = non NA
-# COLDATEnonNA <- colnames(ALLDATENA)[apply(ALLDATENA,2,sum)>0]
-# 
-# #Afficher les colonnes avec dates nonNA
-# head(ALLDATE[ ,COLDATEnonNA])
-# 
-# #Afficher l'histoire d'un patient
-# t(ALLDATE[1:5 ,COLDATEnonNA])
+#Afficher les colonnes avec dates nonNA
+head(ALLDATE[ ,COLDATEnonNA])
+
+#Afficher l'histoire d'un patient
+t(ALLDATE[1:5 ,COLDATEnonNA])
 
 
 #--------------------------------------------

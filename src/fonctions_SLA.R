@@ -3,16 +3,21 @@ library(dplyr)
 
 
 manage_date_ND <- function(vec){ #vec doit être un vecteur avec éléments de la forme 04/04/1989(facteur) ou "04/04/1989"(character)
-  vec <- as.character(vec)
-  #browser()
-  exist_year <-!is.na(str_sub(vec, 7, 10))
-  
-  if (!length(grep("ND",vec[exist_year]))==0) {
-    vec[exist_year] <- gsub("ND/ND", "01/07",vec[exist_year],fixed=T)
-    vec[exist_year] <- gsub("ND", "15",vec[exist_year],fixed=T)
+  if (all(!is.na(as.Date(as.character(vec[!is.na(vec)]), tz = 'UTC', format = '%Y-%m-%d')))){
+    vec_d <- vec #cad si c'était déjà en format date
+  } else {
+    
+    vec <- as.character(vec)
+    #browser()
+    exist_year <-!is.na(str_sub(vec, 7, 10))
+    
+    if (!length(grep("ND",vec[exist_year]))==0) {
+      vec[exist_year] <- gsub("ND/ND", "01/07",vec[exist_year],fixed=T)
+      vec[exist_year] <- gsub("ND", "15",vec[exist_year],fixed=T)
+    }
+    vec_d <- as.Date(vec,"%d/%m/%Y") 
+    
   }
-  
-  vec_d <- as.Date(vec,"%d/%m/%Y")
   return(vec_d)
 }
 
@@ -79,3 +84,121 @@ print.report <- function(.name,data,file,sheet) {
     xlsx.addLineBreak(sheet, 1)
   } 
 } 
+
+
+
+# get_date_max_fun <- function (data,version=NULL){
+#   data$PATIENT <- as.character(data$PATIENT)
+#   #Je transforme les facteurs en date
+#   
+#   for (i in colnames(data)){
+#     data[,i] <- manage_date_ND(data[,i])
+#   }
+#   
+#   #Je repere les colonnes non NA
+#   is.datenonNA <- apply(data,2,function(.x)!is.na(.x)) #si true = non NA
+#   COLDATEnonNA <- colnames(is.datenonNA)[apply(is.datenonNA,2,sum)>0]
+#   
+#   data <- data[ ,COLDATEnonNA]
+#   
+#   #Date max par patient
+#   get_date_max <- function (data,version){
+#     data <- data.frame(data)
+#     data$datemax <- sapply(seq(nrow(data)), function(i) {
+#       if(version==1){
+#         j <- which.max(data[i,])
+#         #c(paste(i, j, data[i,j],sep='/')) #version vérif
+#         data[i,j]#version non verif
+#         #c(paste(rownames(data)[i], colnames(data)[j], data[i,j],sep='/'))
+#       } else {
+#         if (version==2 | is.null(version)) max(as.numeric(data[i,]),na.rm=T)
+#       }
+#     })
+#     if (version==2 | is.null(version)) data$datemax <- as.Date(as.numeric(data$datemax),origin="1970-01-01")
+#     
+#     #browser()
+#     return(data$datemax)
+#   }
+#   
+#   data$datemax <- get_date_max(data,version)
+#   
+#   return(data$datemax)
+#   #return(data[,c("PATIENT","datemax")])
+#   #return(data) #version verif
+# }
+#
+# get_date_max_fun <- function (data){
+#   data$PATIENT <- as.character(data$PATIENT)
+#   #Je transforme les facteurs en date
+#   
+#   for (i in !colnames(data) %in% "PATIENT"){
+#     data[,i] <- manage_date_ND(data[,i])
+#   }
+#   
+#   #Je repere les colonnes non NA
+#   is.datenonNA <- apply(data,2,function(.x)!is.na(.x)) #si true = non NA
+#   COLDATEnonNA <- colnames(is.datenonNA)[apply(is.datenonNA,2,sum)>0]
+#   
+#   data <- data[ ,COLDATEnonNA]
+#   
+#   #Date max par patient
+#   get_date_max <- function (data){
+#     data <- data.frame(data)
+#     data$datemax <- sapply(seq(nrow(data)), function(i)max(as.numeric(data[i,]),na.rm=T))
+#     data$datemax <- as.Date(as.numeric(data$datemax),origin="1970-01-01")
+#     return(data$datemax)
+#   }
+#   
+#   data$datemax <- get_date_max(data)
+#   
+#   #return(data$datemax)
+#   return(data[,c("PATIENT","datemax")])
+#   #return(data) #version verif
+# }
+
+get_date_max_fun <- function (data) {
+  colnamesDAT <- colnames(data)[grep("DAT",colnames(data))]
+  
+  for (i in colnamesDAT){
+    #browser()
+   data[,i] <- manage_date_ND(data[,i])
+  }
+  #browser()
+  is.datenonNA <- apply(data,2,function(.x)!is.na(.x)) #si true = non NA
+  COLDATEnonNA <- colnames(is.datenonNA)[apply(is.datenonNA,2,sum)>0]
+  COLDATEnonNA <- COLDATEnonNA[!COLDATEnonNA %in% "PATIENT"]
+  #databis <- data[, colnames(data)[colnames(data) %in% COLDATEnonNA & !colnames(data)%in% "PATIENT"] ]
+  
+  pick_date <- lapply(1: nrow(data),function(.x){
+    if (.x %in% seq(1,nrow(data),by=100))print(paste(.x,"/",nrow(data)))
+    #browser()
+    .l <- data[.x, COLDATEnonNA ]
+    .l <- .l[!is.na(.l)]#transforme en vecteur, indispensable pour l'étape d'après
+    #.l <- .l[!is.na(as.Date(as.character(.l), tz = 'UTC', format = '%Y-%m-%d'))]#Prend en charge les elements qui ne seraient pas des dates
+    if (length(.l)!=0) date <- max(.l)
+    else date <- NA
+    
+    return(date)
+  })
+  data$max <- as.vector(do.call(rbind,pick_date))
+  #browser()
+  return(data[,c("PATIENT","max")])
+}
+
+
+# for (i in colnames(v)[-1]){
+#   v[,i] <- manage_date_ND(v[,i])
+# }
+# 
+# pick_date <- lapply(1: nrow(v),function(.x){
+#   #browser()
+#   .l <- v[.x,]
+#   .l <- .l[!is.na(.l)]#transforme en vecteur, indispensable pour l'étape d'après
+#   .l <- .l[!is.na(as.Date(as.character(.l), tz = 'UTC', format = '%Y-%m-%d'))]#Prend en charge les elements qui ne seraient pas des dates
+#   
+#   if (length(.l)!=0) date <- max(.l)
+#   else date <- NA
+#   
+#   return(date)
+# })
+# v$max <- as.vector(do.call(rbind,pick_date))
