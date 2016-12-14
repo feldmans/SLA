@@ -459,53 +459,227 @@ visite <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/visite/
 .dir <- dir("C:/Users/4051268/Documents/sauvegarde data/sla/data/",full.names = T, recursive = T)
 .dir <- .dir[str_sub(.dir, -3, -1)=="csv"]
 
-get_ddn <- function (.path,.string) {
-  #browser()
-  df.tmp <- read.csv2(.path)
-  .table <- get_date_max_fun(df.tmp,.string)
-  max_ddn <- .table[[1]]
-  if (is.data.frame(max_ddn)) max_ddn$PATIENT <- as.character(max_ddn$PATIENT)
-  colnames_date <- .table[[2]]
-  list(ddn = max_ddn,colonnes_date = colnames_date, path= .path)
-  #list(.table,.path)
-}
-
+#Pour charger toutes les bases de données disponibles (se nommeront bdd 1 à 9)
 for (i in .dir) {
-  num <- which(.dir==i)
   print(i)
-  a <- get_ddn(i,"DAT")
-  saveRDS(a,paste0("data/ddn/ddn",num,".rds"))
-  assign(paste0("ddn",num),a)
+  num <- which(.dir==i)
+  a <- read.csv2(i)
+  assign(paste0("bdd",num),a)
 }
+bdds <- paste0("bdd",1:9)
 
 
+#---------------------
+#BASE  DE DONNEES DDN 
+
+#Boucle en commentaire car longue à faire tourner et résultat de la boucle déjà enregistrée dans data/ddn
+# #Pour chercher la ddn de chaque base de donnée:
 # for (i in .dir) {
 #   num <- which(.dir==i)
-#   saveRDS(get(paste0("ddn",num)),"data/ddn/ddn",num,".rds")
+#   print(i)
+#   a <- get_ddn(i,"DAT")
+#   saveRDS(a,paste0("data/ddn/ddn",num,".rds"))
+#   assign(paste0("ddn",num),a)
 # }
-#   get(paste0("ddn",num),a)
 
-
-
-for (i in .dir){
-  fic<-i
-  x<-scan(i, what=as.character(), sep="\n")
-  i<-grep(v, tolower(x));x[i]
+#Pour charger les ddn obtenues (pour éviter de relancer la boucle du dessus qui prend bcp de temps...)
+for (i in .dir) {
+  num <- which(.dir==i)
+  a <- readRDS(paste0("data/ddn/ddn",num,".rds"))
+  assign(paste0("ddn",num),a[[1]])
 }
-list_mining <- lapply(.dir, function(i){
-  fic<-i
-  x<-scan(i, what=as.character(), sep="\n")
-  .i<-grep(v, tolower(x));
-  return(c(i,x[.i]))
+
+#Pour merger les ddn
+#nom des dataframe ddn 
+dfddn <- str_sub(dir("data/ddn"),1,-5)[sapply(dir("data/ddn"),function(x)is.data.frame(get(str_sub(x,1,-5))))]
+#merge
+for (i in dfddn){
+  #num <- str_sub(i,4,-1)
+  #num <- which(str_sub(dir("data/ddn"),1,-5)==i)
+  num <- which(dfddn==i)
+  .bd <- get(i)
+  ddn_tot <- if(num==1) .bd else merge(ddn_tot, .bd, by="PATIENT", suffixes= c(num-1,num),all=TRUE)
+  #if (num==length(dfddn)) 
+}
+#transformation des colonnes en date si pas déjà fait
+for (i in colnames(ddn_tot)[-1]){
+  ddn_tot[,i] <- as_date(ddn_tot[,i])
+  ddn_tot[,i] <- ifelse (ddn_tot[,i]>Sys.Date(), NA, ddn_tot[,i])
+}
+
+ddn_tot$ddn <- apply(ddn_tot[,grep("max", colnames(ddn_tot))],1,max,na.rm=T) 
+ddn_tot <- unique(ddn_tot[ ,c("PATIENT","ddn")])
+ddn_tot$ddn <- as_date(ddn_tot$ddn)
+ddn_tot <- na.omit(ddn_tot)
+
+saveRDS(ddn_tot, "data/bdd_to_merge/ddn_tot.rds")
+
+#-------------
+#BASE DE DONNEES DECES
+#listes_brut <- lapply(bdds, which_col,"DAT","DC",type="merge") #selectionne DATEDCOMPLAL : ???
+lapply(bdds, which_col,"DAT","DCD",type="explo")
+listes_brut <- lapply(bdds, which_col,"DAT","DCD",type="merge")
+
+#tous les décès : res
+#faire un merge dans listes non NA
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  #browser()
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+
+bdd_dcd <- get_min_max(data = res, fun = "min")
+bdd_dcd$date_dc <- manage_date_ND(bdd_dcd$min)
+bdd_dcd <- unique(bdd_dcd[ , c("PATIENT","date_dc")])
+bdd_dcd <- na.omit(bdd_dcd)
+
+saveRDS(bdd_dcd, "data/bdd_to_merge/bdd_dcd.rds")
+
+#--------------
+#BASE DE DONNEES FIRST SYMPT
+lapply(bdds, which_col,"FIRSTSYMPTOM",type="explo")
+listes_brut <- lapply(bdds, which_col,"FIRSTSYMPTOM",type="merge")
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  #browser()
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+bdd_1symp <- res
+bdd_1symp$FIRSTSYMPTOM <- manage_date_ND(bdd_1symp$FIRSTSYMPTOM)
+bdd_1symp <- unique(bdd_1symp)
+bdd_1symp <- na.omit(bdd_1symp)
+
+saveRDS(bdd_1symp, "data/bdd_to_merge/bdd_1symp.rds")
+
+#---------------
+#BASE DE DONNEES VNI
+
+#DAT1VNI_MEO_V_M et DAT2VNI_MEO_V_M sont NA
+apply(apply(visite[ ,grep("VNI_MEO_", colnames(visite))],2,is.na),2,sum)
+# > dim(visite)
+# [1] 4243 9700
+
+#Je garde :
+#lapply(bdds, which_col,"VNI","DATE",type="explo")
+#"DATEVNI_V_M", "DATEVNI" et "DATE_VNI"
+listes_brut <- lapply(bdds, which_col,string1="DATE", string2="VNI",string3="STOP",type="merge")
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  #browser()
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+bdd_debVNI <- get_min_max(data = res, fun = "min")
+bdd_debVNI$DATEVNI <- manage_date_ND(bdd_debVNI$min)
+bdd_debVNI <- unique(bdd_debVNI[,c("PATIENT","DATEVNI")])
+bdd_debVNI <- na.omit(bdd_debVNI)
+
+saveRDS(bdd_debVNI, "data/bdd_to_merge/bdd_debVNI.rds")
+
+
+#-------------
+#BASE DE DONNEE DOB
+listes_brut <- lapply(bdds, which_col,string1="DOB",type="merge")
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  #browser()
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+
+#certains patients n'ont pas la même date de naissance...
+res2 <- na.omit(res)
+res2[as.character(res2$DOB.x)!=as.character(res2$DOB.y),]
+pat2dob <- unique(res2[as.character(res2$DOB.x)!=as.character(res2$DOB.y), "PATIENT"])
+
+bdd_DOB <- get_min_max(data = res, fun = "min") #je ne prend pas vmt la min, ça me permet de prendre l'une qd l'autre est NA
+bdd_DOB <- bdd_DOB[!bdd_DOB$PATIENT %in% pat2dob, ] #je suprrime les date incohérentes
+bdd_DOB$DOB <- manage_date_ND(bdd_DOB$min)
+bdd_DOB <- unique(bdd_DOB[ ,c("PATIENT","DOB")])
+bdd_DOB <- na.omit(bdd_DOB)
+                  
+saveRDS(bdd_DOB, "data/bdd_to_merge/bdd_DOB.rds")
+
+#-------------
+#BASE DE DONNEE DATE DIAG
+listes_brut <- lapply(bdds, which_col,string1="DAT", string2="DIAG",type="merge")
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  #browser()
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+bdd_DATEDIAG <- get_min_max(data = res, fun = "min")
+bdd_DATEDIAG$date_diag <- manage_date_ND(bdd_DATEDIAG$min)
+bdd_DATEDIAG <- unique(bdd_DATEDIAG[,c("PATIENT","date_diag")])
+bdd_DATEDIAG <- na.omit(bdd_DATEDIAG)
+
+saveRDS(bdd_DATEDIAG, "data/bdd_to_merge/bdd_DATEDIAG.rds")
+
+#-------------
+#BASE DE DONNEE DIAG : je ne prend que les diag de visite car je veux être sûre que c'est bien le dernier diag dispo qui est pris
+listes_brut <- lapply(bdds, which_col,string1="DIAG_V_M",string3="DAT",type="explo")
+#je veux bdd9
+
+ALLDIAG <-bdd9[,colnames(bdd9)[str_sub(colnames(bdd9),1,8)=="DIAG_V_M" | str_sub(colnames(bdd9),1,12) == "NEW_DIAG_V_M"]]
+pick_diag <- lapply(1: nrow(ALLDIAG),function(.x){
+  .l <- ALLDIAG[.x,]
+  .l <- .l[!is.na(.l)]
+  if (length(.l)!=0) diag <- tail(.l,1)
+  else diag <- NA
+  return (diag)
 })
+ALLDIAG$diag <- as.vector(do.call(rbind,pick_diag))
+ALLDIAG$PATIENT <- as.character(bdd9$PATIENT)
+bdd_diag <- unique(ALLDIAG[, c("PATIENT","diag")] )
+
+#pb : certains patients ont une ligne de diag NA => je supprime tous les NA
+table(tab<-table(bdd_diag$PATIENT))
+pat2diag <- names(tab)[tab>1]
+bdd_diag[bdd_diag$PATIENT %in% pat2diag,]
+
+bdd_diag <- na.omit(bdd_diag)
+saveRDS(bdd_diag, "data/bdd_to_merge/bdd_diag.rds")
+
+#-------------
+#MERGE
+newdir <- dir("F:/to push/sla_git/data/bdd_to_merge/")
+newdir <- str_sub(newdir,1,-5)
+
+
+for (i in 1:length(newdir)) {
+  #browser()
+  data <- get(newdir[i])
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+
+head(res)
+
+BASE_TOT <- res
+
+saveRDS(BASE_TOT, "data/BASE_TOT.rds")
+
+
+#------------------------------------
+#------------------------------------
+#SELECT SLA from BASE_TOT
+
+BASE_SLA <- BASE_TOT[BASE_TOT$diag==1 & !is.na(BASE_TOT$diag) & !is.na(BASE_TOT$DATEVNI),]
+
+#doublons
+table(tab <- table(BASE_SLA$PATIENT))
+namesdoublons <- names(tab)[tab>1]
+names2 <- names(tab)[tab==2]
+BASE_SLA[BASE_SLA$PATIENT%in% names2,] #les doublons sont foireux, je les supprime
+
+BASE_SLA <- BASE_SLA[!BASE_SLA$PATIENT %in% namesdoublons, ]
+
+saveRDS(BASE_SLA, "data/BASE_SLA.rds")
 
 
 
-
-
-v <- visite
-
-ddn_visite <- get_date_max_fun(visite)
 
 
 # v$PATIENT <- as.character(v$PATIENT)
