@@ -449,7 +449,8 @@ bd <- BDIAG[ ,c("PATIENT","diag","date_diag","date_1sympt","TTT_VNI","DATEVNI","
 saveRDS(bd,"data/BDIAG.rds")
 
 dim(BDIAG)
-
+#-----------------------------
+#-----------------------------
 #-----------------------------
 #-----------------------------
 pat <-  read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/pat/PATIENT.csv") #donnees demo
@@ -679,6 +680,101 @@ BASE_SLA <- BASE_SLA[!BASE_SLA$PATIENT %in% namesdoublons, ]
 saveRDS(BASE_SLA, "data/BASE_SLA.rds")
 
 
+#----------------------------------
+#----------------------------------
+#Ajout des baseline
+#F:\to push\sla_git\data\baseline_to_merge
+
+BASE_SLA <- readRDS("data/BASE_SLA.rds")
+
+#--------------
+#sexe
+listes_brut <- lapply(bdds, which_col,string1="SEX", type="merge")
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  #browser()
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+ALLSEX <-res[ ,!colnames(res)%in%"PATIENT"]
+pick_sex <- lapply(1: nrow(ALLSEX),function(.x){
+  .l <- ALLSEX[.x,]
+  .l <- .l[!is.na(.l)]
+  #browser()
+  if (length(.l)!=0 & all(.l[1]==.l)) sex <- as.integer(tail(.l,1))
+  # else {
+  #   if(length(.l)!=0) sex <- "not sure"
+  #   else sex <- NA
+  # }
+  else sex <- NA
+  return (sex)
+})
+
+ALLSEX$sex_def <- as.vector(do.call(rbind,pick_sex))
+ALLSEX$sex_def <- as.integer(ALLSEX$sex_def)
+ALLSEX$PATIENT <- as.character(res$PATIENT)
+
+ALLSEX[ALLSEX$sex_def=="not sure",] #6 not sure, it's the same personne, first name=marie
+table(ALLSEX$sex_def, useNA = "a") #no NA except the 6 not sure
+ALLSEX <- unique(ALLSEX[ ,c("PATIENT","sex_def")])
+saveRDS(ALLSEX, "data/baseline_to_merge/sexe.rds")
+
+#--------------
+#Forme
+
+.dir <- dir("C:/Users/4051268/Documents/sauvegarde data/sla/data/",full.names = T, recursive = T)
+.dir <- .dir[str_sub(.dir, -3, -1)=="sas"]
+v <- "fam"
+
+for (i in .dir){
+  fic<-i
+  x<-scan(i, what=as.character(), sep="\n")
+  j<-grep(v, tolower(x));print(c(i,x[j]))
+}
+
+
+#bdd6 : SOD1 = "Mutation SOD1" #pb : la mutation peut être de novo, et autre mutation peut causer la maladie 
+as.numeric(as.character(bdd6[ ,str_sub(colnames(bdd6), 1, 4)=="SOD1"]))
+
+#bdd6 : ATCD_FAMIL_L1 à 6 : 1= SLA
+listes_brut <- lapply(bdds, which_col,string1="ATCD_FAMIL_L", type="merge")
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  #browser()
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+
+ALLATCD <-res[ ,!colnames(res)%in%"PATIENT"]
+pick_atcd <- lapply(1: nrow(ALLATCD),function(.x){
+  .l <- ALLATCD[.x,]
+  .l <- .l[!is.na(.l)]
+  if (length(.l)!=0){
+    if (length(grep("SLA",.l,ignore.case = TRUE))!=0) atcd <- 1
+    else atcd <- NA
+  } else {
+    atcd <- NA
+  }
+  return (atcd)
+})
+
+ALLATCD$familial <- as.vector(do.call(rbind,pick_atcd))
+ALLATCD$PATIENT <- as.character(res$PATIENT)
+ALLATCD <- unique(ALLATCD[ , c("PATIENT","familial")])
+saveRDS(ALLATCD, "data/baseline_to_merge/forme.rds")
+
+#------------
+#site of onset
+
+.dir <- dir("C:/Users/4051268/Documents/sauvegarde data/sla/data/",full.names = T, recursive = T)
+.dir <- .dir[str_sub(.dir, -3, -1)=="sas"]
+v <- "bulbaire"
+
+for (i in .dir){
+  fic<-i
+  x<-scan(i, what=as.character(), sep="\n")
+  j<-grep(v, tolower(x));print(c(i,x[j]))
+}
 
 
 
@@ -830,7 +926,7 @@ v <- "vni"
 for (i in .dir){
   fic<-i
   x<-scan(i, what=as.character(), sep="\n")
-  i<-grep(v, tolower(x));x[i]
+  j<-grep(v, tolower(x));print(x[j])
 }
 list_mining <- lapply(.dir, function(i){
   fic<-i
