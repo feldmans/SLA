@@ -949,15 +949,39 @@ for (i in .dir_sas){
 # 2 = 'Besoin de plus de deux oreillers' 
 # 3 = 'Quelques difficultés nocturnes' 
 # 4 = 'Aucune' 
-#orthopnee : je garde 0 1 2 3 (3 à discuter)
+#orthopnee : je garde 0 1 2 (3 à discuter) #concordance meilleure en retirant le 3
 
-find_table ("pat")
-dysp_orth <- bdd6 [ , c("PATIENT","ALS_ALS_dyspne","ALS_ALS_orthopne")]
+#find_table ("pat")
 
+dysp_orth <- bdd6 [ , c("PATIENT","DATEXAM","ALS_ALS_dyspne","ALS_ALS_orthopne")]
 dysp_orth$dyspnee_repos <- Recode(dysp_orth$ALS_ALS_dyspne, "1=1;NA=NA;else=0")
-dysp_orth$orthopnee <- Recode(dysp_orth$ALS_ALS_orthopne, "0:3=1; NA=NA ;else=0")
-dysp_orth <- dysp_orth[ , c("PATIENT","dyspnee_repos","orthopnee")]
-saveRDS(dysp_orth, paste0("data/baseline_to_merge/dysp_orth.rds"))
+#dysp_orth$orthopnee <- Recode(dysp_orth$ALS_ALS_orthopne, "0:3=1; NA=NA ;else=0")
+dysp_orth$orthopnee <- Recode(dysp_orth$ALS_ALS_orthopne, "0:2=1; NA=NA ;else=0")
+dysp_orth <- unique(dysp_orth[ , c("PATIENT","DATEXAM","dyspnee_repos","orthopnee")])
+
+dysp_orth2 <- unique(bdd7[ ,c("PATIENT","DATE_RESP_PP","DYSP_REPOS_PP","DYSP_DECUBI_PP")])
+do <- merge(dysp_orth,dysp_orth2,by="PATIENT",all=TRUE)
+do$DATEXAM <- manage_date_ND(do$DATEXAM)
+do$DATE_RESP_PP <- manage_date_ND(do$DATE_RESP_PP)
+
+
+# table(dysp_orth$dyspnee_repos,dysp_orth$DYSP_REPOS_PP,deparse.level = 2)
+# dysp_orth %>% filter(dyspnee_repos!=DYSP_REPOS_PP)
+# dysp_orth %>% filter(PATIENT=="ANDRE_MICHEL")
+# table(dysp_orth$orthopnee,dysp_orth$DYSP_DECUBI_PP,deparse.level = 2)
+
+#Je garde la date la plus récente (souvent la discordance vient du fait que PP(bdd7) est plus tardif que DATEXAM(bdd6))
+#do$dyspnee_repos_tot <- ifelse (is.na(do$dyspnee_repos) | (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP),
+#                               do$DYSP_REPOS_PP, do$dyspnee_repos) #mais doit on considéré que si on a pas de dyspnee repos on doit prendre PP?
+do$dyspnee_repos_tot <- ifelse (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP,
+                                do$DYSP_REPOS_PP, do$dyspnee_repos) #est-ce mieux?
+#do$orthopnee_tot <- ifelse (is.na(do$orthopnee) | (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP),
+#                                do$DYSP_DECUBI_PP, do$orthopnee) #mais doit on considéré que si on a pas de dyspnee repos on doit prendre PP?
+do$orthopnee_tot <- ifelse (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP,
+                                do$DYSP_DECUBI_PP, do$orthopnee) #est-ce mieux? cad que si pas de donnee date exam on met NA pour ne pas biaiser
+do <- do[ ,c("PATIENT","dyspnee_repos_tot","orthopnee_tot")]
+
+saveRDS(do, paste0("data/baseline_to_merge/dysp_orth.rds"))
 
 #---------
 #Sitting FVC (CRF)
@@ -1022,7 +1046,83 @@ assign(names_dataset,data)
 saveRDS(data, paste0("data/baseline_to_merge/",names_dataset,".rds"))
 
 #------------
-table(bdd7$DYSP_EFFORT_PP)
+#twitch transdiaphragmatic pressure
+#pression trans-diaphragmatique en réponse à une stimulation phrénique bilatérale (pdi,tw)
+scan_notebook("tw",.dir_sas)
+scan_notebook("pdi",.dir_sas)
+scan_notebook("stimulation",.dir_sas)
+scan_notebook("ptd",.dir_sas)
+
+listes_brut <- lapply(bdds, which_col,string1="pdi", type="explo")
+listes_brut <- lapply(bdds, which_col,string1="tw", type="explo")
+#
+
+#-------------------
+#temps passe avec sp02>90 et bicar
+find_table(7)
+scan_notebook("90",.dir_sas[7])
+table(as.integer(as.character(bdd7$SPO2_TPS_PP)))
+table(is.na(as.integer(as.character(bdd7$SPO2_TPS_PP))))#315 non NA
+table(is.na(as.integer(as.character(bdd7$SPO2_TPS_PV_F1))))#127 non NA (dont 24 qui était aussi non NA en PP)
+bdd7 %>% filter(!is.na(as.integer(as.character(SPO2_TPS_PP))) & 
+                  !is.na(as.integer(as.character(SPO2_TPS_PV_F1)))) %>% count
+
+res <- bdd7
+
+res$DATE_RESP_PP <- manage_date_ND(res$DATE_RESP_PP)
+res$DUREE_ENREG_H_PP <- as.integer(as.character(res$DUREE_ENREG_H_PP))
+res$DUREE_ENREG_H_PP <- ifelse(!is.na(res$DUREE_ENREG_MIN_PP) & is.na(res$DUREE_ENREG_H_PP),0,res$DUREE_ENREG_H_PP)
+res$DUREE_ENREG_MIN_PP <- as.integer(as.character(res$DUREE_ENREG_MIN_PP))
+res$DUREE_ENREG_MIN_PP <- ifelse(!is.na(res$DUREE_ENREG_H_PP) & is.na(res$DUREE_ENREG_MIN_PP),0,res$DUREE_ENREG_MIN_PP)
+res$minutes <- (res$DUREE_ENREG_H_PP*60)+res$DUREE_ENREG_MIN_PP
+res$heures <- res$minutes/60
+res$SPO2_TPS_PP <- as.integer(as.character(res$SPO2_TPS_PP))
+res$time_spent_spo290_h <- res$SPO2_TPS_PP*res$heures
+res$HCO3_PP <- as.integer(as.character(res$HCO3_PP))
+sp90_bicar <- res[,c("PATIENT","DATE_RESP_PP", "minutes", "heures","SPO2_TPS_PP","time_spent_spo290_h","HCO3_PP")] 
+saveRDS(sp90_bicar, paste0("data/baseline_to_merge/sp90_bicar.rds"))
+
+listes_brut <- lapply(bdds, which_col,string1="HCO3", type="explo")#HCO3 que dans bdd7
+listes_brut <- lapply(bdds, which_col,string1="bicar", type="explo")#bicarb dans bdd9
+res <- bdd9
+res$BICARB_V_M1 <- as.integer(as.character(res$BICARB_V_M1))
+res$DATEXAM_V_M1 <- manage_date_ND(res$DATEXAM_V_M1) 
+res <- res[ ,c("PATIENT","DATEXAM_V_M1","BICARB_V_M1")]
+
+sp90_bicar <- merge(sp90_bicar,res,by="PATIENT",all=T)
+
+table(sp90_bicar$DATE_RESP_PP>sp90_bicar$DATEXAM_V_M1 & !is.na(sp90_bicar$DATE_RESP_PP) & !is.na(sp90_bicar$DATEXAM_V_M1)) #356 PP antérieure à DATEXAM
+
+#--------------
+
+
+
+
+
+
+ALLpick <-res[ ,!colnames(res)%in%"PATIENT"]
+pick_data <- lapply(1: nrow(ALLpick),function(.x){
+  .l <- ALLpick[.x,]
+  .l <- .l[!is.na(.l)]
+  if (length(.l)!=0){
+    data <- .l[1] #si 2 score, alors c'est celui du fichier pat qui est pris. Si un seul renseigné, alors on prend le seul qui existe. 
+  } else { #si laligne est vide
+    data <- NA
+  }
+  return (data)
+})
+ALLpick$data <- as.vector(do.call(rbind,pick_data))
+ALLpick$PATIENT <- as.character(res$PATIENT)
+ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
+
+#personnaliser
+colnames(ALLpick)[-1] <- "ALS_FRS_score"
+names_dataset <- "ALS_FRS"
+#
+
+assign(names_dataset,ALLpick)
+saveRDS(ALLpick, paste0("data/baseline_to_merge/",names_dataset,".rds"))
+
 
 
 
