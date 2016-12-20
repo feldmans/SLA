@@ -649,8 +649,12 @@ saveRDS(BASE_SLA, "data/BASE_SLA.rds")
 #Ajout des baseline
 #F:\to push\sla_git\data\baseline_to_merge
 
-BASE_SLA <- readRDS("data/BASE_SLA.rds")
+BASE_TOT <- readRDS("data/BASE_TOT.rds")
+BASE_TOT$DOB <- NULL
+head(BASE_TOT)
 
+BASE_SLA <- readRDS("data/BASE_SLA.rds")
+BASE_SLA$DOB <- NULL
 #-------------
 #BASE DE DONNEE DOB
 listes_brut <- lapply(bdds, which_col,string1="DOB",type="merge")
@@ -663,16 +667,15 @@ for (i in 1:length(listes_net)) {
 
 #certains patients n'ont pas la même date de naissance...
 res2 <- na.omit(res)
-res2[as.character(res2$DOB.x)!=as.character(res2$DOB.y),]
+# res2[as.character(res2$DOB.x)!=as.character(res2$DOB.y),]
 pat2dob <- unique(res2[as.character(res2$DOB.x)!=as.character(res2$DOB.y), "PATIENT"])
 
 bdd_DOB <- get_min_max(data = res, fun = "min") #je ne prend pas vmt la min, ça me permet de prendre l'une qd l'autre est NA
 bdd_DOB <- bdd_DOB[!bdd_DOB$PATIENT %in% pat2dob, ] #je suprrime les date incohérentes
 bdd_DOB$DOB <- manage_date_ND(bdd_DOB$min)
 bdd_DOB <- unique(bdd_DOB[ ,c("PATIENT","DOB")])
-bdd_DOB <- na.omit(bdd_DOB)
-
-saveRDS(bdd_DOB, "data/baseline_to_merge/DOB.rds")
+DOB <- na.omit(bdd_DOB)
+saveRDS(DOB, "data/baseline_to_merge/DOB.rds")
 
 #--------------
 #sexe
@@ -703,22 +706,22 @@ ALLSEX$PATIENT <- as.character(res$PATIENT)
 
 ALLSEX[ALLSEX$sex_def=="not sure",] #6 not sure, it's the same personne, first name=marie
 table(ALLSEX$sex_def, useNA = "a") #no NA except the 6 not sure
-ALLSEX <- unique(ALLSEX[ ,c("PATIENT","sex_def")])
-saveRDS(ALLSEX, "data/baseline_to_merge/sexe.rds")
+sexe <- unique(ALLSEX[ ,c("PATIENT","sex_def")])
+saveRDS(sexe, "data/baseline_to_merge/sexe.rds")
 
 #--------------
-#Forme
-v <- "fam"
-
-for (i in .dir_sas){
-  fic<-i
-  x<-scan(i, what=as.character(), sep="\n")
-  j<-grep(v, tolower(x));print(c(i,x[j]))
-}
-
-
-#bdd6 : SOD1 = "Mutation SOD1" #pb : la mutation peut être de novo, et autre mutation peut causer la maladie 
-as.numeric(as.character(bdd6[ ,str_sub(colnames(bdd6), 1, 4)=="SOD1"]))
+#Forme familial oui/non 1/0
+# v <- "fam"
+# 
+# for (i in .dir_sas){
+#   fic<-i
+#   x<-scan(i, what=as.character(), sep="\n")
+#   j<-grep(v, tolower(x));print(c(i,x[j]))
+# }
+# 
+# 
+# #bdd6 : SOD1 = "Mutation SOD1" #pb : la mutation peut être de novo, et autre mutation peut causer la maladie 
+# as.numeric(as.character(bdd6[ ,str_sub(colnames(bdd6), 1, 4)=="SOD1"]))
 
 #bdd6 : ATCD_FAMIL_L1 à 6 : 1= SLA
 listes_brut <- lapply(bdds, which_col,string1="ATCD_FAMIL_L", type="merge")
@@ -744,32 +747,45 @@ pick_atcd <- lapply(1: nrow(ALLATCD),function(.x){
 
 ALLATCD$familial <- as.vector(do.call(rbind,pick_atcd))
 ALLATCD$PATIENT <- as.character(res$PATIENT)
-ALLATCD <- unique(ALLATCD[ , c("PATIENT","familial")])
-saveRDS(ALLATCD, "data/baseline_to_merge/forme.rds")
+forme <- unique(ALLATCD[ , c("PATIENT","familial")])
+saveRDS(forme, "data/baseline_to_merge/forme.rds")
 
 #------------
 #site of onset
-v <- "bulbaire"
+# v <- "bulbaire"
+# 
+# for (i in .dir_sas){
+#   fic<-i
+#   x<-scan(i, what=as.character(), sep="\n")
+#   j<-grep(v, tolower(x));print(c(i,x[j]))
+# }
 
-for (i in .dir_sas){
-  fic<-i
-  x<-scan(i, what=as.character(), sep="\n")
-  j<-grep(v, tolower(x));print(c(i,x[j]))
-}
-
-table(bdd6$LIEUDEB,useNA = "a")
+#table(bdd6$LIEUDEB,useNA = "a")
 
 site_onset <- bdd6[ ,c("PATIENT","LIEUDEB")] 
 
 site_onset$LIEUDEB_recode <- Recode(as.factor(site_onset$LIEUDEB), "1 = 'bulbar';2 = 'cervical'; 10:15 = 'lower limb onset'; 3 = 'respiratory'; 4:9 = 'upper limb onset'")
-#site_onset$LIEUDEB_recode <- recode(as.factor(site_onset$LIEUDEB), "1" = "bulbar", 10:15 = "lower limb onset", "2" = "cervical", "3" = "respiratory", as.character(c(4,5,6,7,8,9)) = "upper limb onset")
-
-table(site_onset$LIEUDEB_recode, useNA = "a")
-table(site_onset$LIEUDEB, useNA = "a")
+ 
+# table(site_onset$LIEUDEB_recode, useNA = "a")
+# table(site_onset$LIEUDEB, useNA = "a")
 
 site_onset <- unique(site_onset[ , c("PATIENT","LIEUDEB_recode")])
 saveRDS(site_onset, "data/baseline_to_merge/site_onset.rds")
 
+
+name_df_baseline <- str_sub(dir("data/baseline_to_merge"),1,-5)[sapply(dir("data/baseline_to_merge"),function(x)is.data.frame(get(str_sub(x,1,-5))))]
+#merge
+for (i in name_df_baseline){
+  #num <- str_sub(i,4,-1)
+  #num <- which(str_sub(dir("data/ddn"),1,-5)==i)
+  num <- which(name_df_baseline==i)
+  .bd <- get(i)
+  baseline_tot <- if(num==1) .bd else merge(baseline_tot, .bd, by="PATIENT", suffixes= c(num-1,num),all=TRUE)
+  #if (num==length(dfddn)) 
+}
+
+BASE_SLA_invar <- merge(BASE_SLA, baseline_tot, by="PATIENT", all.x=T, all.y=F)
+saveRDS(BASE_SLA_invar, "data/BASE_SLA_invar.rds")
 
 #--------------
 #patients taking riluzole
@@ -795,6 +811,8 @@ listes_brut <- lapply(bdds, which_col,string1="rilu", type="explo")
 table(bdd6$RILUZ,useNA = "a") #52
 table(bdd8$POSORILU_L1,useNA = "a") #1955
 table(bdd9$RILUZ_V_M1,useNA = "a") #
+
+
 
 # #personnaliser
 # listes_brut <- lapply(bdds, which_col,string1="RILUZ_V_M", type="merge")
@@ -835,45 +853,123 @@ table(bdd9$RILUZ_V_M1,useNA = "a") #
 
 
 
-#Les patients sont rilu si une date est renseignée
+# #Les patients sont rilu si une date est renseignée
+# 
+# #personnaliser
+# listes_brut <- lapply(bdds, which_col,string1="DAT",string2="RILU", type="merge")
+# #
+# 
+# listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+# for (i in 1:length(listes_net)) {
+#   data <- listes_net[[i]]
+#   res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+# }
+# 
+# ALLpick <-res[ ,!colnames(res)%in%"PATIENT"]
+# pick_data <- lapply(1: nrow(ALLpick),function(.x){
+#   .l <- ALLpick[.x,]
+#   .l <- .l[!is.na(.l)]
+#   if (length(.l)!=0){
+#     #personnaliser
+#     data <- 1
+#   } else { #si laligne est vide
+#     data <- NA
+#   }
+#   return (data)
+# })
+# ALLpick$data <- as.vector(do.call(rbind,pick_data))
+# ALLpick$PATIENT <- as.character(res$PATIENT)
+# ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
 
-#personnaliser
-listes_brut <- lapply(bdds, which_col,string1="DAT",string2="RILU", type="merge")
-#
 
-listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
-for (i in 1:length(listes_net)) {
-  data <- listes_net[[i]]
-  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
-}
+#pick Month until which you have information
+tmp <- merge(BASE_SLA[ , c("PATIENT","DATEVNI")], bdd9[, c("PATIENT",colnames(bdd9)[grep("DATEXAM_V_M",colnames(bdd9))])], by="PATIENT", all.x=T, all.y=F) 
 
-ALLpick <-res[ ,!colnames(res)%in%"PATIENT"]
+ALLpick <- tmp[ ,grep("DAT",colnames(tmp))]
 pick_data <- lapply(1: nrow(ALLpick),function(.x){
-  .l <- ALLpick[.x,]
+  .vni <- ALLpick[.x, "DATEVNI"]
+  .l <- ALLpick[.x, !colnames(ALLpick)%in% "DATEVNI"]
+  for (i in colnames(.l)) .l[,i] <- manage_date_ND(.l[,i])
+  if(any(as.vector(!is.na(.l)))){
+    myrow <- table(!is.na(.l))[2]
+  } else {
+    myrow <- NA
+  }
+  return (myrow)
+})
+ALLpick$data <- as.vector(do.call(rbind,pick_data))
+ALLpick$PATIENT <- as.character(tmp$PATIENT)
+ALLpick$DATEVNI <- tmp$DATEVNI
+ALLpick <- unique(ALLpick[ , c("PATIENT","data","DATEVNI")])
+colnames(ALLpick)[2] <- "myrow"
+names_dataset <- "months_before_vni"
+assign(names_dataset,ALLpick)
+
+
+tmp <- merge(bdd9,months_before_vni,by="PATIENT",all.y=T)
+ALLpick <- tmp[ ,c("myrow","DATEVNI",colnames(tmp)[grep("RILU",colnames(tmp))]) ]
+pick_data <- lapply(1: nrow(ALLpick),function(.x){
+  #browser()
+  myrow <- ALLpick[.x, "myrow"]
+  .l <- ALLpick[.x, paste0("RILUZ_V_M",1:myrow)]
   .l <- .l[!is.na(.l)]
-  if (length(.l)!=0){
-    #personnaliser
-    data <- 1
-  } else { #si laligne est vide
-    data <- NA
+  .g <- ALLpick[.x, paste0("DATFRILU_V_M",1:myrow)]
+  for (i in colnames(.g)) .g[,i] <- manage_date_ND(.g[,i])
+  .g <- .g[!is.na(.g)]
+  
+  if (length(.l)==0) {
+    data <- 0
+  } else {
+    if (length(.g)==0) data <- tail(.l,1)
+    else {
+      if(tail(.g,1) < ALLpick[.x, "DATEVNI"]) data <- 0
+    }
+  }
+  return(data)
+})
+ALLpick$data <- as.vector(do.call(rbind,pick_data))
+ALLpick$PATIENT <- as.character(tmp$PATIENT)
+ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
+names_dataset <- "RILU1"
+colnames(ALLpick)[-1] <- "rilu1"
+assign(names_dataset,ALLpick)
+
+
+tmp <- merge(BASE_SLA, bdd9[, c("PATIENT",colnames(bdd9)[grep("RILU",colnames(bdd9))])], by="PATIENT", all.x=T, all.y=F) 
+ALLpick <-tmp[ ,grep("DAT",colnames(tmp))]
+pick_data <- lapply(1: nrow(ALLpick),function(.x){
+  .vni <- ALLpick[.x, "DATEVNI"]
+  .l <- ALLpick[.x, !colnames(ALLpick)%in% "DATEVNI"]
+  .l <- .l[!is.na(.l)] #indispensable pour transformer en vecteur avant manage date
+  .l <- manage_date_ND(.l)
+  .l <- .l[!is.na(.l)]
+  if (length(.l)==0){
+    data <- 0
+  } else { #si une date existe
+    if (any(.l < .vni)) data <- 1
+    else data <- 0
   }
   return (data)
 })
 ALLpick$data <- as.vector(do.call(rbind,pick_data))
-ALLpick$PATIENT <- as.character(res$PATIENT)
+ALLpick$PATIENT <- as.character(tmp$PATIENT)
 ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
-
-#personnaliser
-colnames(ALLpick)[-1] <- "rilu"
-names_dataset <- "RILU"
-#
-
+names_dataset <- "RILU2"
+colnames(ALLpick)[-1] <- "rilu2"
 assign(names_dataset,ALLpick)
 
-saveRDS(ALLpick, paste0("data/baseline_to_merge/",names_dataset,".rds"))
+RILU <- merge(RILU1,RILU2,by="PATIENT",all=T)
+RILU$rilu <- ifelse (RILU$rilu1==1 | RILU$rilu2==1, 1, 0)
+#table(RILU$rilu1,RILU$rilu2)
+
+RILU <- unique(RILU[,c("PATIENT","rilu")])
+names_dataset <- "RILU"
+saveRDS(RILU, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds")) #1 si prise de rilu avant mise sous vni
 
 #----------------
 #ALSFRS-R score
+
+
 #personnaliser
 listes_brut <- lapply(bdds, which_col,string1="FRSDT", type="explo")
 #
@@ -905,7 +1001,7 @@ names_dataset <- "ALS_FRS"
 #
 
 assign(names_dataset,ALLpick)
-saveRDS(ALLpick, paste0("data/baseline_to_merge/",names_dataset,".rds"))
+saveRDS(ALLpick, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds"))
 
 #----------------
 #norris bulbar score
