@@ -3,14 +3,24 @@ library(stringr)
 library(survival)
 
 #sla <- readRDS("data/BDDSLA.rds")
-sla <- readRDS("data/BDDSLADEM.rds")
+#sla <- readRDS("data/BDDSLADEM.rds")
 
+sla <- readRDS ("data/BASE_SLA_allbl.rds")
+
+sla$rilu <- ifelse (sla$DEBRILU < sla$DATEVNI & (is.na(sla$FINRILU) | sla$FINRILU>sla$DATEVNI), 1, 0) #je fais l'hyp qu'il n'y a pas de NA
+
+#verif
 table(is.na(sla$ddn))
-table(!is.na(sla$date_dc))
+table(!is.na(sla$date_dc)) #rappel : ceux qui ne sont pas mort sont surement des pdv...
+table(is.na(sla$DATEVNI))
+table(sla$ddn <= sla$date_dc)#c'est bon (déjà fait dan sle datamanagement)
+table(sla$DATEVNI>=sla$date_dc) #en effet, 4 patient sont reçu VNI après décès...
 
+sla$keep <- ifelse (sla$DATEVNI<=sla$ddn,1,0) 
 
+sla <- sla[sla$keep==1, ]
 sla$time.vni <- as.numeric(sla$ddn - sla$DATEVNI)
-sla$time.diag <- as.numeric(sla$ddn - sla$date_diag)
+sla$time.firstsym <- as.numeric(sla$ddn - sla$date_diag)
 sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
 sla$SEX <- factor(sla$SEX, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Féminin' 
 
