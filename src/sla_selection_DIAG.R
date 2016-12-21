@@ -649,12 +649,7 @@ saveRDS(BASE_SLA, "data/BASE_SLA.rds")
 #Ajout des baseline
 #F:\to push\sla_git\data\baseline_to_merge
 
-BASE_TOT <- readRDS("data/BASE_TOT.rds")
-BASE_TOT$DOB <- NULL
-head(BASE_TOT)
 
-BASE_SLA <- readRDS("data/BASE_SLA.rds")
-BASE_SLA$DOB <- NULL
 #-------------
 #BASE DE DONNEE DOB
 listes_brut <- lapply(bdds, which_col,string1="DOB",type="merge")
@@ -789,7 +784,7 @@ saveRDS(BASE_SLA_invar, "data/BASE_SLA_invar.rds")
 
 #--------------
 #patients taking riluzole
-listes_brut <- lapply(bdds, which_col,string1="rilu", type="explo")
+listes_brut <- lapply(bdds, which_col,string1="DATDRILU_V_M", type="explo")
 
 #bdd6 
 [3] "RILUZ"                                                               
@@ -882,154 +877,485 @@ table(bdd9$RILUZ_V_M1,useNA = "a") #
 # ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
 
 
-#pick Month until which you have information
-tmp <- merge(BASE_SLA[ , c("PATIENT","DATEVNI")], bdd9[, c("PATIENT",colnames(bdd9)[grep("DATEXAM_V_M",colnames(bdd9))])], by="PATIENT", all.x=T, all.y=F) 
 
-ALLpick <- tmp[ ,grep("DAT",colnames(tmp))]
-pick_data <- lapply(1: nrow(ALLpick),function(.x){
-  .vni <- ALLpick[.x, "DATEVNI"]
-  .l <- ALLpick[.x, !colnames(ALLpick)%in% "DATEVNI"]
-  for (i in colnames(.l)) .l[,i] <- manage_date_ND(.l[,i])
-  if(any(as.vector(!is.na(.l)))){
-    myrow <- table(!is.na(.l))[2]
+
+#IS RILU? 
+# tmp <- merge(bdd9,months_before_vni,by="PATIENT",all.y=T)
+# ALLpick <- tmp[ ,c("myrow","DATEVNI",colnames(tmp)[grep("RILU",colnames(tmp))]) ]
+# for (i in colnames(ALLpick)[grep("DATFRILU_V_M",colnames(ALLpick))]) ALLpick[,i] <- manage_date_ND(ALLpick[,i])
+# pick_data <- lapply(1: nrow(ALLpick),function(.x){
+#   #browser()
+#   myrow <- ALLpick[.x, "myrow"]
+#   if (is.na(myrow)) data <- NA
+#   else{
+#     #browser()
+#     .l <- ALLpick[.x, paste0("RILUZ_V_M",1:myrow)]
+#     .l <- .l[!is.na(.l)]
+#     .g <- ALLpick[.x, paste0("DATFRILU_V_M",1:myrow)]
+#     #for (i in colnames(.g)) .g[,i] <- manage_date_ND(.g[,i])
+#     .g <- .g[!is.na(.g)]
+#     
+#     if (length(.l)==0) {
+#       data <- 0
+#     } else {
+#       if (length(.g)==0) data <- tail(.l,1)
+#       else {
+#         #browser()
+#         if(tail(.g,1) < ALLpick[.x, "DATEVNI"]) data <- 0
+#         else data <- 1
+#       }
+#     }
+#   }
+#   return(data)
+# })
+# ALLpick$data <- as.vector(do.call(rbind,pick_data))
+# ALLpick$PATIENT <- as.character(tmp$PATIENT)
+# ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
+# names_dataset <- "RILU1"
+# colnames(ALLpick)[-1] <- "rilu1"
+# assign(names_dataset,ALLpick)
+# 
+# 
+# tmp <- merge(BASE_SLA, bdd9[, c("PATIENT",colnames(bdd9)[grep("DATDRILU",colnames(bdd9))])], by="PATIENT", all.x=T, all.y=F) 
+# ALLpick <-tmp[ ,grep("DAT",colnames(tmp))] #pour ne garder que DATDRILU et DATEVNI
+# pick_data <- lapply(1: nrow(ALLpick),function(.x){
+#   .vni <- ALLpick[.x, "DATEVNI"]
+#   .l <- ALLpick[.x, !colnames(ALLpick)%in% "DATEVNI"]#selection de toutes les colonnes dates RILU
+#   .l <- .l[!is.na(.l)] #indispensable pour transformer en vecteur avant manage date
+#   .l <- manage_date_ND(.l)
+#   .l <- .l[!is.na(.l)]
+#   if (length(.l)==0){
+#     data <- 0
+#   } else { #si une date existe
+#     if (any(.l < .vni)) data <- 1 #si une date existe et qu'elle est inferieure a vni 
+#     else data <- 0
+#   }
+#   return (data)
+# })
+# ALLpick$data <- as.vector(do.call(rbind,pick_data))
+# ALLpick$PATIENT <- as.character(tmp$PATIENT)
+# ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
+# names_dataset <- "RILU2"
+# colnames(ALLpick)[-1] <- "rilu2"
+# assign(names_dataset,ALLpick)
+# 
+# RILU <- merge(RILU1,RILU2,by="PATIENT",all=T)
+# RILU$rilu <- ifelse (RILU$rilu1==1 | RILU$rilu2==1, 1, 0)
+# table(RILU$rilu1,RILU$rilu2,deparse.level = 2)
+# 
+# RILU <- unique(RILU[,c("PATIENT","rilu")])
+# names_dataset <- "RILU"
+# saveRDS(RILU, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds")) #1 si prise de rilu avant mise sous vni
+# 
+
+
+# tmp <- merge(bdd9,months_before_vni,by="PATIENT",all.y=T)
+# ALLpick <- tmp[ ,c("myrow","DATEVNI",colnames(tmp)[grep("RILU",colnames(tmp))]) ]
+# for (i in colnames(ALLpick)[grep("DATFRILU_V_M",colnames(ALLpick))]) ALLpick[,i] <- manage_date_ND(ALLpick[,i])
+# for (i in colnames(ALLpick)[grep("DATDRILU_V_M",colnames(ALLpick))]) ALLpick[,i] <- manage_date_ND(ALLpick[,i])
+# pick_data <- lapply(1: nrow(ALLpick),function(.x){
+#   #browser()
+#   myrow <- ALLpick[.x, "myrow"]
+#   if (is.na(myrow)) data <- NA
+#   else {
+#     #browser()
+#     .l <- ALLpick[.x, paste0("DATDRILU_V_M",1:myrow)]
+#     .l <- .l[!is.na(.l)]
+#     .g <- ALLpick[.x, paste0("DATFRILU_V_M",1:myrow)]
+#     .g <- .g[!is.na(.g)]
+#     
+#     if (length(.l)==0) {
+#       if (length(.g)==0) {
+#         #browser()
+#         DRILU <- NA 
+#         FRILU <- NA
+#       } else {
+#         DRILU <- NA 
+#         FRILU <- tail(.g,1)
+#       }
+#     } else {
+#       if (length(.g)==0) {
+#         DRILU <- tail(.l,1) 
+#         FRILU <- NA
+#       } else {
+#         DRILU <- tail(.l,1) 
+#         FRILU <- tail(.g,1)
+#       } 
+#     }
+#   }
+#   return(c(DRILU, FRILU))
+# })
+# ALLpick$data <- as.vector(do.call(rbind,pick_data))
+# ALLpick$PATIENT <- as.character(tmp$PATIENT)
+# ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
+# names_dataset <- "RILU1"
+# colnames(ALLpick)[-1] <- "rilu1"
+# assign(names_dataset,ALLpick)
+# 
+# get_date_max_fun(bdd9,"DATDRILU_V_M",fun="min")
+
+
+
+
+#DATE DEBUT RILU
+listes_brut <- lapply(bdds, which_col,string1="DATDRILU_V_M", type="merge")
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  #browser()
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+
+for (i in colnames(res)[grep("DAT", colnames(res))]) res[,i] <- manage_date_ND(res[,i])
+RILU <- res[ ,!colnames(res)%in%"PATIENT"]
+pick_atcd <- lapply(1: nrow(RILU),function(.x){
+  .l <- RILU[.x,]
+  .l <- .l[!is.na(.l)]
+  #browser()
+  if (length(.l)!=0){
+    if(length(.l)==1) data <- .l
+    else data <- min(.l)
+    #else data <- "several" #2 personnes avec plusieurs dates, je prends la min
   } else {
-    myrow <- NA
+    data <- NA
   }
-  return (myrow)
+  return (data)
 })
-ALLpick$data <- as.vector(do.call(rbind,pick_data))
-ALLpick$PATIENT <- as.character(tmp$PATIENT)
-ALLpick$DATEVNI <- tmp$DATEVNI
-ALLpick <- unique(ALLpick[ , c("PATIENT","data","DATEVNI")])
-colnames(ALLpick)[2] <- "myrow"
-names_dataset <- "months_before_vni"
-assign(names_dataset,ALLpick)
+
+RILU$DEBRILU <- as.vector(do.call(rbind,pick_atcd))
+RILU$PATIENT <- as.character(res$PATIENT)
+RILU1 <- unique(RILU[ , c("PATIENT","DEBRILU")])
+
+#DATE FIN RILU
+listes_brut <- lapply(bdds, which_col,string1="DATFRILU_V_M", type="merge")
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  #browser()
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+
+for (i in colnames(res)[grep("DAT", colnames(res))]) res[,i] <- manage_date_ND(res[,i])
+RILU <- res[ ,!colnames(res)%in%"PATIENT"]
+pick_atcd <- lapply(1: nrow(RILU),function(.x){
+  .l <- RILU[.x,]
+  .l <- .l[!is.na(.l)]
+  #browser()
+  if (length(.l)!=0){
+    if(length(.l)==1) data <- .l
+    else data <- min(.l)
+    #else data <- "several" #no sevearl date
+  } else {
+    data <- NA
+  }
+  return (data)
+})
+
+RILU$FINRILU <- as.vector(do.call(rbind,pick_atcd))
+RILU$PATIENT <- as.character(res$PATIENT)
+RILU2 <- unique(RILU[ , c("PATIENT","FINRILU")])
+RILU <- merge(RILU1,RILU2,by="PATIENT",all=T)
+
+names_dataset <- "RILU"
+saveRDS(RILU, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds")) 
 
 
+#----------------
+#ALSFRS-R score
 tmp <- merge(bdd9,months_before_vni,by="PATIENT",all.y=T)
-ALLpick <- tmp[ ,c("myrow","DATEVNI",colnames(tmp)[grep("RILU",colnames(tmp))]) ]
+ALLpick <- tmp[ ,c("myrow","DATEVNI",colnames(tmp)[grep("ALS_V",colnames(tmp))]) ]
 pick_data <- lapply(1: nrow(ALLpick),function(.x){
   #browser()
   myrow <- ALLpick[.x, "myrow"]
-  .l <- ALLpick[.x, paste0("RILUZ_V_M",1:myrow)]
-  .l <- .l[!is.na(.l)]
-  .g <- ALLpick[.x, paste0("DATFRILU_V_M",1:myrow)]
-  for (i in colnames(.g)) .g[,i] <- manage_date_ND(.g[,i])
-  .g <- .g[!is.na(.g)]
-  
-  if (length(.l)==0) {
-    data <- 0
+  if (is.na(myrow)){ 
+    data <- NA
   } else {
-    if (length(.g)==0) data <- tail(.l,1)
-    else {
-      if(tail(.g,1) < ALLpick[.x, "DATEVNI"]) data <- 0
-    }
+    data <- ALLpick[.x, paste0("ALS_V_M",myrow)]
+    # if (is.na(data)){ 
+    #   data <- ALLpick[.x, paste0("ALS_V_M",(myrow-1))]#ok pour prendre l'échelle du mois précédent?
+    # }
+  }
+  #en prenant la dernière ALS dispo même si le patient est peut être plus grave à linstauration de la VNI: (je ne fais pas ça finalement) 
+  #.l <- ALLpick[.x, paste0("ALS_V_M",1:myrow)]
+  #.l <- .l[!is.na(.l)] #transforme en vecteur
+  # if (length(.l)==0)  data <- NA
+  # else data <- tail(.l,1) 
+  return(data)
+})
+ALLpick$data <- as.vector(do.call(rbind,pick_data))
+ALLpick$PATIENT <- as.character(tmp$PATIENT)
+ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
+names_dataset <- "ALSFRS"
+colnames(ALLpick)[-1] <- "ALS_score"
+assign(names_dataset,ALLpick)
+saveRDS(ALLpick, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds"))
+
+# 
+# listes_net <- list(bdd6[,c("PATIENT","ALS")],bdd9[,c("PATIENT","ALS_V_M1")])
+# for (i in 1:length(listes_net)) {
+#   data <- listes_net[[i]]
+#   res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+# }
+# 
+# ALLpick <-res[ ,!colnames(res)%in%"PATIENT"]
+# pick_data <- lapply(1: nrow(ALLpick),function(.x){
+#   .l <- ALLpick[.x,]
+#   .l <- .l[!is.na(.l)]
+#   if (length(.l)!=0){
+#     data <- .l[1] #si 2 score, alors c'est celui du fichier pat qui est pris. Si un seul renseigné, alors on prend le seul qui existe. 
+#   } else { #si laligne est vide
+#     data <- NA
+#   }
+#   return (data)
+# })
+# ALLpick$data <- as.vector(do.call(rbind,pick_data))
+# ALLpick$PATIENT <- as.character(res$PATIENT)
+# ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
+# 
+# #personnaliser
+# colnames(ALLpick)[-1] <- "ALS_FRS_score"
+# names_dataset <- "ALS_FRS"
+# #
+
+#assign(names_dataset,ALLpick)
+#saveRDS(ALLpick, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds"))
+
+#----------------
+#norris bulbar score
+
+tmp <- merge(bdd9,months_before_vni,by="PATIENT",all.y=T)
+ALLpick <- tmp[ ,c("myrow","DATEVNI",colnames(tmp)[grep("E_BULBAIRE_V_M",colnames(tmp))]) ]
+pick_data <- lapply(1: nrow(ALLpick),function(.x){
+  #browser()
+  myrow <- ALLpick[.x, "myrow"]
+  if (is.na(myrow)){ 
+    data <- NA
+  } else {
+    data <- ALLpick[.x, paste0("E_BULBAIRE_V_M",myrow)]
+    # if (is.na(data)){ 
+    #   data <- ALLpick[.x, paste0("ALS_V_M",(myrow-1))]#ok pour prendre l'échelle du mois précédent?
+    # }
+  }
+  #en prenant la dernière ALS dispo même si le patient est peut être plus grave à linstauration de la VNI: (je ne fais pas ça finalement) 
+  #.l <- ALLpick[.x, paste0("ALS_V_M",1:myrow)]
+  #.l <- .l[!is.na(.l)] #transforme en vecteur
+  # if (length(.l)==0)  data <- NA
+  # else data <- tail(.l,1) 
+  return(data)
+})
+ALLpick$data <- as.vector(do.call(rbind,pick_data))
+ALLpick$PATIENT <- as.character(tmp$PATIENT)
+ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
+names_dataset <- "E_BULB"
+colnames(ALLpick)[-1] <- "bulb_score"
+assign(names_dataset,ALLpick)
+saveRDS(ALLpick, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds"))
+
+# v <- "bulbaire"
+# 
+# for (i in .dir_sas){
+#   fic<-i
+#   x<-scan(i, what=as.character(), sep="\n")
+#   j<-grep(v, tolower(x));print(c(i,x[j]))
+# }
+# 
+# table(bdd6$E_BULBAIRE,useNA="a")
+# ALLpick <- bdd6[ ,c("PATIENT","E_BULBAIRE")]
+# names_dataset <- "E_BULBAIRE"
+# assign(names_dataset,ALLpick)
+# saveRDS(ALLpick, paste0("data/baseline_to_merge/",names_dataset,".rds"))
+
+#-----------------
+#bicar from bdd9
+tmp <- merge(bdd9,months_before_vni,by="PATIENT",all.y=T)
+ALLpick <- tmp[ ,c("myrow","DATEVNI",colnames(tmp)[grep("BICARB_V_M",colnames(tmp))]) ]
+pick_data <- lapply(1: nrow(ALLpick),function(.x){
+  #browser()
+  myrow <- ALLpick[.x, "myrow"]
+  if (is.na(myrow)){ 
+    data <- NA
+  } else {
+    #browser()
+    data <- ALLpick[.x, paste0("BICARB_V_M",myrow)]
   }
   return(data)
 })
 ALLpick$data <- as.vector(do.call(rbind,pick_data))
 ALLpick$PATIENT <- as.character(tmp$PATIENT)
 ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
-names_dataset <- "RILU1"
-colnames(ALLpick)[-1] <- "rilu1"
+names_dataset <- "bicarbdd9"
+colnames(ALLpick)[-1] <- "bicar"
 assign(names_dataset,ALLpick)
+#saveRDS(ALLpick, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds"))
+#TOUTE LA BASE EST NA (ce n'est pas une erreur), JE NE SAUVE PAS
 
 
-tmp <- merge(BASE_SLA, bdd9[, c("PATIENT",colnames(bdd9)[grep("RILU",colnames(bdd9))])], by="PATIENT", all.x=T, all.y=F) 
-ALLpick <-tmp[ ,grep("DAT",colnames(tmp))]
-pick_data <- lapply(1: nrow(ALLpick),function(.x){
+
+#---------------
+#all bl var from bdd7
+
+
+tmp <- merge(BASE_SLA[ , c("PATIENT","DATEVNI")], bdd7, by="PATIENT", all.x=T, all.y=F)
+ALLpick <- tmp
+for (i in colnames(ALLpick)[grep("DAT",colnames(ALLpick))]) ALLpick[,i] <- manage_date_ND(ALLpick[,i])
+
+
+pick_data <- sapply(1: nrow(ALLpick),function(.x){
   .vni <- ALLpick[.x, "DATEVNI"]
-  .l <- ALLpick[.x, !colnames(ALLpick)%in% "DATEVNI"]
-  .l <- .l[!is.na(.l)] #indispensable pour transformer en vecteur avant manage date
-  .l <- manage_date_ND(.l)
-  .l <- .l[!is.na(.l)]
-  if (length(.l)==0){
-    data <- 0
-  } else { #si une date existe
-    if (any(.l < .vni)) data <- 1
-    else data <- 0
+  .l <- ALLpick[.x, grep("DATE_PREVENT_PP",colnames(ALLpick))]#je selectionne toutes les colonnes DATE_PREVENT_PP et je considere que sousvent est pendant la ventilation
+  .g <- as.vector(t(.l))
+  
+  if(any(!is.na(.g))){
+    row_last_date_before_vni <- tail(which((.g<=.vni)),1) #dernier mois dispo avant VNI (je fais l'hypothese que l'info si elle existe est bien renseignée)
+    
+    if (length(row_last_date_before_vni)==0) { #les dates sont post à vni, alors jessaye PP
+      month_bef_vni <- "after vni"
+      .l <- ALLpick[.x, "DATE_RESP_PP"]
+      if(!is.na(.l) & (.vni-.l)>0 & (.vni-.l)<90) { #ok si mesure faite 3 mois avant vni (je fais l'hypothese que cette colonne est moins bien renseignée que celle de suivi)
+        
+        month_bef_vni <- "DATE_RESP_PP"
+        dysp <- ALLpick[.x, "DYSP_REPOS_PP"]
+        orthop <- ALLpick[.x, "DYSP_DECUBI_PP"]
+        CVF_ASSIS_perc_pred <- as.numeric(as.character(ALLpick[.x, "CVF_ASSIS_THEO_PP"]))
+        CVF_COUCHE_perc_pred <- as.numeric(as.character(ALLpick[.x, "CVF_THEO_PP"]))
+        SNIP_cmH2O <- as.numeric(as.character(ALLpick[.x, "SNIP_PP"]))
+        SNIP_perc_pred <- as.numeric(as.character(ALLpick[.x, "SNIP_THEO_PP"]))
+        PIMAX_cmH2O <- as.numeric(as.character(ALLpick[.x, "PIMAX_PP"]))
+        PIMAX_perc_pred <- as.numeric(as.character(ALLpick[.x, "PIMAX_THEO_PP"]))
+        
+        perc_time_under_spo2_90 <- as.numeric(as.character(ALLpick[.x, "SPO2_TPS_PP"]))
+        
+        DUREE_ENREG_H_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_H_PP"]))
+        DUREE_ENREG_MIN_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_MIN_PP"]))
+        DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
+        DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
+        minutes <- (DUREE_ENREG_H_PP*60)+DUREE_ENREG_MIN_PP
+        heures <- minutes/60
+        time_under_spo2_90_h <- perc_time_under_spo2_90*heures
+        
+        bicar <- as.numeric(as.character(ALLpick[.x, "HCO3_PP"] ))
+        
+      } else { #date_prevent_PP NA ou post a vni et date_resp_pp NA ou post a vni
+        #month_bef_vni <- NA
+        dysp <- NA
+        orthop <- NA
+        CVF_ASSIS_perc_pred <- NA
+        CVF_COUCHE_perc_pred <- NA
+        SNIP_cmH2O <- NA
+        SNIP_perc_pred <- NA
+        PIMAX_cmH2O <- NA
+        PIMAX_perc_pred <- NA
+        perc_time_under_spo2_90 <- NA
+        time_under_spo2_90_h <- NA
+        bicar <- NA 
+      }
+    }
+    
+    
+    
+    # "CVF_ASSIS_THEO_PP","CVF_THEO_PP","SNIP_PP", "SNIP_THEO_PP"
+    # "CVF_ASSIS_perc_pred","CVF_COUCHE_perc_pred","SNIP_cmH2O","SNIP_perc_pred"
+    # data <- bdd7[ ,c("PATIENT", "PIMAX_PP", "PIMAX_THEO_PP")]
+    # colnames_data <- c("PATIENT","PIMAX_cmH2O","PIMAX_perc_pred")
+    
+    #"SPO2_TPS_PP","time_spent_spo290_h","HCO3_PP"
+    # colnames_data <-"perc_time_under_spo2_90" " time_under_spo2_90_h", "bicar"
+    
+    else { #il y a une date prevent antérieure à vni (et je fais l'hypothese qu'elle est juste avant vni)
+      month_bef_vni <- colnames(.l[row_last_date_before_vni])
+      month_bef_vni <- ifelse(str_sub(month_bef_vni,-3,-3)=="F", as.numeric(str_sub(month_bef_vni,-2,-1)),as.numeric(str_sub(month_bef_vni,-1,-1)))
+      
+      dysp <- ALLpick[.x, paste0("DYSP_REPOS_PV_F",month_bef_vni)]
+      orthop <- ALLpick[.x, paste0("DYSP_DECUBI_PV_F",month_bef_vni)]
+      CVF_ASSIS_perc_pred <- as.numeric(as.character(ALLpick[.x, paste0("CVF_ASSIS_THEO_PV_F",month_bef_vni)]))
+      CVF_COUCHE_perc_pred <- as.numeric(as.character(ALLpick[.x, paste0("CVF_THEO_PV_F",month_bef_vni)]))
+      SNIP_cmH2O <- as.numeric(as.character(ALLpick[.x, paste0("SNIP_PV_F",month_bef_vni)]))
+      SNIP_perc_pred <- as.numeric(as.character(ALLpick[.x, paste0("SNIP_THEO_PV_F",month_bef_vni)]))
+      PIMAX_cmH2O <- as.numeric(as.character(ALLpick[.x, paste0("PIMAX_PV_F",month_bef_vni)]))
+      PIMAX_perc_pred <- as.numeric(as.character(ALLpick[.x, paste0("PIMAX_THEO_PV_F",month_bef_vni)]))
+      
+      perc_time_under_spo2_90 <- as.numeric(as.character(ALLpick[.x, paste0("SPO2_TPS_PV_F",month_bef_vni)]))
+      
+      DUREE_ENREG_H_PP <- as.integer(as.character(ALLpick[.x, paste0("DUREE_ENREG_H_PV_F",month_bef_vni)]))
+      DUREE_ENREG_MIN_PP <- as.integer(as.character(ALLpick[.x, paste0("DUREE_ENREG_MIN_PV_F",month_bef_vni)]))
+      DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
+      DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
+      minutes <- (DUREE_ENREG_H_PP*60)+DUREE_ENREG_MIN_PP
+      heures <- minutes/60
+      time_under_spo2_90_h <- perc_time_under_spo2_90*heures
+      
+      bicar <- as.numeric(as.character(ALLpick[.x, paste0("HCO3_PV_F",month_bef_vni)] ))
+      
+    }
+    
+    
+  } else { # toutes les dates prevent sont NA cad .g=NA
+    .l <- ALLpick[.x, "DATE_RESP_PP"]
+    
+    if(!is.na(.l) & (.vni-.l)>0 & (.vni-.l)<90) { #ok si mesure faite 3 mois avant vni (je fais l'hypothese que cette colonne est moins bien renseignée que celle de suivi)
+      #browser()
+      month_bef_vni <- "DATE_RESP_PP"
+      dysp <- ALLpick[.x, "DYSP_REPOS_PP"]
+      orthop <- ALLpick[.x, "DYSP_DECUBI_PP"]
+      CVF_ASSIS_perc_pred <- as.numeric(as.character(ALLpick[.x, "CVF_ASSIS_THEO_PP"]))
+      CVF_COUCHE_perc_pred <- as.numeric(as.character(ALLpick[.x, "CVF_THEO_PP"]))
+      SNIP_cmH2O <- as.numeric(as.character(ALLpick[.x, "SNIP_PP"]))
+      SNIP_perc_pred <- as.numeric(as.character(ALLpick[.x, "SNIP_THEO_PP"]))
+      PIMAX_cmH2O <- as.numeric(as.character(ALLpick[.x, "PIMAX_PP"]))
+      PIMAX_perc_pred <- as.numeric(as.character(ALLpick[.x, "PIMAX_THEO_PP"]))
+      
+      perc_time_under_spo2_90 <- as.numeric(as.character(ALLpick[.x, "SPO2_TPS_PP"]))
+      
+      DUREE_ENREG_H_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_H_PP"]))
+      DUREE_ENREG_MIN_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_MIN_PP"]))
+      DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
+      DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
+      minutes <- (DUREE_ENREG_H_PP*60)+DUREE_ENREG_MIN_PP
+      heures <- minutes/60
+      time_under_spo2_90_h <- perc_time_under_spo2_90*heures
+      
+      bicar <- as.numeric(as.character(ALLpick[.x, "HCO3_PP"] ))
+      
+    } else { #date_prevent_PP NA ou post a vni et date_resp_pp NA ou post a vni
+      month_bef_vni <- NA
+      dysp <- NA
+      orthop <- NA
+      CVF_ASSIS_perc_pred <- NA
+      CVF_COUCHE_perc_pred <- NA
+      SNIP_cmH2O <- NA
+      SNIP_perc_pred <- NA
+      PIMAX_cmH2O <- NA
+      PIMAX_perc_pred <- NA
+      perc_time_under_spo2_90 <- NA
+      time_under_spo2_90_h <- NA
+      bicar <- NA 
+    }
   }
-  return (data)
+  
+  return (c(month_bef_vni, dysp, orthop, CVF_ASSIS_perc_pred, CVF_COUCHE_perc_pred, SNIP_cmH2O, SNIP_perc_pred, PIMAX_cmH2O, PIMAX_perc_pred,
+            perc_time_under_spo2_90, time_under_spo2_90_h, bicar))
 })
-ALLpick$data <- as.vector(do.call(rbind,pick_data))
+ALLpick <- data.frame(t(pick_data))
+colnames(ALLpick) <- c("month_bef_vni", "dysp", "orthop", "CVF_ASSIS_perc_pred", "CVF_COUCHE_perc_pred", "SNIP_cmH2O", "SNIP_perc_pred", "PIMAX_cmH2O", "PIMAX_perc_pred",
+                         "perc_time_under_spo2_90", "time_under_spo2_90_h", "bicar")
+
 ALLpick$PATIENT <- as.character(tmp$PATIENT)
-ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
-names_dataset <- "RILU2"
-colnames(ALLpick)[-1] <- "rilu2"
-assign(names_dataset,ALLpick)
-
-RILU <- merge(RILU1,RILU2,by="PATIENT",all=T)
-RILU$rilu <- ifelse (RILU$rilu1==1 | RILU$rilu2==1, 1, 0)
-#table(RILU$rilu1,RILU$rilu2)
-
-RILU <- unique(RILU[,c("PATIENT","rilu")])
-names_dataset <- "RILU"
-saveRDS(RILU, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds")) #1 si prise de rilu avant mise sous vni
-
-#----------------
-#ALSFRS-R score
-
-
-#personnaliser
-listes_brut <- lapply(bdds, which_col,string1="FRSDT", type="explo")
-#
-
-listes_net <- list(bdd6[,c("PATIENT","ALS")],bdd9[,c("PATIENT","ALS_V_M1")])
-for (i in 1:length(listes_net)) {
-  data <- listes_net[[i]]
-  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
-}
-
-ALLpick <-res[ ,!colnames(res)%in%"PATIENT"]
-pick_data <- lapply(1: nrow(ALLpick),function(.x){
-  .l <- ALLpick[.x,]
-  .l <- .l[!is.na(.l)]
-  if (length(.l)!=0){
-    data <- .l[1] #si 2 score, alors c'est celui du fichier pat qui est pris. Si un seul renseigné, alors on prend le seul qui existe. 
-  } else { #si laligne est vide
-    data <- NA
-  }
-  return (data)
-})
-ALLpick$data <- as.vector(do.call(rbind,pick_data))
-ALLpick$PATIENT <- as.character(res$PATIENT)
-ALLpick <- unique(ALLpick[ , c("PATIENT","data")])
-
-#personnaliser
-colnames(ALLpick)[-1] <- "ALS_FRS_score"
-names_dataset <- "ALS_FRS"
-#
-
+ALLpick$DATEVNI <- tmp$DATEVNI
+ALLpick <- unique(ALLpick)
+names_dataset <- "ALLRESPI_bl"
 assign(names_dataset,ALLpick)
 saveRDS(ALLpick, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds"))
 
-#----------------
-#norris bulbar score
-v <- "bulbaire"
 
-for (i in .dir_sas){
-  fic<-i
-  x<-scan(i, what=as.character(), sep="\n")
-  j<-grep(v, tolower(x));print(c(i,x[j]))
-}
 
-table(bdd6$E_BULBAIRE,useNA="a")
-ALLpick <- bdd6[ ,c("PATIENT","E_BULBAIRE")]
-names_dataset <- "E_BULBAIRE"
-assign(names_dataset,ALLpick)
-saveRDS(ALLpick, paste0("data/baseline_to_merge/",names_dataset,".rds"))
-
-#---------------
-#dyspnoea at rest and orthopnoea
-
-v <- "dyspn"
-v <- "orthopn"
-
-for (i in .dir_sas){
-  fic<-i
-  x<-scan(i, what=as.character(), sep="\n")
-  j<-grep(v, tolower(x));print(c(i,x[j]))
-}
+# v <- "dyspn"
+# v <- "orthopn"
+# 
+# for (i in .dir_sas){
+#   fic<-i
+#   x<-scan(i, what=as.character(), sep="\n")
+#   j<-grep(v, tolower(x));print(c(i,x[j]))
+# }
 
 #pat : ALS_ALS_dyspne 1=dyspnee de repos
 # 0 = 'Difficulté amenant à envisager ventilation' 
@@ -1049,97 +1375,97 @@ for (i in .dir_sas){
 
 #find_table ("pat")
 
-dysp_orth <- bdd6 [ , c("PATIENT","DATEXAM","ALS_ALS_dyspne","ALS_ALS_orthopne")]
-dysp_orth$dyspnee_repos <- Recode(dysp_orth$ALS_ALS_dyspne, "1=1;NA=NA;else=0")
-#dysp_orth$orthopnee <- Recode(dysp_orth$ALS_ALS_orthopne, "0:3=1; NA=NA ;else=0")
-dysp_orth$orthopnee <- Recode(dysp_orth$ALS_ALS_orthopne, "0:2=1; NA=NA ;else=0")
-dysp_orth <- unique(dysp_orth[ , c("PATIENT","DATEXAM","dyspnee_repos","orthopnee")])
+# dysp_orth <- bdd6 [ , c("PATIENT","DATEXAM","ALS_ALS_dyspne","ALS_ALS_orthopne")]
+# dysp_orth$dyspnee_repos <- Recode(dysp_orth$ALS_ALS_dyspne, "1=1;NA=NA;else=0")
+# #dysp_orth$orthopnee <- Recode(dysp_orth$ALS_ALS_orthopne, "0:3=1; NA=NA ;else=0")
+# dysp_orth$orthopnee <- Recode(dysp_orth$ALS_ALS_orthopne, "0:2=1; NA=NA ;else=0")
+# dysp_orth <- unique(dysp_orth[ , c("PATIENT","DATEXAM","dyspnee_repos","orthopnee")])
+# 
+# dysp_orth2 <- unique(bdd7[ ,c("PATIENT","DATE_RESP_PP","DYSP_REPOS_PP","DYSP_DECUBI_PP")])
+# do <- merge(dysp_orth,dysp_orth2,by="PATIENT",all=TRUE)
+# do$DATEXAM <- manage_date_ND(do$DATEXAM)
+# do$DATE_RESP_PP <- manage_date_ND(do$DATE_RESP_PP)
+# 
+# 
+# # table(dysp_orth$dyspnee_repos,dysp_orth$DYSP_REPOS_PP,deparse.level = 2)
+# # dysp_orth %>% filter(dyspnee_repos!=DYSP_REPOS_PP)
+# # dysp_orth %>% filter(PATIENT=="ANDRE_MICHEL")
+# # table(dysp_orth$orthopnee,dysp_orth$DYSP_DECUBI_PP,deparse.level = 2)
+# 
+# #Je garde la date la plus récente (souvent la discordance vient du fait que PP(bdd7) est plus tardif que DATEXAM(bdd6))
+# #do$dyspnee_repos_tot <- ifelse (is.na(do$dyspnee_repos) | (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP),
+# #                               do$DYSP_REPOS_PP, do$dyspnee_repos) #mais doit on considéré que si on a pas de dyspnee repos on doit prendre PP?
+# do$dyspnee_repos_tot <- ifelse (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP,
+#                                 do$DYSP_REPOS_PP, do$dyspnee_repos) #est-ce mieux?
+# #do$orthopnee_tot <- ifelse (is.na(do$orthopnee) | (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP),
+# #                                do$DYSP_DECUBI_PP, do$orthopnee) #mais doit on considéré que si on a pas de dyspnee repos on doit prendre PP?
+# do$orthopnee_tot <- ifelse (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP,
+#                                 do$DYSP_DECUBI_PP, do$orthopnee) #est-ce mieux? cad que si pas de donnee date exam on met NA pour ne pas biaiser
+# do <- do[ ,c("PATIENT","dyspnee_repos_tot","orthopnee_tot")]
+# 
+# saveRDS(do, paste0("data/baseline_to_merge/dysp_orth.rds"))
 
-dysp_orth2 <- unique(bdd7[ ,c("PATIENT","DATE_RESP_PP","DYSP_REPOS_PP","DYSP_DECUBI_PP")])
-do <- merge(dysp_orth,dysp_orth2,by="PATIENT",all=TRUE)
-do$DATEXAM <- manage_date_ND(do$DATEXAM)
-do$DATE_RESP_PP <- manage_date_ND(do$DATE_RESP_PP)
-
-
-# table(dysp_orth$dyspnee_repos,dysp_orth$DYSP_REPOS_PP,deparse.level = 2)
-# dysp_orth %>% filter(dyspnee_repos!=DYSP_REPOS_PP)
-# dysp_orth %>% filter(PATIENT=="ANDRE_MICHEL")
-# table(dysp_orth$orthopnee,dysp_orth$DYSP_DECUBI_PP,deparse.level = 2)
-
-#Je garde la date la plus récente (souvent la discordance vient du fait que PP(bdd7) est plus tardif que DATEXAM(bdd6))
-#do$dyspnee_repos_tot <- ifelse (is.na(do$dyspnee_repos) | (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP),
-#                               do$DYSP_REPOS_PP, do$dyspnee_repos) #mais doit on considéré que si on a pas de dyspnee repos on doit prendre PP?
-do$dyspnee_repos_tot <- ifelse (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP,
-                                do$DYSP_REPOS_PP, do$dyspnee_repos) #est-ce mieux?
-#do$orthopnee_tot <- ifelse (is.na(do$orthopnee) | (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP),
-#                                do$DYSP_DECUBI_PP, do$orthopnee) #mais doit on considéré que si on a pas de dyspnee repos on doit prendre PP?
-do$orthopnee_tot <- ifelse (!is.na(do$DATEXAM) & !is.na(do$DATE_RESP_PP) & do$DATEXAM>do$DATE_RESP_PP,
-                                do$DYSP_DECUBI_PP, do$orthopnee) #est-ce mieux? cad que si pas de donnee date exam on met NA pour ne pas biaiser
-do <- do[ ,c("PATIENT","dyspnee_repos_tot","orthopnee_tot")]
-
-saveRDS(do, paste0("data/baseline_to_merge/dysp_orth.rds"))
-
-#---------
-#Sitting FVC (CRF)
-scan_notebook("cvf_assis",.dir_sas)
-
-find_table("pre")
-
-#lequel des trois donne sitting FVC(%predicted)?
-quantile(as.numeric(as.character(bdd7$CVF_ASSIS_ESR_PP)),na.rm=T)
-quantile(as.numeric(as.character(bdd7$CVF_ASSIS_OBSV_PP)),na.rm=T)
-quantile(as.numeric(as.character(bdd7$CVF_ASSIS_THEO_PP)),na.rm=T)
-#theo est bien le %predicted (comme dans lancet):
-quantile(as.numeric(as.character(bdd7$CVF_ASSIS_OBSV_PP))/as.numeric(as.character(bdd7$CVF_ASSIS_ESR_PP))*100,na.rm=T)
-
-quantile(as.numeric(as.character(bdd7$CVF_COUCHE_PP)),na.rm=T)
-quantile(as.numeric(as.character(bdd7$CVF_ERS_PP)),na.rm=T) #espéré est la même que assis mais c'et plausible
-quantile(as.numeric(as.character(bdd7$CVF_THEO_PP)),na.rm=T) #est-ce bien la CVF couché (%predicted)?
-quantile(as.numeric(as.character(bdd7$CVF_COUCHE_PP))/as.numeric(as.character(bdd7$CVF_ERS_PP))*100,na.rm=T) #oui c'est quasi pareil
-
-CVF <- bdd7[ ,c("PATIENT", "DATE_RESP_PP", "CVF_ASSIS_THEO_PP","CVF_THEO_PP","SNIP_PP", "SNIP_THEO_PP")]
-colnames_bdd <- c("PATIENT","DATE_CVF","CVF_ASSIS_perc_pred","CVF_COUCHE_perc_pred","SNIP_cmH2O","SNIP_perc_pred")
-colnames(CVF) <- colnames_bdd
-
-for (i in colnames(CVF)) {
-  CVF[,i] <- as.character(CVF[,i])
-  CVF[,i] <- ifelse(CVF[,i]=="",NA,CVF[,i])
-}
-CVF$keep <- ifelse(is.na(CVF$CVF_ASSIS_perc_pred) & is.na(CVF$CVF_COUCHE_perc_pred) & is.na(CVF$SNIP_cmH2O) & is.na(CVF$SNIP_perc_pred),0,1)
-CVF <- CVF[CVF$keep==1, colnames_bdd]
-
-saveRDS(CVF, paste0("data/baseline_to_merge/CVF_SNIP.rds"))
-
-
-#recherche des autres sniff nasal inspiratory pressure
-listes_brut <- lapply(bdds, which_col,string1="SNIP", string2="PP", type="merge")
-listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
-for (i in 1:length(listes_net)) {
-  data <- listes_net[[i]]
-  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
-}
-#quand SNIPP_PP n'est pas renseigné, les SNIP_FAIBLE non plus donc SNIPP_PP suffit
-res%>% filter(is.na(SNIP_PP) & is.na(SNIP_FAIBL_3_PP))
-for (i in 1:3) {
-  print(res[ is.na(res$SNIP_PP) & !is.na(res[ ,paste0("SNIP_FAIBL_",i,"_PP")]),])
-}
-#ok tout est déjà dans CVF
-
-#-----------
-#maximal inspiratory pressure (PIMAX probablement)
-data <- bdd7[ ,c("PATIENT", "PIMAX_PP", "PIMAX_THEO_PP")]
-colnames_data <- c("PATIENT","PIMAX_cmH2O","PIMAX_perc_pred")
-colnames(data) <- colnames_data
-
-for (i in colnames(data)) {
-  data[,i] <- as.character(data[,i])
-  data[,i] <- ifelse(data[,i]=="",NA,data[,i])
-}
-data$keep <- ifelse(is.na(data[,2]) & is.na(data[,3]),0,1)
-data <- unique(data[data$keep==1, colnames_data])
-names_dataset <- "PIMAX"
-assign(names_dataset,data)
-saveRDS(data, paste0("data/baseline_to_merge/",names_dataset,".rds"))
+# #---------
+# #Sitting FVC (CRF)
+# scan_notebook("cvf_assis",.dir_sas)
+# 
+# find_table("pre")
+# 
+# # #lequel des trois donne sitting FVC(%predicted)?
+# # quantile(as.numeric(as.character(bdd7$CVF_ASSIS_ESR_PP)),na.rm=T)
+# # quantile(as.numeric(as.character(bdd7$CVF_ASSIS_OBSV_PP)),na.rm=T)
+# # quantile(as.numeric(as.character(bdd7$CVF_ASSIS_THEO_PP)),na.rm=T)
+# # #theo est bien le %predicted (comme dans lancet):
+# # quantile(as.numeric(as.character(bdd7$CVF_ASSIS_OBSV_PP))/as.numeric(as.character(bdd7$CVF_ASSIS_ESR_PP))*100,na.rm=T)
+# # 
+# # quantile(as.numeric(as.character(bdd7$CVF_COUCHE_PP)),na.rm=T)
+# # quantile(as.numeric(as.character(bdd7$CVF_ERS_PP)),na.rm=T) #espéré est la même que assis mais c'et plausible
+# # quantile(as.numeric(as.character(bdd7$CVF_THEO_PP)),na.rm=T) #est-ce bien la CVF couché (%predicted)?
+# # quantile(as.numeric(as.character(bdd7$CVF_COUCHE_PP))/as.numeric(as.character(bdd7$CVF_ERS_PP))*100,na.rm=T) #oui c'est quasi pareil
+# 
+# CVF <- bdd7[ ,c("PATIENT", "DATE_RESP_PP", "CVF_ASSIS_THEO_PP","CVF_THEO_PP","SNIP_PP", "SNIP_THEO_PP")]
+# colnames_bdd <- c("PATIENT","DATE_CVF","CVF_ASSIS_perc_pred","CVF_COUCHE_perc_pred","SNIP_cmH2O","SNIP_perc_pred")
+# colnames(CVF) <- colnames_bdd
+# 
+# for (i in colnames(CVF)) {
+#   CVF[,i] <- as.character(CVF[,i])
+#   CVF[,i] <- ifelse(CVF[,i]=="",NA,CVF[,i])
+# }
+# CVF$keep <- ifelse(is.na(CVF$CVF_ASSIS_perc_pred) & is.na(CVF$CVF_COUCHE_perc_pred) & is.na(CVF$SNIP_cmH2O) & is.na(CVF$SNIP_perc_pred),0,1)
+# CVF <- CVF[CVF$keep==1, colnames_bdd]
+# 
+# saveRDS(CVF, paste0("data/baseline_to_merge/CVF_SNIP.rds"))
+# 
+# 
+# #recherche des autres sniff nasal inspiratory pressure
+# listes_brut <- lapply(bdds, which_col,string1="SNIP", string2="PP", type="merge")
+# listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+# for (i in 1:length(listes_net)) {
+#   data <- listes_net[[i]]
+#   res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+# }
+# #quand SNIPP_PP n'est pas renseigné, les SNIP_FAIBLE non plus donc SNIPP_PP suffit
+# res%>% filter(is.na(SNIP_PP) & is.na(SNIP_FAIBL_3_PP))
+# for (i in 1:3) {
+#   print(res[ is.na(res$SNIP_PP) & !is.na(res[ ,paste0("SNIP_FAIBL_",i,"_PP")]),])
+# }
+# #ok tout est déjà dans CVF
+# 
+# #-----------
+# #maximal inspiratory pressure (PIMAX probablement)
+# data <- bdd7[ ,c("PATIENT", "PIMAX_PP", "PIMAX_THEO_PP")]
+# colnames_data <- c("PATIENT","PIMAX_cmH2O","PIMAX_perc_pred")
+# colnames(data) <- colnames_data
+# 
+# for (i in colnames(data)) {
+#   data[,i] <- as.character(data[,i])
+#   data[,i] <- ifelse(data[,i]=="",NA,data[,i])
+# }
+# data$keep <- ifelse(is.na(data[,2]) & is.na(data[,3]),0,1)
+# data <- unique(data[data$keep==1, colnames_data])
+# names_dataset <- "PIMAX"
+# assign(names_dataset,data)
+# saveRDS(data, paste0("data/baseline_to_merge/",names_dataset,".rds"))
 
 #------------
 #twitch transdiaphragmatic pressure
@@ -1179,6 +1505,7 @@ sp90_bicar <- res[,c("PATIENT","DATE_RESP_PP", "minutes", "heures","SPO2_TPS_PP"
 saveRDS(sp90_bicar, paste0("data/baseline_to_merge/sp90_bicar.rds"))
 
 listes_brut <- lapply(bdds, which_col,string1="HCO3", type="explo")#HCO3 que dans bdd7
+
 listes_brut <- lapply(bdds, which_col,string1="bicar", type="explo")#bicarb dans bdd9
 res <- bdd9
 res$BICARB_V_M1 <- as.integer(as.character(res$BICARB_V_M1))
