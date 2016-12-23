@@ -471,7 +471,7 @@ dim(BDIAG)
 # }
 
 #Pour charger les ddn obtenues (pour éviter de relancer la boucle du dessus qui prend bcp de temps...)
-for (i in .dir) {
+for (i in .dir_csv) {
   num <- which(.dir_csv==i)
   a <- readRDS(paste0("data/ddn/ddn",num,".rds"))
   assign(paste0("ddn",num),a[[1]])
@@ -610,7 +610,7 @@ saveRDS(bdd_diag, "data/bdd_to_merge/bdd_diag.rds")
 
 #-------------
 #MERGE
-newdir <- dir("F:/to push/sla_git/data/bdd_to_merge/")
+newdir <- dir("data/bdd_to_merge/")
 newdir <- str_sub(newdir,1,-5)
 
 
@@ -1053,7 +1053,7 @@ colnames(ALLpick) <- c("month_bef_vni", "dysp", "orthop", "CVF_ASSIS_perc_pred",
                          "perc_time_under_spo2_90", "time_under_spo2_90_h", "bicar")
 
 ALLpick$PATIENT <- as.character(tmp$PATIENT)
-ALLpick$DATEVNI <- tmp$DATEVNI
+#ALLpick$DATEVNI <- tmp$DATEVNI
 ALLpick <- unique(ALLpick)
 names_dataset <- "ALLRESPI_bl"
 assign(names_dataset,ALLpick)
