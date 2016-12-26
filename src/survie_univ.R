@@ -1,15 +1,11 @@
-library(dplyr)
-library(stringr)
-library(survival)
-library(rms)
+source("src/libraries_SLA.R")
+
+
 
 #sla <- readRDS("data/BDDSLA.rds")
 #sla <- readRDS("data/BDDSLADEM.rds")
 
 sla <- readRDS("data/BASE_SLA_allbl.rds")
-
-
-sla <- readRDS ("data/BASE_SLA_allbl.rds")
 
 sla$rilu <- ifelse (sla$DEBRILU < sla$DATEVNI & (is.na(sla$FINRILU) | sla$FINRILU>sla$DATEVNI), 1, 0) #je fais l'hyp qu'il n'y a pas de NA
 
@@ -60,8 +56,9 @@ sla[,var_quali[!var_quali%in% "LIEUDEB_recode"]] <- apply(sla[,var_quali[!var_qu
 #----------------------------------------------
 #VERSION : DATE DE DEBUT = DATE DE 1sym
 
+
 #range date de début
-range(sla$FIRSTSYMPTOM,na.rm=T)
+deb1 <- range(sla$FIRSTSYMPTOM,na.rm=T)
 
 #suivi
 idc.suiv <- survfit(Surv(sla$time.sym,1-sla$censor)~1)
@@ -70,11 +67,11 @@ plot(idc.suiv,xscale=365.25, yscale= 100, xlab="time (years)")
 #survie
 idc.surv <- survfit(Surv(sla$time.sym,sla$censor)~1, conf.int=.95)
 plot(idc.surv,xscale=365.25, yscale= 100, xlab="time (years)")
-min(idc.surv$time[idc.surv$surv<=0.5])#mediane de survie
+med1 <- min(idc.surv$time[idc.surv$surv<=0.5])#mediane de survie
 
 #survie selon baseline :
 
-#verif des hypothèses:
+#verif des hypothèses: 
 
   #risques proportionnels
 #a <- apply(sla[,var_quanti],2,function(x)cox.zph(coxph(Surv(sla$time.sym,sla$censor)~x))$table[3])
@@ -134,6 +131,7 @@ for (i in var_quali){
   legend (3000,1,legend=c(levels(var)),lty=c(1,1),col=c(2,4))
 }
 
+# HR et IC
 
 #-------------------------------------------
 #date de debut = date de vni
@@ -209,3 +207,5 @@ for (i in var_quali){
   plot(a,col=c(2,4),xscale=365.25, yscale= 100, xlab="time (years)", main=i)
   legend (3000,1,legend=c(levels(var)),lty=c(1,1),col=c(2,4))
 }
+
+

@@ -5,22 +5,22 @@
 .dir_csv <- .dir[str_sub(.dir, -3, -1)=="csv"]
 .dir_sas <- .dir[str_sub(.dir, -3, -1)=="sas"]
 
-#Pour charger toutes les bases de données disponibles (se nommeront bdd 1 à 9)
-for (i in .dir_csv) {
-  print(i)
-  num <- which(.dir_csv==i)
-  a <- read.csv2(i)
-  assign(paste0("bdd",num),a)
-}
-bdds <- paste0("bdd",1:9)
-
-for (i in bdds){
-  #browser()
-  data <- get(i)
-  data$PATIENT <- as.character(data$PATIENT)
-  assign(i,data)
-}
-str(bdd1$PATIENT)
+# #Pour charger toutes les bases de données disponibles (se nommeront bdd 1 à 9)
+# for (i in .dir_csv) {
+#   print(i)
+#   num <- which(.dir_csv==i)
+#   a <- read.csv2(i)
+#   assign(paste0("bdd",num),a)
+# }
+# bdds <- paste0("bdd",1:9)
+# 
+# for (i in bdds){
+#   #browser()
+#   data <- get(i)
+#   data$PATIENT <- as.character(data$PATIENT)
+#   assign(i,data)
+# }
+# str(bdd1$PATIENT)
 
 
 
@@ -32,7 +32,7 @@ BASE_SLA$DOB <- NULL
 
 BASE_SLA_invar <- readRDS("data/BASE_SLA_invar.rds")
 
-
+BASE_SLA_allbl <- readRDS ("data/BASE_SLA_allbl.rds")
 
 # BDD9 : pick Month just before vni
 
@@ -67,6 +67,13 @@ BASE_SLA_invar <- readRDS("data/BASE_SLA_invar.rds")
 months_before_vni <- readRDS("data/months_before_vni.rds")
 
 
+
+
+
+
+
+
+#NON UTILISE! VOIR POUR SUPPRIMER
 # #BDD7: pick month just before vni
 # tmp <- merge(BASE_SLA[ , c("PATIENT","DATEVNI")], bdd7[, c("PATIENT",colnames(bdd7)[grep("DATE_PREVENT_PP_F",colnames(bdd7))])], by="PATIENT", all.x=T, all.y=F)
 # ALLpick <- tmp[ ,grep("DAT",colnames(tmp))]
