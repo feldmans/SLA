@@ -471,11 +471,23 @@ dim(BDIAG)
 # }
 
 #Pour charger les ddn obtenues (pour éviter de relancer la boucle du dessus qui prend bcp de temps...)
-for (i in .dir) {
+for (i in .dir_csv[-2]) {
   num <- which(.dir_csv==i)
   a <- readRDS(paste0("data/ddn/ddn",num,".rds"))
-  assign(paste0("ddn",num),a[[1]])
+  #browser()
+  a <- a[[1]]
+  #a <- ifelse
+  a <- aggregate(a,by=list(a$PATIENT),max,na.rm=T) #qd des noms sont rassemblé et que toutes leurs dates valent NA, alors le tableau vaut NA
+  assign(paste0("ddn",num),a)
 }
+
+
+# colincoherente <- colnames(bdd9)[as.vector(apply(bdd9[bdd9$PATIENT=="COULANGE_NORBERT",],2,function(x)!is.na(x)))]
+# t(bdd9[bdd9$PATIENT=="COULANGE_NORBERT", colincoherente])
+# #c'est datexam_v_m15 qui est renseignée (datexamvm14= juillet 2015) c'est incohérent car base extraite en aout 2015 mais aucun moyen de le repérer car dautre variable sont renseignées à m15
+# #peut être dire date get_ddn que si date est sup à aout 2015 alors on prend la date n-1? A voir avec yann
+
+
 
 #Pour merger les ddn
 #nom des dataframe ddn 
@@ -490,15 +502,23 @@ for (i in dfddn){
   #if (num==length(dfddn)) 
 }
 #transformation des colonnes en date si pas déjà fait
+
+
+#reprendre ici
+
 for (i in colnames(ddn_tot)[-1]){
   ddn_tot[,i] <- as_date(ddn_tot[,i])
   ddn_tot[,i] <- ifelse (ddn_tot[,i]>Sys.Date(), NA, ddn_tot[,i])
+  #browser()
+  
 }
 
 ddn_tot$ddn <- apply(ddn_tot[,grep("max", colnames(ddn_tot))],1,max,na.rm=T) 
 ddn_tot <- unique(ddn_tot[ ,c("PATIENT","ddn")])
 ddn_tot$ddn <- as_date(ddn_tot$ddn)
 ddn_tot <- na.omit(ddn_tot)
+
+dim(ddn_tot)
 
 saveRDS(ddn_tot, "data/bdd_to_merge/ddn_tot.rds")
 
@@ -620,10 +640,13 @@ for (i in 1:length(newdir)) {
   res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
 }
 
+
 head(res)
 
 BASE_TOT <- res
 
+#si ddn ultérieure à décès, alors ddn=décès
+BASE_TOT$ddn <- ifelse (BASE_TOT$ddn > BASE_TOT$date_dc & !is.na(BASE_TOT$date_dc), BASE_TOT$date_dc, BASE_TOT$ddn)
 saveRDS(BASE_TOT, "data/BASE_TOT.rds")
 
 
@@ -636,10 +659,12 @@ BASE_SLA <- BASE_TOT[BASE_TOT$diag==1 & !is.na(BASE_TOT$diag) & !is.na(BASE_TOT$
 #doublons
 table(tab <- table(BASE_SLA$PATIENT))
 namesdoublons <- names(tab)[tab>1]
-names2 <- names(tab)[tab==2]
-BASE_SLA[BASE_SLA$PATIENT%in% names2,] #les doublons sont foireux, je les supprime
+# names2 <- names(tab)[tab==2]
+# BASE_SLA[BASE_SLA$PATIENT%in% names2,] #les doublons sont foireux, je les supprime
 
 BASE_SLA <- BASE_SLA[!BASE_SLA$PATIENT %in% namesdoublons, ]
+BASE_SLA$DOB <- NULL
+BASE_SLA$ddn <- as_date(BASE_SLA$ddn)
 
 saveRDS(BASE_SLA, "data/BASE_SLA.rds")
 
@@ -696,8 +721,8 @@ ALLSEX$sex_def <- as.vector(do.call(rbind,pick_sex))
 ALLSEX$sex_def <- as.integer(ALLSEX$sex_def)
 ALLSEX$PATIENT <- as.character(res$PATIENT)
 
-ALLSEX[ALLSEX$sex_def=="not sure",] #6 not sure, it's the same personne, first name=marie
-table(ALLSEX$sex_def, useNA = "a") #no NA except the 6 not sure
+#ALLSEX[ALLSEX$sex_def=="not sure",] #6 not sure, it's the same personne, first name=marie
+#table(ALLSEX$sex_def, useNA = "a") #no NA except the 6 not sure
 sexe <- unique(ALLSEX[ ,c("PATIENT","sex_def")])
 saveRDS(sexe, "data/baseline_to_merge/indep_datevni/sexe.rds")
 
@@ -1053,7 +1078,7 @@ colnames(ALLpick) <- c("month_bef_vni", "dysp", "orthop", "CVF_ASSIS_perc_pred",
                          "perc_time_under_spo2_90", "time_under_spo2_90_h", "bicar")
 
 ALLpick$PATIENT <- as.character(tmp$PATIENT)
-ALLpick$DATEVNI <- tmp$DATEVNI
+#ALLpick$DATEVNI <- tmp$DATEVNI
 ALLpick <- unique(ALLpick)
 names_dataset <- "ALLRESPI_bl"
 assign(names_dataset,ALLpick)
@@ -1138,6 +1163,22 @@ for (i in dfbldep){
 }
 
 BASE_SLA_allbl <- merge(BASE_SLA_invar, bl_dep, by="PATIENT", all.x=T, all.y=F)
+
+
+
+#Data management basique
+BASE_SLA_allbl$DEBRILU <- as_date(BASE_SLA_allbl$DEBRILU)
+BASE_SLA_allbl$FINRILU <- as_date(BASE_SLA_allbl$FINRILU)
+
+for (i in c("dysp","orthop","CVF_ASSIS_perc_pred","CVF_COUCHE_perc_pred","SNIP_cmH2O","SNIP_perc_pred","PIMAX_cmH2O",
+"PIMAX_perc_pred","perc_time_under_spo2_90","time_under_spo2_90_h","bicar")){
+  BASE_SLA_allbl[,i] <- as.numeric(as.character(BASE_SLA_allbl[,i]))
+}
+BASE_SLA_allbl$LIEUDEB_recode <- as.character(BASE_SLA_allbl$LIEUDEB_recode)
+BASE_SLA_allbl$month_bef_vni <- as.character(BASE_SLA_allbl$month_bef_vni)
+
+
+
 saveRDS(BASE_SLA_allbl, "data/BASE_SLA_allbl.rds")
 
 

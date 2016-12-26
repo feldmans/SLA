@@ -20,9 +20,9 @@ sla$keep <- ifelse (sla$DATEVNI<=sla$ddn,1,0)
 
 sla <- sla[sla$keep==1, ]
 sla$time.vni <- as.numeric(sla$ddn - sla$DATEVNI)
-sla$time.firstsym <- as.numeric(sla$ddn - sla$date_diag)
+sla$time.1sym <- as.numeric(sla$ddn - sla$FIRSTSYMPTOM)
 sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
-sla$SEX <- factor(sla$SEX, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Féminin' 
+sla$SEX <- factor(sla$sex_def, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Féminin' 
 
 #----------------------------------------------
 #VERSION : DATE DE DEBUT = DATE DE DIAGNOSTIC 

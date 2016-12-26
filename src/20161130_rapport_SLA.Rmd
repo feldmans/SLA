@@ -28,11 +28,12 @@ library(stringr)
 library(survival)
 
 #sla <- readRDS("data/BDDSLADEM.rds")
-sla <- readRDS("F:/to push/sla_git/data/BDDSLADEM.rds")
+#sla <- readRDS("F:/to push/sla_git/data/BDDSLADEM.rds")
+sla <- readRDS("F:/to push/sla_git/data/BASE_SLA.rds")
 sla$time.vni <- as.numeric(sla$ddn - sla$DATEVNI)
 sla$time.diag <- as.numeric(sla$ddn - sla$date_diag)
 sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
-sla$SEX <- factor(sla$SEX, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Feminin'
+#sla$SEX <- factor(sla$SEX, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Feminin'
 sla$age_diag <- round((sla$date_diag-sla$DOB)/365.25,0)
 sla <- sla[sla$time.vni>=0, ]
 ```
@@ -59,7 +60,7 @@ kable(descr)
 
 ##a- Version : date de debut de suivi = date de diagnostic 
 
-NB : Dans J Gonzalez 2013 c'est date de debut des symptomes mais où la trouver dans le dossier ?
+NB : Dans J Gonzalez 2013 c'est date de debut des symptomes mais o? la trouver dans le dossier ?
 
 
 ###range date de debut
@@ -215,7 +216,7 @@ sla[sla$ddn<sla$DATEVNI,]
 - Si 2 diagnostics differents, la ligne est supprimee (a discuter). NB : si finalement on les garde, quelle date de diagnostic garder?
 - 52 patients ont un diagnostic de SLA avec une date dans Diag.csv, mais n'ont pas de diagnostic dans visite/Patient2.csv (mais sont bien dans ce fichier) : pas reintegres pour l'instant mais je peux les fusionner.  
 - certains patients ont date de deces anterieure a la date de premiere visite : supprimes
-- 1 patient perdu de vu a une date de derniere nouvelle (c'est a dire date_exam_M... renseignée) antérieur à la date de VNI : supprime (j'essaye de le recuperer avec l'autre base?) 
+- 1 patient perdu de vu a une date de derniere nouvelle (c'est a dire date_exam_M... renseign?e) ant?rieur ? la date de VNI : supprime (j'essaye de le recuperer avec l'autre base?) 
 
 - 130 patients qui etaient selectionnes pour l'etude grÃ¢ce aux bases Diag.csv et VNI.csv ne le sont plus car ces infos sont manquantes pour ces patients dans les bases visite/Patient2.csv et trt/Patient.csv:  
     +  20 PATIENTS DIAG=NA et/ou DATEDIAG=NA
