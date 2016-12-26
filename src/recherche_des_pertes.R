@@ -5,8 +5,10 @@ visite <- read.csv2("C:/Users/4051268/Documents/sauvegarde data/sla/data/visite/
 met1 <- readRDS("data/selected_names_meth1.rds")
 met2 <- readRDS("data/selected_names_meth2.rds")
 
+table(met2%in% met1)
+table(met1 %in% met2)
 met2_no_met1 <- met2[!met2 %in% met1]
-
+met1[!met1 %in% met2]
 
 names2visite
 names2ttt
@@ -105,8 +107,8 @@ namesdrop2 <- ALLCS[ALLCS$PATIENT %in% met2_no_met1 & is.na(ALLCS$ddn), "PATIENT
 names_diag_datediag <- ALLDIAG[ALLDIAG$PATIENT %in% met2_no_met1 & is.na(ALLDIAG$diag) & (!ALLDIAG$PATIENT%in%namesdrop) & (!ALLDIAG$PATIENT%in%namesdrop2), "PATIENT" ]
 
 #all(diag==datediag)
-# all(ALLDIAG[ALLDIAG$PATIENT %in% met2_no_met1 & is.na(ALLDIAG$diag), "PATIENT" ] 
-#     == ALLDATEDIAG[ALLDATEDIAG$PATIENT %in% met2_no_met1 & is.na(ALLDATEDIAG$date_diag), "PATIENT" ])
+all(ALLDIAG[ALLDIAG$PATIENT %in% met2_no_met1 & is.na(ALLDIAG$diag), "PATIENT" ]
+    == ALLDATEDIAG[ALLDATEDIAG$PATIENT %in% met2_no_met1 & is.na(ALLDATEDIAG$date_diag), "PATIENT" ])
 
 #Patients sans date de VNI (rattrapables) : 96
 names_VNI <- ALLVNI[ALLVNI$PATIENT %in% met2_no_met1 & is.na(ALLVNI$DATEVNI)& (!ALLVNI$PATIENT%in%namesdrop) & (!ALLVNI$PATIENT%in%namesdrop2), "PATIENT"]
@@ -114,3 +116,8 @@ names_VNI <- ALLVNI[ALLVNI$PATIENT %in% met2_no_met1 & is.na(ALLVNI$DATEVNI)& (!
 
 saveRDS(names_diag_datediag, "data/names_diag_datediag.rds")
 saveRDS(names_diag_datediag, "data/names_VNI.rds")
+
+
+#---------
+#recuperer les pertes
+

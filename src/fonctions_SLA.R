@@ -1,8 +1,3 @@
-library(stringr)
-library(dplyr)
-library(lubridate)
-
-
 manage_date_ND <- function(vec){ #vec doit être un vecteur avec éléments de la forme 04/04/1989(facteur) ou "04/04/1989"(character)
   if (all(!is.na(as.Date(as.character(vec[!is.na(vec)]), tz = 'UTC', format = '%Y-%m-%d')))){
     vec_d <- as_date(vec) #cad si c'était déjà en format date (pouvant être ou non une date)
@@ -210,7 +205,7 @@ get_date_max_fun <- function (data2, string, fun) { #fun = max ou min
 
 
 
-get_ddn <- function (.path,.string) {
+get_ddn <- function (.path,.string,fun="max") {
   #browser()
   df.tmp <- read.csv2(.path)
   .table <- get_date_max_fun(df.tmp,.string)
@@ -306,7 +301,7 @@ get_ddn <- function (.path,.string) {
 # which_col <- function(data,string1,string2=NULL, type="explo"){
 #   num <- as.integer(str_sub(data,-1,-1))
 #   bdd <- get(data)
-#   if(type=="explo") return(c(data, .dir[num], get_repet_var_fun(bdd,string1,string2)$which_col_withcolNA))
+#   if(type=="explo") return(c(data, .dir_csv[num], get_repet_var_fun(bdd,string1,string2)$which_col_withcolNA))
 #   if (type=="merge"){
 #     return(unique(get_repet_var_fun(bdd,string1,string2)$col_and_row_nonNA))
 #     #return(head(unique(get_repet_var_fun(bdd,string1,string2)$col_and_row_nonNA)))
@@ -409,9 +404,26 @@ get_repet_var_fun <- function (data2,string1, string2=NULL, string3=NULL) {
 which_col <- function(data,string1,string2=NULL, string3=NULL, type="explo"){
   num <- as.integer(str_sub(data,-1,-1))
   bdd <- get(data)
-  if(type=="explo") return(c(data, .dir[num], get_repet_var_fun(bdd,string1,string2,string3)$which_col_withcolNA))
+  if(type=="explo") return(c(data, .dir_csv[num], get_repet_var_fun(bdd,string1,string2,string3)$which_col_withcolNA))
   if (type=="merge"){
     return(unique(get_repet_var_fun(bdd,string1,string2,string3)$col_and_row_nonNA))
     #return(head(unique(get_repet_var_fun(bdd,string1,string2)$col_and_row_nonNA)))
+  }
+}
+
+matching_table <- data.frame(path = c("DCD","demo","Diag","neuro_mobilite","VNI","pat","pre","trt","visite"), bdd=c(1,2,3,4,5,6,7,8,9))
+
+find_table <- function(path_or_number){
+  #browser()
+  if (is.numeric(path_or_number)) res <- matching_table %>% filter (bdd==path_or_number)
+  else res <- matching_table %>% filter(path==path_or_number)
+  return (res)
+}
+
+scan_notebook <- function(string, onepath_or_pathlist){
+  for (i in onepath_or_pathlist){
+    fic<-i
+    x<-scan(i, what=as.character(), sep="\n")
+    j<-grep(string, tolower(x),ignore.case = TRUE);print(c(i,x[j]))
   }
 }
