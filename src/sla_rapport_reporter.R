@@ -1,33 +1,37 @@
-doc <- docx (title="survie univariée SLA")
+source("src/survie_univ.R")
 
-addParagraph(doc,"Survie univariée SLA", stylename = "TitleDoc")
-addTOC(doc)
+mydoc <- docx (title="survie univariée SLA")
 
-addPageBreak(doc)
+addParagraph(mydoc,"Survie univariée SLA", stylename = "TitleDoc")
+addTOC(mydoc)
 
-#addParagraph(doc,"DATE DE DEBUT = DATE DES 1er SYMPTOMES", stylename = "Titre1")
-addTitle(doc,"DATE DE DEBUT = DATE DES 1er SYMPTOMES", level=1)
+addPageBreak(mydoc)
+
+#addParagraph(mydoc,"DATE DE DEBUT = DATE DES 1er SYMPTOMES", stylename = "Titre1")
+addTitle(mydoc,"DATE DE DEBUT = DATE DES 1er SYMPTOMES", level=1)
 
 
 #Description
-addTitle(doc,"Description", level=2) 
-addParagraph(doc, c("", ""))
+addTitle(mydoc,"Description", level=2) 
+addParagraph(mydoc, c("", ""))
 
-addParagraph(doc, value= c('range date de début : ', paste(as.character(deb1)[1],"–",as.character(deb1)[2])), stylename="Normal")
+addParagraph(mydoc, value= c('range date de début : ', paste(as.character(deb1)[1],"–",as.character(deb1)[2])), stylename="Normal")
 
-addPlot( doc = doc, fun =  function()plot(idc.suiv,xscale=365.25, yscale= 100, xlab="time (years)"))
-addParagraph( doc, value = "Courbe de suivi", stylename = "rPlotLegend")
+addPlot( doc = mydoc, fun =  function()plot(sym.suiv,xscale=365.25, yscale= 100, xlab="time (years)"))
+addParagraph( mydoc, value = "Courbe de suivi", stylename = "rPlotLegend")
 
-addPlot( doc = doc, fun =  function()plot(idc.surv,xscale=365.25, yscale= 100, xlab="time (years)"))
-addParagraph( doc, value = "Courbe de survie", stylename = "rPlotLegend")
+addPlot( doc = mydoc, fun =  function()plot(sym.surv,xscale=365.25, yscale= 100, xlab="time (years)"))
+addParagraph( mydoc, value = "Courbe de survie", stylename = "rPlotLegend")
 
-addParagraph(doc, value= c('médiane de suvie : ', paste0(med1," jours soit ", round(med1/325.25,2), " années."), stylename="Normal"))
+addParagraph(mydoc, value= c('médiane de suvie : ', paste0(med1," jours soit ", round(med1/325.25,2), " années."), stylename="Normal"))
 
 
 #survie selon baseline
-addTitle(doc,"survie selon baseline", level=2)
-addParagraph(doc, c("", ""))
+addTitle(mydoc,"survie selon baseline", level=2)
+addParagraph(mydoc, c("", ""))
 
+
+#Description des baselines
 table_var_quali <- lapply(var_quali, function(i){
   data <- sla[,i]
   names_levels <- levels(as.factor(data))
@@ -93,23 +97,81 @@ table_var <- rbind(table_var_quali,table_var_quanti)
 
 MyFTable <- FlexTable(data=table_var,add.rownames=T)
 setZebraStyle(MyFTable,odd="#E5E8E8",even="white")#"#E1EEf4"
-addFlexTable(doc,MyFTable)
-addParagraph(doc, value = "caractéristique des patients", stylename = "rTableLegend")
+addFlexTable(mydoc,MyFTable)
+addParagraph(mydoc, value = "caractéristique des patients", stylename = "rTableLegend")
+addParagraph(mydoc, c("", ""))
 
-writeDoc(doc , file = "C:/Users/4051268/Documents/writing/survie_univ_SLA.docx")
+#Modèle de Cox 
+addTitle(mydoc,"Modèle de Cox : conditions de validité", level=3)
+addParagraph(mydoc, "")
+addTitle(mydoc,"Risques proportionnels", level=4)
+addParagraph(mydoc, "")
+
+
+#https://github.com/davidgohel/ReporteRs/issues/44
+
+
+p <- lapply(var_bl[-4],function(x){
+ b <- cox.zph(coxph(Surv(sla$time.sym,sla$censor)~sla[,x]))
+ #browser()
+ ggcoxzph.1var(b,var=x)
+})
+myggplot2 = p
+#addPlot(doc, print,x= myggplot2)
+
+base_legend = "Risque en fonction du temps pour "
+#addSection(mydoc, ncol = 2, space_between = 0.1)
+for( index in seq_along(p) ){
+  mylegend = pot(base_legend, textBoldItalic() )
+  mylegend = paste0(base_legend, var_bl[-4][index] )
+  doc = addPlot( doc = mydoc, fun = print, x = p[[index]], width=6, heigth=2)
+  doc = addParagraph( mydoc, value = mylegend, stylename = "rPlotLegend")
+}
+#addSection(mydoc,  ncol = 1 )
+
+b <- cox.zph(coxph(Surv(sla$time.sym,sla$censor)~sla[,var_bl[4]]))
+p <- ggcoxzph.1var(b,var2=var_bl[4])
+base_legend = "Risque en fonction du temps pour "
+for( index in seq_along(p) ){
+  mylegend = pot(base_legend, textBoldItalic() )
+  mylegend = paste0(base_legend, var_bl[-4][index] )
+  doc = addPlot( doc = mydoc, fun = print, x = p[[index]], width=6, heigth=2)
+  doc = addParagraph( mydoc, value = mylegend, stylename = "rPlotLegend")
+}
+
+
+addParagraph(mydoc, "")
+addTitle(mydoc,"Loglinéarité", level=4)
+addParagraph(mydoc, "")
+
+
+xa <- lapply(var_quanti, function(i){
+  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,i])
+  res <- residuals(a, type="martingale")
+  X <- sla[,i]
+  X <- X[!is.na(sla[,i])]
+  par(mfrow=c(2,2))
+  #plot(sla[!is.na(sla[,i]),i],res,xlab=i,ylab="residuals")
+  plot(X,res,xlab=i,ylab="residuals")
+  abline(h=0,lty=2)
+  #lines(lowess(sla[!is.na(sla[,i]),i],res,iter=0))
+  lines(lowess(X,res,iter=0))
+  
+  b <- coef(a)
+  plot(X,b*X+res,xlab=i,ylab="component+residuals")
+  abline(lm(b*X+res~X),lty=2)
+  lines(lowess(X,b*X+res,iter=0))
+})
+
+pl <- lapply(colnames(dl0)[-1], function(.x) qplot(as.factor(dl0[,.x]),xlab=NULL, main=.x, fill=I("navajowhite3"), col=I("pink4")))
+ml <- marrangeGrob(xa,ncol=3,nrow=2,top = NULL)
+print(ml)
 
 
 
-#if( requireNamespace("ggplot2", quietly = TRUE) ){
-#addTitle( doc, "Courbe de suivi", level = 2 )
 
-# create a ggplot2 plot
-myplot = plot(idc.suiv,xscale=365.25, yscale= 100, xlab="time (years)")
 
-# Add myplot into object doc
-addPlot( doc = doc, fun =  function()plot(idc.suiv,xscale=365.25, yscale= 100, xlab="time (years)"))
-#addPlot( doc = doc, fun = print, x=myplot) #pour ggplot2
+writeDoc(mydoc , file = "C:/Users/4051268/Documents/writing/survie_univ_SLA.docx")
 
-# Add a legend below the plot
-addParagraph( doc, value = "Courbe de suivi", stylename = "rPlotLegend")
-#}
+
+
