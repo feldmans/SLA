@@ -1,18 +1,21 @@
 ---
-title: "survie univariée SLA"
+title: "Survie univariée"
 output:
   word_document: default
   html_notebook: default
 ---
-```{r allsource, echo=FALSE, message=FALSE}
-#source("F:/to push/sla_git/src/survie_univ.R")  
-source("d:/to push/sla_git/src/libraries_SLA.R")
-source("d:/to push/sla_git/src/fonctions_SLA.R")
 
+
+```{r allsource, echo=FALSE, message=FALSE}
+.dir <- "F:/"
+#.dir <-  "d:/"
+source(paste0(.dir,"to push/sla_git/src/libraries_SLA.R"))
+source(paste0(.dir,"to push/sla_git/src/fonctions_SLA.R"))
 ```
 
+
 ```{r, echo=FALSE}
-sla <- readRDS("d:/to push/sla_git/data/BASE_SLA_allbl.rds")
+sla <- readRDS(paste0(.dir,"to push/sla_git/data/BASE_SLA_allbl.rds"))
 
 sla$rilu <- ifelse (sla$DEBRILU < sla$DATEVNI & (is.na(sla$FINRILU) | sla$FINRILU>sla$DATEVNI), 1, 0) #je fais l'hyp qu'il n'y a pas de NA
 
@@ -22,12 +25,15 @@ sla <- sla[sla$keep==1, ]
 sla$time.vni <- as.numeric(sla$ddn - sla$DATEVNI)
 sla$time.sym <- as.numeric(sla$ddn - sla$FIRSTSYMPTOM)
 sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
-sla$sex <- factor(sla$sex_def, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Féminin'
-sla$sex <- sla$sex_def #1 = 'Masculin' 2 = 'Féminin'
+#sla$sex <- factor(sla$sex_def, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Féminin'
+sla$sex <- ifelse(sla$sex_def==1,0,sla$sex_def) #0 = 'Masculin' 1 = 'Féminin'
+sla$sex <- ifelse(sla$sex_def==2,1,sla$sex) #0 = 'Masculin' 1 = 'Féminin'
+#sla$sex <- sla$sex_def #1 = 'Masculin' 2 = 'Féminin'
 sla$agevni <- round(as.numeric(sla$DATEVNI-sla$DOB)/365.25,0)
 sla$rilu <- ifelse(sla$DATEVNI>sla$DEBRILU & !is.na(sla$DEBRILU), 1,0)
 sla$rilu <- ifelse(sla$DATEVNI<sla$FINRILU & !is.na(sla$FINRILU), 0,sla$rilu)
 sla$familial <- ifelse (is.na(sla$familial),0,sla$familial)
+sla$LIEUDEB_recode <- as.factor(sla$LIEUDEB_recode)
 #sla$ddn <- ifelse(sla$ddn>as_date("2015-08-27"), as_date("2015-08-27"), sla$ddn) #voir avec Yann
 
 var_bl <- c("familial", "sex", "agevni", "LIEUDEB_recode", "rilu", "dysp","orthop","CVF_ASSIS_perc_pred","CVF_COUCHE_perc_pred","SNIP_cmH2O",
@@ -39,10 +45,9 @@ var_quanti <- var_bl [! var_bl %in% var_quali]
 sla[,var_quanti] <- apply(sla[,var_quanti], 2, function(x) as.numeric(x))
 sla[,var_quali[!var_quali%in% "LIEUDEB_recode"]] <- apply(sla[,var_quali[!var_quali%in% "LIEUDEB_recode"]], 2, function(x) as.numeric(x))
 
-summary(sla)
-str(sla)
+#summary(sla)
+#str(sla)
 ```
-
 
 #Description de la population 
 ```{r, echo=FALSE}
@@ -112,473 +117,587 @@ kable(table_var)
 
 ```
 
+Table 1 Charactéristiques à baseline (t=debut de la vni)
+*variables quantitatives
+
+<1% de données manquantes pour :   
+- familial(atcd familiaux de sla oui ou non)   
+- sex  
+- lieu de début des symptomes  
+- a commencé un traitement par riluzole avant vni oui ou non  
+- age a l'instauration de la vni   
+
+Environ 30% de données manquantes pour :    
+- le score ALS à l'instauration de la VNI  
+
+Environ 50 % de données manquantes pour :  
+- orthopnée au moment de l'instauration de la vni  
+- dyspnée au moment de l'instauration de la vni   
+
+Plus de 65% de données manquantes pour :  
+- CVF assis et couché   
+- SNIP en cmH20 ou pourcentage de la théorie   
+- PIMAX en cmH20 ou pourcentage de la théorie  
+- pourcentage de temps inférieur à 90% de sp02  
+- bicarbonates   
+- score bulbaire  
+
+64% d'homme   
+98% de formes non familiales  
+7% de traitement par riluzole  
+plus de 50% d'orthopnée mais moins de 25% de dyspnée au repos.  
+
 
 #VERSION DEBUT = PREMIERS SYMPTOMES
 
 
-##Suivi et survie globale
+##Suivi global
 
 ```{r, echo=FALSE}
 #range date de début
 deb1 <- range(sla$FIRSTSYMPTOM,na.rm=T)
+
+#repartition des dates de premier symptome
+s<-sla[!is.na(sla$time.sym),]
+s$tan<-s$time.sym/365.25
+s$an<-substring(s$FIRSTSYMPTOM, 1, 4)
+#table(s$an)
+barplot(table(s$an))
 ```
+
+Fig.1 Distribution des dates de premier symptome
+
+```{r}
+y<-as.numeric(as.Date("01/09/2015", "%d/%m/%Y"))-as.numeric(s$FIRSTSYMPTOM)
+hist(y/365.25)
+#summary(y/365.25)
+```
+Fig.2 répartition des durée de suivi
 
 range date de début :  
 `r deb1`
 
+La majorité des sujets sont inclus à partir de 2006 (9ans de recul) et quasiment plus d'unclusion en 2011 (4 ans de recul) (Figure 1)
+
 ```{r, echo=FALSE, message=FALSE}
-#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
-
 #suivi
-sym.suiv <- survfit(Surv(sla$time.sym,1-sla$censor)~1)
-
-med <- min(sym.suiv$time[sym.suiv$surv<=0.5])#mediane de survie
-j <- paste0 (summary(sym.suiv)$table['median']," [",summary(sym.suiv)$table['0.95LCL'],"-",summary(sym.suiv)$table['0.95UCL'],"]")
+sym.suiv <- survfit(Surv(time.sym,1-censor)~1,data=s)
 an <- paste0 (round(summary(sym.suiv)$table['median']/365.25,2)," [",round(summary(sym.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(sym.suiv)$table['0.95UCL']/365.25,2),"]")
 
-#plot(sym.suiv,xscale=365.25, yscale= 100, xlab="time (years)")
-#ggsurvplot(sym.suiv, risk.table = TRUE,ggtheme = theme_bw(),col="blue",surv.scale="percent")
-ggsurv(sym.suiv) 
+# #idem (Yann)
+# suivi<-survfit(Surv(tan, 1-censor)~1, data=s)
+# suivi
+
+
 ```
+Médiane de suivi (an) : `r an`   
 
-Fig1. Courbe de suivi en fonction du temps  
-
-
-Médiane de suivi :  
-
-En jour : `r j`  
-En annee : `r an`   
+C'est cohérent au vu de la figure 1 et de la figure 2.
 
 
+## Survie globale
 ```{r, echo=FALSE}
-#survie
-sym.surv <- survfit(Surv(sla$time.sym,sla$censor)~1, conf.int=.95)
-#plot(sym.surv,xscale=365.25, yscale= 100, xlab="time (years)")
-med1 <- min(sym.surv$time[sym.surv$surv<=0.5])#mediane de survie
+sym.surv <- survfit(Surv(time.sym,censor)~1, data=s, conf.int=.95)
 
-j <- paste0 (summary(sym.surv)$table['median']," [", summary(sym.surv)$table['0.95LCL'], "-", summary(sym.surv)$table['0.95UCL'], "]")
 an <- paste0 (round(summary(sym.surv)$table['median']/365.25,2)," [", round(summary(sym.surv)$table['0.95LCL']/365.25,2), "-", round(summary(sym.surv)$table['0.95UCL']/365.25,2),"]")
 
-#ggsurvplot(sym.surv, risk.table = TRUE,ggtheme = theme_bw(),col="blue",surv.scale="percent")
-ggsurv(sym.surv)
-```
-
-Fig2. Courbe de survie en fonction du temps 
-
-
-Médiane de survie :  
-
-En jour : `r j`  
-En annee : `r an`
-
-
-## Survie selon baseline :
-
-### Verification des hypothèses: 
-
-#### Hypothèse des risques proportionnels
-
-```{r, echo=FALSE, message=FALSE}
-par(mfrow=c(2,2))
-for (x in var_bl){
-  b <- cox.zph(coxph(Surv(sla$time.sym,sla$censor)~sla[,x]))
-  plot(b)
-}
-
-# for (x in var_bl){
-#  b <- cox.zph(coxph(Surv(sla$time.sym,sla$censor)~sla[,x]))
-#  #browser()
-#  b <- ggcoxzph.1var(b,var=x)
-#  #b <- plotMe(b)
-#  print(b)
-# }
-
-# p <- lapply(var_bl[-4],function(x){
-#  b <- cox.zph(coxph(Surv(sla$time.sym,sla$censor)~sla[,x]))
-#  #browser()
-#  b <- ggcoxzph.1var(b,var=x)
-#  #b <- plotMe(b)
-#  return (b)
-# })
-# print(p)
-
-```
-cox<-coxph(Surv(time.sym,censor)~ALS_score, data=sla)
-summary(cox)
-z<-cox.zph(cox, transf="rank")
-zi<-cox.zph(cox, transf="identity")
-z
-
-par(mfrow=c(1,1))
-plot(zi)
-abline(h=0)
-abline(h=coef(cox), col="blue")
-
-ti<-sort(unique(c(0, sla$time.sym[sla$censor==1])));ti
-slat<-sla
-slat$start<-0
-slat$stop<-slat$time.sym
-slat$evt<-slat$censor
-slat<-survSplit(slat, start="start", end="stop", cut=ti, event="evt")
-slat$at<-slat$ALS_score*log(slat$stop)
-coxt<-coxph(Surv(start, stop, evt)~ALS_score+at, data=slat)
-summary(coxt)
-
-zt<-cox.zph(coxt, transf="rank")
-zt
-
-zti<-cox.zph(coxt, transf="identity")
-par(mfrow=c(2,1))
-plot(zti[1])
-abline(h=0)
-abline(h=coef(coxt)[1], col="blue")
-plot(zti[2])
-abline(h=0)
-abline(h=coef(coxt)[2], col="blue")
-
-s<-sla[!is.na(sla$time.sym),]
-s$tan<-s$time.sym/365.25
-s$an<-substring(s$FIRSTSYMPTOM, 1, 4)
-y<-as.numeric(as.Date("01/09/2015", "%d/%m/%Y"))-as.numeric(s$FIRSTSYMPTOM)
-hist(y/365.25)
-summary(y)
-table(s$an)
-
-suivi<-survfit(Surv(tan, 1-censor)~1, data=s)
-suivi
-
-
-
-
-sla$a<-sla$bulb_score
-s<-sla[!is.na(sla$a) & !is.na(sla$time.sym),]
-cox<-coxph(Surv(time.sym,censor)~a, data=s)
-  z<-cox.zph(cox, transf="rank")
-  zi<-cox.zph(cox, transf="identity")
-  z
-
-ti<-sort(unique(c(0, sla$time.sym[sla$censor==1])));ti
-st<-s
-st$start<-0
-st$stop<-st$time.sym
-st$evt<-st$censor
-st<-survSplit(st, start="start", end="stop", cut=ti, event="evt")
-st$at<-st$a*log(st$stop)
-coxt<-coxph(Surv(start, stop, evt)~a+at, data=st)
-summary(coxt)
-  zt<-cox.zph(coxt, transf="rank")
-  zti<-cox.zph(coxt, transf="identity")
-  zt
-
-cox2<-coxph(Surv(time.sym,censor)~poly(a, df=2, raw=T), data=s)
-summary(cox2)
-
-cox0<-coxph(Surv(time.sym,censor)~1, data=s)
-r<-residuals(cox0, "martingale")
-lw<-lowess(r~s$a)
-plot(z)
-abline(h=0)
-abline(h=coef(cox), col="blue")
-plot(s$a, r)
-lines(lw)
-
-summary(cox)
-
-```{r, echo=FALSE}
-a <- lapply(var_bl,function(x){
-  a <- cox.zph(coxph(Surv(sla$time.sym,sla$censor)~sla[,x]))
-  #plot(a,main=x)
-  a <- data.frame(a$table)
-  a <- a[nrow(a),3]
-  return(a)
-})
-risque.prop.all <- data.frame(var_bl,pval=round(unlist(a),3))
-kable(risque.prop.all)
-```
-
-#### Hypothèse de loglinéarité
-
-```{r, echo=FALSE}
-pl <- lapply(var_quanti,function(i){
-  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,i])
-  res <- residuals(a, type="martingale")
-  X <- sla[,i]
-  X <- X[!is.na(sla[,i])]
-  g <- qplot(X,res,xlab=i,ylab="residuals") +
-    geom_hline(yintercept = 0) +
-    stat_smooth(method="loess")
-  return (g)
-  })
- ml <- marrangeGrob(pl,ncol=3,nrow=2,top = NULL)
- print(ml)
+plot(sym.surv,xscale=365.25, yscale= 100, xlab="time (years)")
+ggsurv(sym.surv) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
+  scale_x_continuous(breaks=seq(0,max(s$time.sym),365.25), labels=0:(length(seq(0,max(s$time.sym),365.25))-1)) +
+  scale_y_continuous(labels=percent) 
 ```
 
 
-
-```{r, echo=FALSE}
-pl <- lapply(var_quanti,function(i){
-  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,i])
-  res <- residuals(a, type="martingale")
-  X <- sla[,i]
-  X <- X[!is.na(sla[,i])]
-  
-  b <- coef(a)
-  reslm <- lm(b*X+res~X)
-  g <- qplot(X,b*X+res,xlab=i,ylab="component+residuals") +
-    geom_abline(intercept = reslm$coefficients[1],slope=reslm$coefficients[2]) 
-  g <-  g+stat_smooth(method="loess")
-  return(g)
-})
- ml <- marrangeGrob(pl,ncol=3,nrow=2,top = NULL)
- print(ml)
-```
+Fig.3 Courbe de survie en fonction du temps 
 
 
-### Test du score (log rank) et HR 
-
-```{r, echo=FALSE}
-get_HR_score <- function(x){
-  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,x])
-  b<-summary(a)
-  res <- round(as.numeric(b$sctest[3]),3)
-  HR <- round(exp(coef(a)),2)
-  up95 <- round(exp(confint(a)),2)[1]
-  low95 <-round(exp(confint(a)),2)[2]
-  HRIC <- paste0(HR, " [",low95,"-",up95,"]")
-  .res <- c(x,test_du_score=res, HR=HRIC)
-  return(.res)
-}
-score <- lapply(var_bl[-4],get_HR_score)
-score <- do.call(rbind,score)
-
-a <- get_HR_score(var_bl[4])
-l <- lapply(3:6, function(i){
-  j <- i-2
-  paste(levels(as.factor(sla[,  var_bl[4]]))[-1][j],as.character(data.frame(a)[,1][i]))
-})
-l <- do.call(rbind,l)
-res_lieudeb <- cbind(rbind(c("LIEUDEB_recode", "0" ),c("",""),c("",""),c("","")),l)
-#score <- unlist(score)
-score <- rbind(score,res_lieudeb)
-# df.test.score.sym <-data.frame(var_bl,test_du_score=unlist(score))
-# kable(df.test.score.sym)
-kable(score)
-```
+Médiane de survie (an) : `r an`
 
 
-## Courbes de survie pour variables qualitatives
-
-```{r, echo=FALSE}
-for (i in var_quali){
-  var <- sla[,i]
-  var <- as.factor(var)
-  a <- survfit(Surv(sla$time.sym,sla$censor)~var, conf.int=.95)
-  g <- ggsurv(a)
-  # plot(a,col=c(2,4),xscale=365.25, yscale= 100, xlab="time (years)", main=i)
-  # legend (3000,1,legend=c(levels(var)),lty=c(1,1),col=c(2,4))
-g <- g +
-    guides(linetype = FALSE)+
-    scale_colour_discrete( name = i, labels = levels(var))+
-    labs(title = paste0("Survie en fonction de ",i), x = "Time, years", y = "Survival, %") +
-    scale_x_continuous(breaks=seq(0,max(sla$time.vni),365.25), labels=0:(length(seq(0,max(sla$time.vni),365.25))-1)) +
-     scale_y_continuous(labels=percent) 
-  print(g)
-}
-
-```
 
 
 
 #VERSION DEBUT = MISE EN PLACE VNI
 
-
-##Suivi et survie globale
+##Suivi global
 
 ```{r, echo=FALSE}
+
+
+#repartition des dates de premier symptome
+s<-sla[!is.na(sla$time.vni),]
+s$tan<-s$time.vni/365.25
+s$an<-substring(s$DATEVNI, 1, 4)
+#table(s$an)
+barplot(table(s$an))
+```
+
+Fig.4 Distribution de la date d'instauration de la vni
+
+Centré autour de 2010. majorité des vni entre 2008 et 2012 donc entre 7 ans et 3 ans de recul.
+
+
+```{r}
 #range date de début
 deb1 <- range(sla$DATEVNI,na.rm=T)
+
+y<-as.numeric(as.Date("01/09/2015", "%d/%m/%Y"))-as.numeric(s$DATEVNI)
+hist(y/365.25)
+#summary(y/365.25)
 ```
+Fig.5 répartition des durée de suivi
 
 range date de début :  
 `r deb1`
 
+
 ```{r, echo=FALSE, message=FALSE}
-#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
-
 #suivi
-vni.suiv <- survfit(Surv(sla$time.vni,1-sla$censor)~1)
+sym.suiv <- survfit(Surv(time.vni,1-censor)~1,data=s)
+an <- paste0 (round(summary(sym.suiv)$table['median']/365.25,2)," [",round(summary(sym.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(sym.suiv)$table['0.95UCL']/365.25,2),"]")
 
-med <- min(vni.suiv$time[vni.suiv$surv<=0.5])#mediane de survie
-j <- paste0 (summary(vni.suiv)$table['median']," [",summary(vni.suiv)$table['0.95LCL'],"-",summary(vni.suiv)$table['0.95UCL'],"]")
-an <- paste0 (round(summary(vni.suiv)$table['median']/365.25,2)," [",round(summary(vni.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(vni.suiv)$table['0.95UCL']/365.25,2),"]")
+# #idem (Yann)
+# suivi<-survfit(Surv(tan, 1-censor)~1, data=s)
+# suivi
 
-#plot(vni.suiv,xscale=365.25, yscale= 100, xlab="time (years)")
-#ggsurvplot(vni.suiv, risk.table = TRUE,ggtheme = theme_bw(),col="blue",surv.scale="percent")
-ggsurv(vni.suiv) 
+
+```
+Médiane de suivi (an) : `r an`   
+
+C'est un peu étrange que la médiane de suivi soit si basse, au vu des figures 4 et 5 j'aurais plutôt parié sur une médiane de suivi à 4.5 ans.
+
+
+## Survie globale
+```{r, echo=FALSE}
+sym.surv <- survfit(Surv(time.vni,censor)~1, data=s, conf.int=.95)
+
+an <- paste0 (round(summary(sym.surv)$table['median']/365.25,2)," [", round(summary(sym.surv)$table['0.95LCL']/365.25,2), "-", round(summary(sym.surv)$table['0.95UCL']/365.25,2),"]")
+
+plot(sym.surv,xscale=365.25, yscale= 100, xlab="time (years)")
+ggsurv(sym.surv) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
+  scale_x_continuous(breaks=seq(0,max(s$time.vni),365.25), labels=0:(length(seq(0,max(s$time.vni),365.25))-1)) +
+  scale_y_continuous(labels=percent) 
 ```
 
-Fig3. Courbe de suivi en fonction du temps  
+Fig.3 Courbe de survie en fonction du temps 
 
 
-Médiane de suivi :  
+Médiane de survie (an) : `r an`
 
-En jour : `r j`  
-En annee : `r an`   
+```{r, echo=FALSE, eval=FALSE}
+#--------------------------
+#Yann : rajout de table de survie et d'intervalle de confiance à la main 
+s<-sla
+s$tps<-s$time.vni/365.25
+km <- survfit(Surv(tps,censor)~1, data=s, conf.int=.95)
+skmi<-summary(km, time=c(3, 6))
+skm<-summary(km, time=seq(0, 10, by=1))
+skm
 
+par(mai=c(2,1.5,1.5,.5))
+  plot(km, conf=F, col="blue")
+  segments(skmi$time, skmi$lower, skmi$time, skmi$upp, col="blue")
+  segments(skmi$time-0.1, skmi$lower, skmi$time+0.1, skmi$lower, col="blue")
+  segments(skmi$time-0.1, skmi$upp, skmi$time+0.1, skmi$upper, col="blue")
+  mtext(side=1, at=skm$time, skm$n.risk, adj=.5, col="blue", line=2, cex=0.75)
+
+
+s<-sla
+s$tps<-s$time.vni/365.25
+km <- survfit(Surv(tps,censor)~sex, data=s, conf.int=.95)
+km0 <- survfit(Surv(tps,censor)~sex, data=s[s$sex==0,], conf.int=.95)
+km1 <- survfit(Surv(tps,censor)~sex, data=s[s$sex==1,], conf.int=.95)
+km
+skmi0<-summary(km0, time=c(3, 6)-0.1)
+skmi1<-summary(km1, time=c(3, 6)+0.1)
+skm0<-summary(km0, time=seq(0, 10, by=1))
+skm1<-summary(km1, time=seq(0, 10, by=1))
+skm
+
+leg<-names(km$strata)
+par(mai=c(2,1.5,1.5,.5))
+coul<-c("blue", "red")
+  plot(km, conf=F, col=coul)
+  legend("topright", adj=0, col=coul, leg=leg, lty=1)
+  segments(skmi0$time, skmi0$lower, skmi0$time, skmi0$upp, col=coul[1])
+  segments(skmi1$time, skmi1$lower, skmi1$time, skmi1$upp, col=coul[2])
+  mtext(side=1, at=-0.5, leg[1], col=coul[1], line=2)
+  mtext(side=1, at=skm0$time, skm0$n.risk, adj=.5, col=coul[1], line=2, cex=0.75)
+  mtext(side=1, at=skm1$time, skm1$n.risk, adj=.5, col=coul[2], line=3, cex=0.75)
+#-----------------
+```
+
+
+
+## Modeles de Cox univarié
+
+Ils seront de la forme 
+modcox <- coxph(Surv(time.vni, censor) ~ ALS_score, data = sla) #ALS_score au autre variable baseline
+
+un modele par variable à baseline
+
+### Variables binaires
+
+#### Hypothèse de Loglinéarité
+
+N'a pas de sens pour une variable binaire
+
+#### Hypothèse des risques proportionnels
+
+##### Familial
+```{r, echo=FALSE}
+s <- sla
+s$tps <- (s$time.vni/365.25) + 0.001
+s$a_recode <- s$familial
+mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
+
+#résidus de Shoenfeld
+z <- cox.zph(mod, transf="identity")
+plot(z)
+abline(h=0, col="red")
+abline(h=coef(mod), col="blue")
+
+#Test de Harrell
+z <- cox.zph(mod, transform = "rank")
+z
+```
+
+La représentation graphique des résidus de shoenfeld est non significatif.  
+Le test de Harrell est non significatif.  
+
+Conclusion : l'hypothèse des risques proportionnels est vérifiée.
 
 ```{r, echo=FALSE}
-#survie
-vni.surv <- survfit(Surv(sla$time.vni,sla$censor)~1, conf.int=.95)
-#plot(vni.surv,xscale=365.25, yscale= 100, xlab="time (years)")
-med1 <- min(vni.surv$time[vni.surv$surv<=0.5])#mediane de survie
-
-j <- paste0 (summary(vni.surv)$table['median']," [", summary(vni.surv)$table['0.95LCL'], "-", summary(vni.surv)$table['0.95UCL'], "]")
-an <- paste0 (round(summary(vni.surv)$table['median']/365.25,2)," [", round(summary(vni.surv)$table['0.95LCL']/365.25,2), "-", round(summary(vni.surv)$table['0.95UCL']/365.25,2),"]")
-
-#ggsurvplot(vni.surv, risk.table = TRUE,ggtheme = theme_bw(),col="blue",surv.scale="percent")
-ggsurv(vni.surv)
+summary(mod)
 ```
 
-Fig4. Courbe de survie en fonction du temps 
+Je peux donc en déduire que les individus avec un antécédent familial ont un risque de décès multiplié par 2.5  
+Pour la significativité je lis test du score?
+
+##### Sexe
+```{r, echo=FALSE}
+s <- sla
+s$tps <- (s$time.vni/365.25) + 0.001
+s$a_recode <- s$sex
+mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
+
+#résidus de Shoenfeld
+z <- cox.zph(mod, transf="identity")
+plot(z)
+abline(h=0, col="red")
+abline(h=coef(mod), col="blue")
+
+#Test de Harrell
+zi <- cox.zph(mod, transform = "rank")
+zi
+```
+
+L'hypothèse Nulle de risque proportionnel est rejetée par méthode graphique (pas par le test) entre 6 mois et 1 an et demi environ.  
+
+Je dois rajouter une variable dépendante du temps.
+
+###### Log
+
+```{r, echo=FALSE}
+#----- Log -----
+s <- s[!is.na(s$a_recode),]
+
+ti <- sort(unique(c(0,s$tps[s$censor==1])))
+slat <- s
+slat$start <- 0
+slat$stop <- slat$tps
+slat$evt <- slat$censor
+#slat <- survSplit(slat, end="stop", event="evt", start="start",cut=ti) #Yann
+slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)           #Sarah
+slat$at <- slat$a_recode * log(slat$stop)
+
+coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
+summary(coxt)$coefficients
+```
+
+at est significatif, la correction est peut être bonne.  
+Donc je revérifie l'hypothèse des risques proportionnels
+
+```{r, echo=FALSE}
+#résidus de Shoenfeld
+zt <- cox.zph(coxt, transf="identity")
+plot(zt[1])
+abline(h=0, col="red")
+#abline(h=coef(coxt)[1], col="blue")
+
+#Test de Harrell
+zit <- cox.zph(coxt, transform = "rank")
+zit
+```
+
+Je ne comprends pas le schéma. J'ai 2 schéma, je lis lequel? La courbe est linéaire centrée sur 0 mais droite h=0 pas exactement dans l'IC.
+Test significatif mais je lis quelle ligne?
+
+###### sqrt
+
+```{r, echo=FALSE}
+#------ sqrt------
+slat$at <- slat$a_recode * sqrt(slat$stop)
+slat$at1 <- slat$a_recode * ifelse(slat$stop<1, slat$stop, 0) #valeur de la covariable quand tps<1
+slat$at2 <- slat$a_recode * ifelse(slat$stop>=1, 1, 0)        #valeur de la covariable qd tps>=1
+
+coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
+#coxt <- coxph(Surv(start, stop, censor) ~ at1+at2, data=slat)
+summary(coxt)$coefficients
+
+#résidus de Shoenfeld
+zt <- cox.zph(coxt, transf="identity")
+iz<-1 #a_recode
+plot(zt[iz])
+abline(h=0, col="red")
+iz<-2 #at
+plot(zt[iz])
+abline(h=0, col="red")
+#abline(h=coef(coxt)[iz], col="blue")
+
+#Test de Harrell
+zit <- cox.zph(coxt, transform = "rank")
+zit
+```
+plot à peu près ok...
+mais test de harrell significatif pour a_recode et at
 
 
-Médiane de survie :  
+###### 1/t
+```{r, echo=FALSE}
+#--------1/t-----------
+slat$at <- slat$a_recode/(slat$stop)
 
-En jour : `r j`  
-En annee : `r an`
+coxt <- coxph(Surv(start, stop, censor) ~ a + at, data=slat)
+summary(coxt)$coefficients
+#résidus de Shoenfeld
+zt <- cox.zph(coxt, transf="identity")
+iz<-1 #a_recode
+plot(zt[iz])
+abline(h=0, col="red")
+iz<-2 #at
+plot(zt[iz])
+abline(h=0, col="red")
+#abline(h=coef(coxt)[iz], col="blue")
+
+#Test de Harrell
+zit <- cox.zph(coxt, transform = "rank")
+zit
+```
+ne fitte pas
+
+###### t
+```{r, echo=FALSE}
+#----- t -----
+slat$at<-slat$a_recode*(slat$stop)
+
+coxt <- coxph(Surv(start, stop, censor) ~ a + at, data=slat)
+summary(coxt)$coefficients
+#résidus de Shoenfeld
+zt <- cox.zph(coxt, transf="identity")
+iz<-1 #a_recode
+plot(zt[iz])
+abline(h=0, col="red")
+iz<-2 #at
+plot(zt[iz])
+abline(h=0, col="red")
+#abline(h=coef(coxt)[iz], col="blue")
+
+#Test de Harrell
+zit <- cox.zph(coxt, transform = "rank")
+zit
+```
+
+Fitte moins bien que sqrt
+
+Donc finalement c'est la racine carrée qui fitte le mieux.
+
+```{r, echo=FALSE}
+slat$at <- slat$a_recode * sqrt(slat$stop)
+
+coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
+summary(coxt)
+
+s <- vcov(coxt)
+b <- coef(coxt)
+t <- 1
+f <- sqrt
+var <- s[1,1]+s[2,2]*f(t)^2+2*s[1,2]*f(t)
+m <- b[1]+b[2]*f(t)
+HR <- round(exp(m),3)
+IC <- round(exp(m + qnorm(0.975,m,sqrt(var))*sqrt(var) * c(-1,1)),3)
+#IC <- round(exp(m + qnorm(0.975)*sqrt(var) * c(-1,1)),3) #version automatique
+
+#qnorm(c(0.025,0.975), m, sqrt(var)) ??
+
+paste0("HR[95%IC] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" )
+```
+
+Je peux donc en déduire que les femmes(a_recode=1) ont un risque de décès significativement différent (a_recode signif) multiplié par :  
+- HR = exp(beta(a_recode))= 1,151 à t0  IC=[1.146-1.156] : version calcul à la main
+- HR = exp(beta(a_recode) + beta(at) x f(t)) = exp(0.139 + 0.308 * sqrt(1)) = 1.563 à 1 an IC = [1.553-1.572]
+
+Pourquoi l'IC est plus étroit pour t=0 quand on calcule à la main vs lecture de summary? (1,151[1.100-1.204] vs 1.151[1.146-1.156])
+parce que le logiciel prend zalpha/2 = 1.96 (qnorm(0.975,0,1))  alors que je prends 0.19 (qnorm(0.975, b[1]+b[2]*f(t), sqrt(var)))
 
 
-## Survie selon baseline :
+###### Riluzole
 
-### Verification des hypothèses: 
+```{r, echo=FALSE}
+s <- sla
+s$tps <- (s$time.vni/365.25) + 0.001
+s$a_recode <- s$rilu
+mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
+
+#résidus de Shoenfeld
+z <- cox.zph(mod, transf="identity")
+plot(z)
+abline(h=0, col="red")
+abline(h=coef(mod), col="blue")
+
+#Test de Harrell
+zi <- cox.zph(mod, transform = "rank")
+zi
+```
+L'hypothèse des risques proportionnels est vérifié, je peux interpréter
+
+```{r}
+summary(mod)
+```
+Le risque de décès n'est pas significativement différent selon que les individus sont traités ou non par riluzole. (test du score p=0.848)
+
+
+###### Dyspnée de repos
+
+```{r, echo=FALSE}
+s <- sla
+s$tps <- (s$time.vni/365.25) + 0.001
+s$a_recode <- s$dysp
+mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
+
+#résidus de Shoenfeld
+z <- cox.zph(mod, transf="identity")
+plot(z)
+abline(h=0, col="red")
+abline(h=coef(mod), col="blue")
+
+#Test de Harrell
+zi <- cox.zph(mod, transform = "rank")
+zi
+```
+
+Significatif de 0 à 6 mois environ. J'ajoute une variable dépendante du temps.
+
+###### Log
+```{r, echo=FALSE}
+s <- s[!is.na(s$a_recode),]
+
+ti <- sort(unique(c(0,s$tps[s$censor==1])))
+slat <- s
+slat$start <- 0
+slat$stop <- slat$tps
+slat$evt <- slat$censor
+#slat <- survSplit(slat, end="stop", event="evt", start="start",cut=ti) #Yann
+slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)           #Sarah
+slat$at <- slat$a_recode * log(slat$stop)
+
+coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
+summary(coxt)$coefficients
+```
+
+at significatif avec log, je revérifie HRR
+
+```{r, echo=FALSE}
+#résidus de Shoenfeld
+zt <- cox.zph(coxt, transf="identity")
+iz<-1 #a_recode
+plot(zt[iz])
+abline(h=0, col="red")
+iz<-2 #at
+plot(zt[iz])
+abline(h=0, col="red")
+#abline(h=coef(coxt)[iz], col="blue")
+
+#Test de Harrell
+zit <- cox.zph(coxt, transform = "rank")
+zit
+```
+
+Le log correspond : courbe à peu près ok et test ok
+
+```{r}
+summary(coxt)
+```
+
+```{r, echo=FALSE, eval=FALSE}
+s <- vcov(coxt)
+b <- coef(coxt)
+t <- 1
+f <- sqrt
+var <- s[1,1]+s[2,2]*f(t)^2+2*s[1,2]*f(t)
+m <- b[1]+b[2]*f(t)
+HR <- round(exp(m),3)
+IC <- round(exp(m + qnorm(0.975,m,sqrt(var))*sqrt(var) * c(-1,1)),3)
+#IC <- round(exp(m + qnorm(0.975)*sqrt(var) * c(-1,1)),3) #version mean=0, sd=1
+
+#qnorm(c(0.025,0.975), m, sqrt(var)) ??
+
+paste0("HR[95%IC] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" )
+
+```
+
+Le risque de décès n'est pas significativement différent (test du score p>=0.05) selon que le patient ait ou non une dyspnée de repos à l'instauration de la vni.  
+
+
+###### Orthopnée
+
+```{r}
+s <- sla
+s$tps <- (s$time.vni/365.25) + 0.001
+s$a_recode <- s$orthop
+mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
+
+#résidus de Shoenfeld
+z <- cox.zph(mod, transf="identity")
+plot(z)
+abline(h=0, col="red")
+abline(h=coef(mod), col="blue")
+
+#Test de Harrell
+zi <- cox.zph(mod, transform = "rank")
+zi
+```
+
+L'hypothèse des risques proportionnels est vérifié, je peux interpréter.
+
+```{r}
+summary(mod)
+```
+
+Le test du score est non significatif (p>=0.05), le risque de décès n'est pas modifié selon qu'il y a ou non une orthopnée à l'instauration de la vni.
+
+
+### Variable qualitative non ordonnée
+
+#### Hypothèse de loglinéarité 
+non applicable
 
 #### Hypothèse des risques proportionnels
 
 ```{r, echo=FALSE}
-par(mfrow=c(2,2))
-for (x in var_bl){
-  b <- cox.zph(coxph(Surv(sla$time.vni,sla$censor)~sla[,x]))
-  plot(b)
-}
+#résidus de Shoenfeld
+mod <- coxph(Surv(time.vni/365.25, censor) ~ LIEUDEB_recode, data = sla)
+z <- cox.zph(mod, transf="identity")
+plot(z)
+abline(h=0, col="red")
+abline(h=coef(mod), col="blue")
 
-# par(mfrow=c(2,2))
-# for (x in var_bl){
-#  b <- cox.zph(coxph(Surv(sla$time.vni,sla$censor)~sla[,x]))
-#  #browser()
-#  b <- ggcoxzph.1var(b,var=x)
-#  #b <- plotMe(b)
-#  print(b)
-# }
-
-# p <- lapply(var_bl[-4],function(x){
-#  b <- cox.zph(coxph(Surv(sla$time.vni,sla$censor)~sla[,x]))
-#  #browser()
-#  b <- ggcoxzph.1var(b,var=x)
-#  #b <- plotMe(b)
-#  return (b)
-# })
-# print(p)
-
-```
-
-```{r, echo=FALSE}
-a <- lapply(var_bl,function(x){
-  a <- cox.zph(coxph(Surv(sla$time.vni,sla$censor)~sla[,x]))
-  #plot(a,main=x)
-  a <- data.frame(a$table)
-  a <- a[nrow(a),3]
-  return(a)
-})
-risque.prop.all <- data.frame(var_bl,pval=round(unlist(a),3))
-kable(risque.prop.all)
-```
-
-#### Hypothèse de loglinéarité
-
-```{r}
-pl <- lapply(var_quanti,function(i){
-  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,i])
-  res <- residuals(a, type="martingale")
-  X <- sla[,i]
-  X <- X[!is.na(sla[,i])]
-  g <- qplot(X,res,xlab=i,ylab="residuals") +
-    geom_hline(yintercept = 0) +
-    stat_smooth(method="loess")
-  return (g)
-  })
- ml <- marrangeGrob(pl,ncol=3,nrow=2,top = NULL)
- print(ml)
+#Test de Harrell
+z <- cox.zph(mod, transform = "rank")
+z
 ```
 
 
-
-```{r, echo=FALSE}
-pl <- lapply(var_quanti,function(i){
-  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,i])
-  res <- residuals(a, type="martingale")
-  X <- sla[,i]
-  X <- X[!is.na(sla[,i])]
-  
-  b <- coef(a)
-  reslm <- lm(b*X+res~X)
-  g <- qplot(X,b*X+res,xlab=i,ylab="component+residuals") +
-    geom_abline(intercept = reslm$coefficients[1],slope=reslm$coefficients[2]) 
-  g <-  g+stat_smooth(method="loess")
-  return(g)
-})
- ml <- marrangeGrob(pl,ncol=3,nrow=2,top = NULL)
- print(ml)
-```
-
-
-### Test du score (log rank) et HR 
-
-```{r, echo=FALSE}
-get_HR_score <- function(x){
-  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,x])
-  b<-summary(a)
-  res <- round(as.numeric(b$sctest[3]),3)
-  HR <- round(exp(coef(a)),2)
-  up95 <- round(exp(confint(a)),2)[1]
-  low95 <-round(exp(confint(a)),2)[2]
-  HRIC <- paste0(HR, " [",low95,"-",up95,"]")
-  .res <- c(x,test_du_score=res, HR=HRIC)
-  return(.res)
-}
-score <- lapply(var_bl[-4],get_HR_score)
-score <- do.call(rbind,score)
-
-a <- get_HR_score(var_bl[4])
-l <- lapply(3:6, function(i){
-  j <- i-2
-  paste(levels(as.factor(sla[,  var_bl[4]]))[-1][j],as.character(data.frame(a)[,1][i]))
-})
-l <- do.call(rbind,l)
-res_lieudeb <- cbind(rbind(c("LIEUDEB_recode", "0" ),c("",""),c("",""),c("","")),l)
-#score <- unlist(score)
-score <- rbind(score,res_lieudeb)
-# df.test.score.vni <-data.frame(var_bl,test_du_score=unlist(score))
-# kable(df.test.score.vni)
-kable(score)
-```
-
-
-## Courbes de survie pour variables qualitatives
-
-```{r, echo=FALSE}
-for (i in var_quali){
-  var <- sla[,i]
-  var <- as.factor(var)
-  a <- survfit(Surv(sla$time.vni,sla$censor)~var, conf.int=.95)
-  g <- ggsurv(a)
-  g <- g +
-    guides(linetype = FALSE)+
-    scale_colour_discrete( name = i, labels = levels(var))+
-    labs(title = paste0("Survie en fonction de ",i), x = "Time, years", y = "Survival, %") +
-    scale_x_continuous(breaks=seq(0,max(sla$time.vni),365.25), labels=0:(length(seq(0,max(sla$time.vni),365.25))-1)) +
-     scale_y_continuous(labels=percent) 
-  print(g)
-}
-
-```
-
+#si la courbe et le test sont non sgnificatifs, on peut interpréter:
+summary(mod)
+les femmes (var=1) ont un risque de décès multiplié par exp(beta(var))=exp(coef)= 2.5 (p<0.05)
