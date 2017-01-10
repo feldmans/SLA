@@ -1,0 +1,584 @@
+---
+title: "survie univariée SLA"
+output:
+  word_document: default
+  html_notebook: default
+---
+```{r allsource, echo=FALSE, message=FALSE}
+#source("F:/to push/sla_git/src/survie_univ.R")  
+source("d:/to push/sla_git/src/libraries_SLA.R")
+source("d:/to push/sla_git/src/fonctions_SLA.R")
+
+```
+
+```{r, echo=FALSE}
+sla <- readRDS("d:/to push/sla_git/data/BASE_SLA_allbl.rds")
+
+sla$rilu <- ifelse (sla$DEBRILU < sla$DATEVNI & (is.na(sla$FINRILU) | sla$FINRILU>sla$DATEVNI), 1, 0) #je fais l'hyp qu'il n'y a pas de NA
+
+sla$keep <- ifelse (sla$DATEVNI<=sla$ddn,1,0)
+
+sla <- sla[sla$keep==1, ]
+sla$time.vni <- as.numeric(sla$ddn - sla$DATEVNI)
+sla$time.sym <- as.numeric(sla$ddn - sla$FIRSTSYMPTOM)
+sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
+sla$sex <- factor(sla$sex_def, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Féminin'
+sla$sex <- sla$sex_def #1 = 'Masculin' 2 = 'Féminin'
+sla$agevni <- round(as.numeric(sla$DATEVNI-sla$DOB)/365.25,0)
+sla$rilu <- ifelse(sla$DATEVNI>sla$DEBRILU & !is.na(sla$DEBRILU), 1,0)
+sla$rilu <- ifelse(sla$DATEVNI<sla$FINRILU & !is.na(sla$FINRILU), 0,sla$rilu)
+sla$familial <- ifelse (is.na(sla$familial),0,sla$familial)
+#sla$ddn <- ifelse(sla$ddn>as_date("2015-08-27"), as_date("2015-08-27"), sla$ddn) #voir avec Yann
+
+var_bl <- c("familial", "sex", "agevni", "LIEUDEB_recode", "rilu", "dysp","orthop","CVF_ASSIS_perc_pred","CVF_COUCHE_perc_pred","SNIP_cmH2O",
+  "SNIP_perc_pred","PIMAX_cmH2O","PIMAX_perc_pred","perc_time_under_spo2_90","time_under_spo2_90_h","bicar","ALS_score","bulb_score")
+
+var_quali <- c("familial", "sex", "LIEUDEB_recode", "rilu", "dysp", "orthop")
+var_quanti <- var_bl [! var_bl %in% var_quali]
+
+sla[,var_quanti] <- apply(sla[,var_quanti], 2, function(x) as.numeric(x))
+sla[,var_quali[!var_quali%in% "LIEUDEB_recode"]] <- apply(sla[,var_quali[!var_quali%in% "LIEUDEB_recode"]], 2, function(x) as.numeric(x))
+
+summary(sla)
+str(sla)
+```
+
+
+#Description de la population 
+```{r, echo=FALSE}
+table_var_quali <- lapply(var_quali, function(i){
+  data <- sla[,i]
+  names_levels <- levels(as.factor(data))
+  a <- lapply(names_levels, function(x) {
+    tmp <- as.numeric(table(data)[x])
+    tmpbis <- round(as.numeric(prop.table(table(data))[x]),3)*100
+    tmptot <- paste0(tmp," (",tmpbis,"%)")
+    
+    nNA <- table(is.na(data))
+    pNA <- round(prop.table(table(is.na(data))),3)
+    if (is.na(nNA[2]))  {
+      if (which(names_levels==x)==1) nNA <- paste0 (0," (0%)")
+      else nNA <- ""
+    }
+    else {
+      if (which(names_levels==x)==1){
+        nNA <- as.numeric (nNA[names(nNA)==TRUE])
+        pNA <- as.numeric (pNA[names(pNA)==TRUE])*100
+        nNA <- paste0(nNA," (",pNA,"%)")  
+      }
+      else nNA <- ""
+    }
+    cbind(tmptot,nNA)
+      
+  })
+  a <- do.call(rbind,a)
+  #a <- cbind (a,nNA)
+  rownames(a) <- paste0(i,"_",names_levels) 
+  colnames(a) <- c("valeur","missing values")
+  # a <- rbind (a,nNA)
+  # rownames(a)[-nrow(a)] <- paste0(i,"_",names_levels) 
+  return(a)
+})
+table_var_quali <- do.call(rbind,table_var_quali)
+
+table_var_quanti <- lapply(var_quanti, function(i){ #median ou moyenne? (sachant qu'on ne vérifie pas normalité des baselines)
+  data <- sla[,i]
+  med <- round(median (data,na.rm=T),2)
+  quant <- round(quantile(data,na.rm=T),2)
+  Q1 <- quant[2]
+  Q3 <- quant[4]
+  a <- paste0(med," (",Q1,"-",Q3,")")
+  #browser()
+
+  nNA <- table(is.na(data))
+  pNA <- round(prop.table(table(is.na(data))),3)
+  if (is.na(nNA[2]))  nNA <- paste0 (0," (0%)")
+  else {
+    nNA <- as.numeric (nNA[names(nNA)==TRUE])
+    pNA <- as.numeric (pNA[names(pNA)==TRUE])*100
+    nNA <- paste0(nNA," (",pNA,"%)")
+  }
+  # a <- rbind (a,nNA)
+  # rownames(a)[-nrow(a)] <- paste0(i,"*") 
+  a <- cbind (a,nNA)
+  rownames(a) <- paste0(i,"*")
+  colnames(a) <- c("valeur","missing values")
+  return(a)
+})
+table_var_quanti <- do.call(rbind,table_var_quanti)
+
+table_var <- rbind(table_var_quali,table_var_quanti)
+kable(table_var)
+
+```
+
+
+#VERSION DEBUT = PREMIERS SYMPTOMES
+
+
+##Suivi et survie globale
+
+```{r, echo=FALSE}
+#range date de début
+deb1 <- range(sla$FIRSTSYMPTOM,na.rm=T)
+```
+
+range date de début :  
+`r deb1`
+
+```{r, echo=FALSE, message=FALSE}
+#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
+
+#suivi
+sym.suiv <- survfit(Surv(sla$time.sym,1-sla$censor)~1)
+
+med <- min(sym.suiv$time[sym.suiv$surv<=0.5])#mediane de survie
+j <- paste0 (summary(sym.suiv)$table['median']," [",summary(sym.suiv)$table['0.95LCL'],"-",summary(sym.suiv)$table['0.95UCL'],"]")
+an <- paste0 (round(summary(sym.suiv)$table['median']/365.25,2)," [",round(summary(sym.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(sym.suiv)$table['0.95UCL']/365.25,2),"]")
+
+#plot(sym.suiv,xscale=365.25, yscale= 100, xlab="time (years)")
+#ggsurvplot(sym.suiv, risk.table = TRUE,ggtheme = theme_bw(),col="blue",surv.scale="percent")
+ggsurv(sym.suiv) 
+```
+
+Fig1. Courbe de suivi en fonction du temps  
+
+
+Médiane de suivi :  
+
+En jour : `r j`  
+En annee : `r an`   
+
+
+```{r, echo=FALSE}
+#survie
+sym.surv <- survfit(Surv(sla$time.sym,sla$censor)~1, conf.int=.95)
+#plot(sym.surv,xscale=365.25, yscale= 100, xlab="time (years)")
+med1 <- min(sym.surv$time[sym.surv$surv<=0.5])#mediane de survie
+
+j <- paste0 (summary(sym.surv)$table['median']," [", summary(sym.surv)$table['0.95LCL'], "-", summary(sym.surv)$table['0.95UCL'], "]")
+an <- paste0 (round(summary(sym.surv)$table['median']/365.25,2)," [", round(summary(sym.surv)$table['0.95LCL']/365.25,2), "-", round(summary(sym.surv)$table['0.95UCL']/365.25,2),"]")
+
+#ggsurvplot(sym.surv, risk.table = TRUE,ggtheme = theme_bw(),col="blue",surv.scale="percent")
+ggsurv(sym.surv)
+```
+
+Fig2. Courbe de survie en fonction du temps 
+
+
+Médiane de survie :  
+
+En jour : `r j`  
+En annee : `r an`
+
+
+## Survie selon baseline :
+
+### Verification des hypothèses: 
+
+#### Hypothèse des risques proportionnels
+
+```{r, echo=FALSE, message=FALSE}
+par(mfrow=c(2,2))
+for (x in var_bl){
+  b <- cox.zph(coxph(Surv(sla$time.sym,sla$censor)~sla[,x]))
+  plot(b)
+}
+
+# for (x in var_bl){
+#  b <- cox.zph(coxph(Surv(sla$time.sym,sla$censor)~sla[,x]))
+#  #browser()
+#  b <- ggcoxzph.1var(b,var=x)
+#  #b <- plotMe(b)
+#  print(b)
+# }
+
+# p <- lapply(var_bl[-4],function(x){
+#  b <- cox.zph(coxph(Surv(sla$time.sym,sla$censor)~sla[,x]))
+#  #browser()
+#  b <- ggcoxzph.1var(b,var=x)
+#  #b <- plotMe(b)
+#  return (b)
+# })
+# print(p)
+
+```
+cox<-coxph(Surv(time.sym,censor)~ALS_score, data=sla)
+summary(cox)
+z<-cox.zph(cox, transf="rank")
+zi<-cox.zph(cox, transf="identity")
+z
+
+par(mfrow=c(1,1))
+plot(zi)
+abline(h=0)
+abline(h=coef(cox), col="blue")
+
+ti<-sort(unique(c(0, sla$time.sym[sla$censor==1])));ti
+slat<-sla
+slat$start<-0
+slat$stop<-slat$time.sym
+slat$evt<-slat$censor
+slat<-survSplit(slat, start="start", end="stop", cut=ti, event="evt")
+slat$at<-slat$ALS_score*log(slat$stop)
+coxt<-coxph(Surv(start, stop, evt)~ALS_score+at, data=slat)
+summary(coxt)
+
+zt<-cox.zph(coxt, transf="rank")
+zt
+
+zti<-cox.zph(coxt, transf="identity")
+par(mfrow=c(2,1))
+plot(zti[1])
+abline(h=0)
+abline(h=coef(coxt)[1], col="blue")
+plot(zti[2])
+abline(h=0)
+abline(h=coef(coxt)[2], col="blue")
+
+s<-sla[!is.na(sla$time.sym),]
+s$tan<-s$time.sym/365.25
+s$an<-substring(s$FIRSTSYMPTOM, 1, 4)
+y<-as.numeric(as.Date("01/09/2015", "%d/%m/%Y"))-as.numeric(s$FIRSTSYMPTOM)
+hist(y/365.25)
+summary(y)
+table(s$an)
+
+suivi<-survfit(Surv(tan, 1-censor)~1, data=s)
+suivi
+
+
+
+
+sla$a<-sla$bulb_score
+s<-sla[!is.na(sla$a) & !is.na(sla$time.sym),]
+cox<-coxph(Surv(time.sym,censor)~a, data=s)
+  z<-cox.zph(cox, transf="rank")
+  zi<-cox.zph(cox, transf="identity")
+  z
+
+ti<-sort(unique(c(0, sla$time.sym[sla$censor==1])));ti
+st<-s
+st$start<-0
+st$stop<-st$time.sym
+st$evt<-st$censor
+st<-survSplit(st, start="start", end="stop", cut=ti, event="evt")
+st$at<-st$a*log(st$stop)
+coxt<-coxph(Surv(start, stop, evt)~a+at, data=st)
+summary(coxt)
+  zt<-cox.zph(coxt, transf="rank")
+  zti<-cox.zph(coxt, transf="identity")
+  zt
+
+cox2<-coxph(Surv(time.sym,censor)~poly(a, df=2, raw=T), data=s)
+summary(cox2)
+
+cox0<-coxph(Surv(time.sym,censor)~1, data=s)
+r<-residuals(cox0, "martingale")
+lw<-lowess(r~s$a)
+plot(z)
+abline(h=0)
+abline(h=coef(cox), col="blue")
+plot(s$a, r)
+lines(lw)
+
+summary(cox)
+
+```{r, echo=FALSE}
+a <- lapply(var_bl,function(x){
+  a <- cox.zph(coxph(Surv(sla$time.sym,sla$censor)~sla[,x]))
+  #plot(a,main=x)
+  a <- data.frame(a$table)
+  a <- a[nrow(a),3]
+  return(a)
+})
+risque.prop.all <- data.frame(var_bl,pval=round(unlist(a),3))
+kable(risque.prop.all)
+```
+
+#### Hypothèse de loglinéarité
+
+```{r, echo=FALSE}
+pl <- lapply(var_quanti,function(i){
+  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,i])
+  res <- residuals(a, type="martingale")
+  X <- sla[,i]
+  X <- X[!is.na(sla[,i])]
+  g <- qplot(X,res,xlab=i,ylab="residuals") +
+    geom_hline(yintercept = 0) +
+    stat_smooth(method="loess")
+  return (g)
+  })
+ ml <- marrangeGrob(pl,ncol=3,nrow=2,top = NULL)
+ print(ml)
+```
+
+
+
+```{r, echo=FALSE}
+pl <- lapply(var_quanti,function(i){
+  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,i])
+  res <- residuals(a, type="martingale")
+  X <- sla[,i]
+  X <- X[!is.na(sla[,i])]
+  
+  b <- coef(a)
+  reslm <- lm(b*X+res~X)
+  g <- qplot(X,b*X+res,xlab=i,ylab="component+residuals") +
+    geom_abline(intercept = reslm$coefficients[1],slope=reslm$coefficients[2]) 
+  g <-  g+stat_smooth(method="loess")
+  return(g)
+})
+ ml <- marrangeGrob(pl,ncol=3,nrow=2,top = NULL)
+ print(ml)
+```
+
+
+### Test du score (log rank) et HR 
+
+```{r, echo=FALSE}
+get_HR_score <- function(x){
+  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,x])
+  b<-summary(a)
+  res <- round(as.numeric(b$sctest[3]),3)
+  HR <- round(exp(coef(a)),2)
+  up95 <- round(exp(confint(a)),2)[1]
+  low95 <-round(exp(confint(a)),2)[2]
+  HRIC <- paste0(HR, " [",low95,"-",up95,"]")
+  .res <- c(x,test_du_score=res, HR=HRIC)
+  return(.res)
+}
+score <- lapply(var_bl[-4],get_HR_score)
+score <- do.call(rbind,score)
+
+a <- get_HR_score(var_bl[4])
+l <- lapply(3:6, function(i){
+  j <- i-2
+  paste(levels(as.factor(sla[,  var_bl[4]]))[-1][j],as.character(data.frame(a)[,1][i]))
+})
+l <- do.call(rbind,l)
+res_lieudeb <- cbind(rbind(c("LIEUDEB_recode", "0" ),c("",""),c("",""),c("","")),l)
+#score <- unlist(score)
+score <- rbind(score,res_lieudeb)
+# df.test.score.sym <-data.frame(var_bl,test_du_score=unlist(score))
+# kable(df.test.score.sym)
+kable(score)
+```
+
+
+## Courbes de survie pour variables qualitatives
+
+```{r, echo=FALSE}
+for (i in var_quali){
+  var <- sla[,i]
+  var <- as.factor(var)
+  a <- survfit(Surv(sla$time.sym,sla$censor)~var, conf.int=.95)
+  g <- ggsurv(a)
+  # plot(a,col=c(2,4),xscale=365.25, yscale= 100, xlab="time (years)", main=i)
+  # legend (3000,1,legend=c(levels(var)),lty=c(1,1),col=c(2,4))
+g <- g +
+    guides(linetype = FALSE)+
+    scale_colour_discrete( name = i, labels = levels(var))+
+    labs(title = paste0("Survie en fonction de ",i), x = "Time, years", y = "Survival, %") +
+    scale_x_continuous(breaks=seq(0,max(sla$time.vni),365.25), labels=0:(length(seq(0,max(sla$time.vni),365.25))-1)) +
+     scale_y_continuous(labels=percent) 
+  print(g)
+}
+
+```
+
+
+
+#VERSION DEBUT = MISE EN PLACE VNI
+
+
+##Suivi et survie globale
+
+```{r, echo=FALSE}
+#range date de début
+deb1 <- range(sla$DATEVNI,na.rm=T)
+```
+
+range date de début :  
+`r deb1`
+
+```{r, echo=FALSE, message=FALSE}
+#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
+
+#suivi
+vni.suiv <- survfit(Surv(sla$time.vni,1-sla$censor)~1)
+
+med <- min(vni.suiv$time[vni.suiv$surv<=0.5])#mediane de survie
+j <- paste0 (summary(vni.suiv)$table['median']," [",summary(vni.suiv)$table['0.95LCL'],"-",summary(vni.suiv)$table['0.95UCL'],"]")
+an <- paste0 (round(summary(vni.suiv)$table['median']/365.25,2)," [",round(summary(vni.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(vni.suiv)$table['0.95UCL']/365.25,2),"]")
+
+#plot(vni.suiv,xscale=365.25, yscale= 100, xlab="time (years)")
+#ggsurvplot(vni.suiv, risk.table = TRUE,ggtheme = theme_bw(),col="blue",surv.scale="percent")
+ggsurv(vni.suiv) 
+```
+
+Fig3. Courbe de suivi en fonction du temps  
+
+
+Médiane de suivi :  
+
+En jour : `r j`  
+En annee : `r an`   
+
+
+```{r, echo=FALSE}
+#survie
+vni.surv <- survfit(Surv(sla$time.vni,sla$censor)~1, conf.int=.95)
+#plot(vni.surv,xscale=365.25, yscale= 100, xlab="time (years)")
+med1 <- min(vni.surv$time[vni.surv$surv<=0.5])#mediane de survie
+
+j <- paste0 (summary(vni.surv)$table['median']," [", summary(vni.surv)$table['0.95LCL'], "-", summary(vni.surv)$table['0.95UCL'], "]")
+an <- paste0 (round(summary(vni.surv)$table['median']/365.25,2)," [", round(summary(vni.surv)$table['0.95LCL']/365.25,2), "-", round(summary(vni.surv)$table['0.95UCL']/365.25,2),"]")
+
+#ggsurvplot(vni.surv, risk.table = TRUE,ggtheme = theme_bw(),col="blue",surv.scale="percent")
+ggsurv(vni.surv)
+```
+
+Fig4. Courbe de survie en fonction du temps 
+
+
+Médiane de survie :  
+
+En jour : `r j`  
+En annee : `r an`
+
+
+## Survie selon baseline :
+
+### Verification des hypothèses: 
+
+#### Hypothèse des risques proportionnels
+
+```{r, echo=FALSE}
+par(mfrow=c(2,2))
+for (x in var_bl){
+  b <- cox.zph(coxph(Surv(sla$time.vni,sla$censor)~sla[,x]))
+  plot(b)
+}
+
+# par(mfrow=c(2,2))
+# for (x in var_bl){
+#  b <- cox.zph(coxph(Surv(sla$time.vni,sla$censor)~sla[,x]))
+#  #browser()
+#  b <- ggcoxzph.1var(b,var=x)
+#  #b <- plotMe(b)
+#  print(b)
+# }
+
+# p <- lapply(var_bl[-4],function(x){
+#  b <- cox.zph(coxph(Surv(sla$time.vni,sla$censor)~sla[,x]))
+#  #browser()
+#  b <- ggcoxzph.1var(b,var=x)
+#  #b <- plotMe(b)
+#  return (b)
+# })
+# print(p)
+
+```
+
+```{r, echo=FALSE}
+a <- lapply(var_bl,function(x){
+  a <- cox.zph(coxph(Surv(sla$time.vni,sla$censor)~sla[,x]))
+  #plot(a,main=x)
+  a <- data.frame(a$table)
+  a <- a[nrow(a),3]
+  return(a)
+})
+risque.prop.all <- data.frame(var_bl,pval=round(unlist(a),3))
+kable(risque.prop.all)
+```
+
+#### Hypothèse de loglinéarité
+
+```{r}
+pl <- lapply(var_quanti,function(i){
+  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,i])
+  res <- residuals(a, type="martingale")
+  X <- sla[,i]
+  X <- X[!is.na(sla[,i])]
+  g <- qplot(X,res,xlab=i,ylab="residuals") +
+    geom_hline(yintercept = 0) +
+    stat_smooth(method="loess")
+  return (g)
+  })
+ ml <- marrangeGrob(pl,ncol=3,nrow=2,top = NULL)
+ print(ml)
+```
+
+
+
+```{r, echo=FALSE}
+pl <- lapply(var_quanti,function(i){
+  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,i])
+  res <- residuals(a, type="martingale")
+  X <- sla[,i]
+  X <- X[!is.na(sla[,i])]
+  
+  b <- coef(a)
+  reslm <- lm(b*X+res~X)
+  g <- qplot(X,b*X+res,xlab=i,ylab="component+residuals") +
+    geom_abline(intercept = reslm$coefficients[1],slope=reslm$coefficients[2]) 
+  g <-  g+stat_smooth(method="loess")
+  return(g)
+})
+ ml <- marrangeGrob(pl,ncol=3,nrow=2,top = NULL)
+ print(ml)
+```
+
+
+### Test du score (log rank) et HR 
+
+```{r, echo=FALSE}
+get_HR_score <- function(x){
+  a <- coxph(Surv(sla$time.vni,sla$censor)~sla[,x])
+  b<-summary(a)
+  res <- round(as.numeric(b$sctest[3]),3)
+  HR <- round(exp(coef(a)),2)
+  up95 <- round(exp(confint(a)),2)[1]
+  low95 <-round(exp(confint(a)),2)[2]
+  HRIC <- paste0(HR, " [",low95,"-",up95,"]")
+  .res <- c(x,test_du_score=res, HR=HRIC)
+  return(.res)
+}
+score <- lapply(var_bl[-4],get_HR_score)
+score <- do.call(rbind,score)
+
+a <- get_HR_score(var_bl[4])
+l <- lapply(3:6, function(i){
+  j <- i-2
+  paste(levels(as.factor(sla[,  var_bl[4]]))[-1][j],as.character(data.frame(a)[,1][i]))
+})
+l <- do.call(rbind,l)
+res_lieudeb <- cbind(rbind(c("LIEUDEB_recode", "0" ),c("",""),c("",""),c("","")),l)
+#score <- unlist(score)
+score <- rbind(score,res_lieudeb)
+# df.test.score.vni <-data.frame(var_bl,test_du_score=unlist(score))
+# kable(df.test.score.vni)
+kable(score)
+```
+
+
+## Courbes de survie pour variables qualitatives
+
+```{r, echo=FALSE}
+for (i in var_quali){
+  var <- sla[,i]
+  var <- as.factor(var)
+  a <- survfit(Surv(sla$time.vni,sla$censor)~var, conf.int=.95)
+  g <- ggsurv(a)
+  g <- g +
+    guides(linetype = FALSE)+
+    scale_colour_discrete( name = i, labels = levels(var))+
+    labs(title = paste0("Survie en fonction de ",i), x = "Time, years", y = "Survival, %") +
+    scale_x_continuous(breaks=seq(0,max(sla$time.vni),365.25), labels=0:(length(seq(0,max(sla$time.vni),365.25))-1)) +
+     scale_y_continuous(labels=percent) 
+  print(g)
+}
+
+```
+
