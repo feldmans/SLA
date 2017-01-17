@@ -9,6 +9,7 @@ library(ReporteRs)
 library(survminer)#fonction ggsurv
 library(knitr)
 library(gridExtra)
+library(grid)
 library(GGally)
 
 
