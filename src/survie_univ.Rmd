@@ -404,8 +404,8 @@ modcox <- coxph(Surv(time.vni, censor) ~ ALS_score, data = sla) #ALS_score au au
 
 un modele par variable a baseline
 
-NB : on ne v?rifiera l'hypoth?se de loglin?arit? que pour les variables quantiatives
-On ne fera de courbes de survie que pour les variables binaires et qualitatives non ordonn?es.
+NB : on ne verifiera l'hypothese de loglinearite que pour les variables quantiatives
+On ne fera de courbes de survie que pour les variables binaires et qualitatives non ordonnees.
 
 ### Familial
 
@@ -890,7 +890,7 @@ Le log correspond : courbe a peu pres ok et test ok
 
 #### Interprétation
 
-```{r}
+```{r, echo=FALSE}
 summary(coxt)
 ```
 
@@ -913,7 +913,7 @@ paste0("HR[95%IC] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" )
 
 Le risque de deces n'est pas significativement different (test du score p>=0.05) selon que le patient ait ou non une dyspnee de repos a l'instauration de la vni.  
 
-```{r}
+```{r, echo=FALSE, message=FALSE}
 var <- "Dyspnee de repos"
 km <- survfit(Surv(tps,censor)~dysp, data=s, conf.int=.95)
 km0 <- survfit(Surv(tps,censor)~dysp, data=s[s$dysp==0,], conf.int=.95)
@@ -979,7 +979,7 @@ grid.draw(gt)
 
 ### Orthopnee
 #### Hypothese des risques proportionnels
-```{r}
+```{r, echo=FALSE}
 s <- sla
 s$tps <- (s$time.vni/365.25) + 0.001
 s$a_recode <- s$orthop
@@ -998,13 +998,13 @@ zi
 
 L'hypothese des risques proportionnels est verifiee, je peux interpreter.
 
-```{r}
+```{r, echo=FALSE}
 summary(mod)
 ```
 
 Le test du score est non significatif (p>=0.05), le risque de deces n'est pas modifie selon qu'il y a ou non une orthopnee a l'instauration de la vni.
 
-```{r, message=FALSE}
+```{r, echo=FALSE, message=FALSE}
 var <- "Orthopnee"
 km <- survfit(Surv(tps,censor)~orthop, data=s, conf.int=.95)
 km0 <- survfit(Surv(tps,censor)~orthop, data=s[s$orthop==0,], conf.int=.95)
@@ -1071,22 +1071,315 @@ grid.draw(gt)
 
 ### LIEUDEB
 
-#### Hypothese des risques proportionnels
+```{r, echo=FALSE, message=FALSE}
+var <- "Lieu deb"
+km <- survfit(Surv(tps,censor)~LIEUDEB_recode, data=s, conf.int=.95)
+
+for (i in 1:length(km$strata)){
+  .km <- survfit(Surv(tps,censor)~LIEUDEB_recode, data=s[s$LIEUDEB_recode==levels(s$LIEUDEB_recode)[i], ], conf.int=.95)
+assign(paste0("km",i), .km)
+#pour IC95%
+am <- i/10
+.skmi <- summary(.km, time=c(1, 3)-am)
+assign(paste0("skmi",i), .skmi)
+#pour table de survie
+.skm <- summary(.km, time=seq(0, 10, by=1))
+.skm <- data.frame(time=.skm$time, n.risk=.skm$n.risk)
+assign(paste0("skm",i), .skm)
+}
+
+#preparation legende
+leg<-names(km$strata)
+
+#courbe de survie
+g <- ggsurv(km, CI=FALSE, order.legend = FALSE) +
+  #changement des axes
+  scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
+  scale_y_continuous(labels=percent) +
+  labs(x="Time of follow-up, year") +
+  #changement legende
+  guides (linetype = FALSE) +
+  scale_colour_discrete( labels = leg) +
+  theme(legend.position="right", legend.title=element_blank()) +
+  #espace autour du schéma
+  theme(plot.margin = unit(c(0,1,4,2), "cm")) #top, right, bottom, left
+
+#intervalle de confiance
+for (j in 1:5){
+  .skmi <- get(paste0(paste0("skmi",j)))
+  for (i in 1:2) {
+    
+    g <- g + geom_segment(x = .skmi$time[i], y = .skmi$lower[i], xend = .skmi$time[i], yend = .skmi$upper[i])
+    g <- g + geom_segment(x = .skmi$time[i] - 0.1, y = .skmi$lower[i], xend = .skmi$time[i] + 0.1, yend = .skmi$lower[i])
+    g <- g + geom_segment(x = .skmi$time[i] - 0.1, y = .skmi$upper[i], xend = .skmi$time[i] + 0.1, yend = .skmi$upper[i])
+  }
+}
+
+```
 
 ```{r, echo=FALSE}
+#risk table
+#position_y <- c(-1.2, -1.5, -1.7, -1.9, -2.1)
+position_y <- c(-1.4, -1.5, -1.6, -1.7, -1.8)
+for (j in 1:5){
+    .skm <- get(paste0(paste0("skm",j)))
+    .pos <- position_y[j]
+  for (ii in 1:nrow(.skm)) {
+    g <- g + annotation_custom(grob = textGrob(.skm$n.risk[ii]), xmin = .skm$time[ii], xmax = .skm$time[ii], ymin= .pos )
+  } 
+}
+
+  #display group text
+for (j in 1:5){
+  g <- g + annotation_custom(grob = textGrob(str_sub(leg,16,-1)[j]), xmin = -2.1, xmax = -2.1, ymin = position_y[j])
+}
+  
+gt <- ggplotGrob(g)
+gt$layout$clip[gt$layout$name=="panel"] <- "off"
+grid.draw(gt)
+```
+
+
+#### Recodage en 4 variables binaires
+
+```{r, echo=FALSE}
+s <- sla
+s$tps <- (s$time.vni/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+#recodage LIEUDEB en 4 var bianaire. ref = bulbar
+s$cerv <- ifelse(s$LIEUDEB_recode=="cervical",1,0)
+s$llimb <- ifelse(s$LIEUDEB_recode=="lower limb onset", 1, 0)
+s$resp <- ifelse(s$LIEUDEB_recode=="respiratory", 1, 0)
+s$ulimb <- ifelse(s$LIEUDEB_recode=="upper limb onset", 1, 0)
+
+#mod <- coxph(Surv(tps, censor) ~ cerv + llimb + resp + ulimb, data = s)
+
+```
+
+
+#### cervical
+
+##### Hypothese des risques proportionnels
+```{r, echo=FALSE}
+s <- sla
+s$tps <- (s$time.vni/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+s$cerv <- ifelse(s$LIEUDEB_recode=="cervical",1,0)
+
+s$a_recode <- s$cerv
+mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
+
 #residus de Shoenfeld
-mod <- coxph(Surv(time.vni/365.25, censor) ~ LIEUDEB_recode, data = sla)
 z <- cox.zph(mod, transf="identity")
 plot(z)
 abline(h=0, col="red")
 abline(h=coef(mod), col="blue")
 
 #Test de Harrell
-z <- cox.zph(mod, transform = "rank")
-z
+zi <- cox.zph(mod, transform = "rank")
+zi
+
+```
+Le debut est significatif => on recode
+
+```{r, echo=FALSE}
+s <- s[!is.na(s$a_recode),]
+
+ti <- sort(unique(c(0,s$tps[s$censor==1])))
+slat <- s
+slat$start <- 0
+slat$stop <- slat$tps
+slat$evt <- slat$censor
+#slat <- survSplit(slat, end="stop", event="evt", start="start",cut=ti) #Yann
+slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)           #Sarah
+#slat$at <- slat$a_recode * log(slat$stop) #non graphe mauvais
+#slat$at <- slat$a_recode * sqrt(slat$stop) #non graphe mauvais
+#slat$at <- slat$a_recode / (slat$stop) #non at non significatif
+#slat$at <- slat$a_recode * (slat$stop) #non at non significatif
+
+coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
+summary(coxt)$coefficients
+```
+
+si at significatif => je revérifie les conditions
+
+```{r, echo=FALSE}
+#residus de Shoenfeld
+zt <- cox.zph(coxt, transf="identity")
+iz<-1 #a_recode
+plot(zt[iz])
+abline(h=0, col="red")
+iz<-2 #at
+plot(zt[iz])
+abline(h=0, col="red")
+#abline(h=coef(coxt)[iz], col="blue")
+
+#Test de Harrell
+zit <- cox.zph(coxt, transform = "rank")
+zit
+```
+
+Aucune correction ne convient, en attendant je garde sans correction car la courbe ne s'écartait que très peu de beta=0
+
+##### Interpretation
+```{r, echo=FALSE}
+summary(mod)
+```
+Pas de risque de deces accru pour lieu de début cervical compare a bulbaire (p>=0.05)
+
+
+#### lower limb
+
+##### Hypothese des risques proportionnels
+```{r, echo=FALSE}
+s <- sla
+s$tps <- (s$time.vni/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+s$llimb <- ifelse(s$LIEUDEB_recode=="lower limb onset", 1, 0)
+
+s$a_recode <- s$llimb
+mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
+
+#residus de Shoenfeld
+z <- cox.zph(mod, transf="identity")
+plot(z)
+abline(h=0, col="red")
+abline(h=coef(mod), col="blue")
+
+#Test de Harrell
+zi <- cox.zph(mod, transform = "rank")
+zi
+
+```
+non significatif => on interprete
+
+
+##### Interpretation
+```{r, echo=FALSE}
+summary(mod)
+```
+Pas de risque de deces accru pour lieu de début membres inferieurs compare a bulbaire (p>=0.05)
+
+#### repiratory
+
+##### Hypothese des risques proportionnels
+```{r, echo=FALSE}
+s <- sla
+s$tps <- (s$time.vni/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+s$resp <- ifelse(s$LIEUDEB_recode=="respiratory", 1, 0)
+
+s$a_recode <- s$resp
+mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
+
+#residus de Shoenfeld
+z <- cox.zph(mod, transf="identity")
+plot(z)
+abline(h=0, col="red")
+abline(h=coef(mod), col="blue")
+
+#Test de Harrell
+zi <- cox.zph(mod, transform = "rank")
+zi
+
+```
+Le debut est significatif => on recode
+
+```{r, echo=FALSE}
+s <- s[!is.na(s$a_recode),]
+
+ti <- sort(unique(c(0,s$tps[s$censor==1])))
+slat <- s
+slat$start <- 0
+slat$stop <- slat$tps
+slat$evt <- slat$censor
+#slat <- survSplit(slat, end="stop", event="evt", start="start",cut=ti) #Yann
+slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)           #Sarah
+#slat$at <- slat$a_recode * log(slat$stop) #non graphe pas mal mais 3p signif
+#slat$at <- slat$a_recode * sqrt(slat$stop) #non graphe pas mal mais 3p signif
+#slat$at <- slat$a_recode / (slat$stop) #non at non significatif
+#slat$at <- slat$a_recode * (slat$stop) #non graphe mauvais
+
+coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
+summary(coxt)$coefficients
+```
+
+si at significatif => je revérifie les conditions
+
+```{r, echo=FALSE}
+#residus de Shoenfeld
+zt <- cox.zph(coxt, transf="identity")
+iz<-1 #a_recode
+plot(zt[iz])
+abline(h=0, col="red")
+iz<-2 #at
+plot(zt[iz])
+abline(h=0, col="red")
+#abline(h=coef(coxt)[iz], col="blue")
+
+#Test de Harrell
+zit <- cox.zph(coxt, transform = "rank")
+zit
+```
+
+Aucune correction ne convient, et l'ecart a l'hypothese avait l'air important.je ne sais pas interpreter en l'etat
+
+
+#### Membres superieurs
+
+##### Hypothese des risques proportionnels
+```{r, echo=FALSE}
+s <- sla
+s$tps <- (s$time.vni/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+s$ulimb <- ifelse(s$LIEUDEB_recode=="upper limb onset", 1, 0)
+
+s$a_recode <- s$ulimb
+mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
+
+#residus de Shoenfeld
+z <- cox.zph(mod, transf="identity")
+plot(z)
+abline(h=0, col="red")
+abline(h=coef(mod), col="blue")
+
+#Test de Harrell
+zi <- cox.zph(mod, transform = "rank")
+zi
+
+```
+Le milieu est significatif => on recode
+
+```{r, echo=FALSE}
+s <- s[!is.na(s$a_recode),]
+
+ti <- sort(unique(c(0,s$tps[s$censor==1])))
+slat <- s
+slat$start <- 0
+slat$stop <- slat$tps
+slat$evt <- slat$censor
+#slat <- survSplit(slat, end="stop", event="evt", start="start",cut=ti) #Yann
+slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)           #Sarah
+#slat$at <- slat$a_recode * log(slat$stop) #non at non signif
+#slat$at <- slat$a_recode * sqrt(slat$stop) #non at non signif
+#slat$at <- slat$a_recode / (slat$stop) #non at non significatif
+#slat$at <- slat$a_recode * (slat$stop) #non at non significatif
+slat$at<-slat$a_recode*ifelse(slat$stop>=1 & slat$stop<2.5, 1, 0) #at signif, test non signif mais graphe mauvais
+
+coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
+summary(coxt)$coefficients
 ```
 
 
-#si la courbe et le test sont non sgnificatifs, on peut interpreter:
-summary(mod)
-les femmes (var=1) ont un risque de deces multiplie par exp(beta(var))=exp(coef)= 2.5 (p<0.05)
+```{r, echo=FALSE}
+#residus de Shoenfeld
+zt <- cox.zph(coxt, transf="identity")
+iz<-1 #a_recode
+plot(zt[iz])
+abline(h=0, col="red")
+iz<-2 #at
+plot(zt[iz])
+abline(h=0, col="red")
+#abline(h=coef(coxt)[iz], col="blue")
+
+#Test de Harrell
+zit <- cox.zph(coxt, transform = "rank")
+zit
+```
+
+Aucune correction ne convient, et l'ecart a l'hypothese avait l'air important.je ne sais pas interpreter en l'etat
