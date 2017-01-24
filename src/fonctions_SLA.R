@@ -389,17 +389,17 @@ get_repet_var_fun <- function (data2,string1, string2=NULL, string3=NULL) {
         data[,i] <- as.character(data[,i])
         data[,i] <- ifelse(data[,i]=="",NA,data[,i])
       }
-      #browser()
-      is.datenonNA <- apply(data,2,function(.x)!is.na(.x)) #si true = non NA
-      COLDATEnonNA <- colnames(is.datenonNA)[apply(is.datenonNA,2,sum)>0]
-      #COLDATEnonNA <- COLDATEnonNA[!COLDATEnonNA %in% "PATIENT"]
-      
-      data$PATIENT <- as.character(data2$PATIENT)
-      which_nonNA <- data[apply(apply(data[,-which(colnames(data) %in% "PATIENT")],2,function(x)!is.na(x)),1,sum)>0, c("PATIENT",COLDATEnonNA)]
-      n_row_nonNA <- nrow(data[apply(apply(data[,-which(colnames(data) %in% "PATIENT")],2,function(x)!is.na(x)),1,sum)>0, c("PATIENT",COLDATEnonNA)])
-      which_colnonNA <- data[ , c("PATIENT",COLDATEnonNA)]
-      
-      return(list(all_data_rept_var = data[ ,c("PATIENT",colnamesDAT)], col_nonNA = which_colnonNA, col_and_row_nonNA = which_nonNA, nrow_nonNA = n_row_nonNA, which_col_withcolNA = colnamesDAT, which_col_nonNA = COLDATEnonNA))
+
+        #browser()
+        is.datenonNA <- apply(data,2,function(.x)!is.na(.x)) #si true = non NA
+        COLDATEnonNA <- colnames(is.datenonNA)[apply(is.datenonNA,2,sum)>0]
+        #COLDATEnonNA <- COLDATEnonNA[!COLDATEnonNA %in% "PATIENT"]
+        
+        data$PATIENT <- as.character(data2$PATIENT)
+        which_nonNA <- data[apply(apply(data[,-which(colnames(data) %in% "PATIENT")],2,function(x)!is.na(x)),1,sum)>0, c("PATIENT",COLDATEnonNA)]
+        n_row_nonNA <- nrow(data[apply(apply(data[,-which(colnames(data) %in% "PATIENT")],2,function(x)!is.na(x)),1,sum)>0, c("PATIENT",COLDATEnonNA)])
+        which_colnonNA <- data[ , c("PATIENT",COLDATEnonNA)]
+        return(list(all_data_rept_var = data[ ,c("PATIENT",colnamesDAT)], col_nonNA = which_colnonNA, col_and_row_nonNA = which_nonNA, nrow_nonNA = n_row_nonNA, which_col_withcolNA = colnamesDAT, which_col_nonNA = COLDATEnonNA))
     }
     
   }
@@ -414,12 +414,17 @@ get_repet_var_fun <- function (data2,string1, string2=NULL, string3=NULL) {
 
 
 #voir dans chaque base, quelle colonne contient l'info et la retourner si spécifié
-which_col <- function(data,string1,string2=NULL, string3=NULL, type="explo"){
+which_col <- function(data,string1,string2=NULL, string3=NULL, type="explo", keep_col_NA=FALSE){
   num <- as.integer(str_sub(data,-1,-1))
   bdd <- get(data)
-  if(type=="explo") return(c(data, .dir_csv[num], get_repet_var_fun(bdd,string1,string2,string3)$which_col_withcolNA))
+  if(type=="explo") return(c(data, .dir_csv[num], get_repet_var_fun(bdd, string1, string2, string3,keep_col_NA)$which_col_withcolNA))
   if (type=="merge"){
-    return(unique(get_repet_var_fun(bdd,string1,string2,string3)$col_and_row_nonNA))
+    if (keep_col_NA==FALSE){
+      return(unique(get_repet_var_fun(bdd,string1,string2,string3)$col_and_row_nonNA))  
+    } else {
+      return(unique(get_repet_var_fun(bdd,string1,string2,string3)$all_data_rept_var))
+    }
+    
     #return(head(unique(get_repet_var_fun(bdd,string1,string2)$col_and_row_nonNA)))
   }
 }
@@ -443,111 +448,6 @@ scan_notebook <- function(string, onepath_or_pathlist){
 
 #verif graphique des risques proportionnels en ggplot2
 
-ggcoxzph.1var <- function (fit, resid = TRUE, se = TRUE, df = 4, nsmo = 40, var2, 
-                           point.col = "red", point.size = 1, point.shape = 19, point.alpha = 1, 
-                           font.main = c(16, "plain", "black"), font.x = c(14, "plain", 
-                                                                           "black"), font.y = c(14, "plain", "black"), font.tickslab = c(12, 
-                                                                                                                                         "plain", "black"), ggtheme = theme_classic2()) 
-{
-  #browser()
-  x <- fit
-  if (!methods::is(x, "cox.zph")) 
-    stop("Can't handle an object of class ", class(x))
-  xx <- x$x
-  yy <- x$y
-  d <- nrow(yy)
-  df <- max(df)
-  nvar <- ncol(yy)
-  pred.x <- seq(from = min(xx), to = max(xx), length = nsmo)
-  temp <- c(pred.x, xx)
-  lmat <- splines::ns(temp, df = df, intercept = TRUE)
-  pmat <- lmat[1:nsmo, ]
-  xmat <- lmat[-(1:nsmo), ]
-  qmat <- qr(xmat)
-  if (qmat$rank < df) 
-    stop("Spline fit is singular, try a smaller degrees of freedom")
-  if (se) {
-    bk <- backsolve(qmat$qr[1:df, 1:df], diag(df))
-    xtx <- bk %*% t(bk)
-    seval <- d * ((pmat %*% xtx) * pmat) %*% rep(1, df)
-  }
-  #ylab <- paste("Beta(t) for", dimnames(yy)[[2]])
-  ylab <- paste("Beta(t) for", var2)
-  #if (missing(var)) 
-    var <- 1:nvar
-  # else {
-  #   if (is.character(var)) 
-  #    # browser()
-  #     var <- match(var, dimnames(yy)[[2]])
-  #   if (any(is.na(var)) || max(var) > nvar || min(var) < 
-  #       1) 
-  #     stop("Invalid variable requested")
-  # }
-  if (x$transform == "log") {
-    xx <- exp(xx)
-    pred.x <- exp(pred.x)
-  }
-  else if (x$transform != "identity") {
-    #browser()
-    xtime <- as.numeric(dimnames(yy)[[1]])
-    indx <- !duplicated(xx)
-    apr1 <- approx(xx[indx], xtime[indx], seq(min(xx), max(xx), 
-                                              length = 17)[2 * (1:8)])
-    temp <- signif(apr1$y, 2)
-    apr2 <- approx(xtime[indx], xx[indx], temp)
-    xaxisval <- apr2$y
-    xaxislab <- rep("", 8)
-    for (i in 1:8) xaxislab[i] <- format(temp[i])
-  }
-  #browser()
-  plots <- list()
-  plots <- lapply(var, function(i) {
-    invisible(pval <- round(x$table[i, 3], 3))
-    gplot <- ggplot() + ggtitle(paste0("Schoenfeld Individual Test p: ", 
-                                       pval)) + ggtheme
-    #browser()
-    y <- yy[, i]
-    yhat <- pmat %*% qr.coef(qmat, y)
-    if (resid) 
-      yr <- range(yhat, y)
-    else yr <- range(yhat)
-    if (se) {
-      temp <- 2 * sqrt(x$var[i, i] * seval)
-      yup <- yhat + temp
-      ylow <- yhat - temp
-      yr <- range(yr, yup, ylow)
-    }
-    if (x$transform == "identity") {
-      gplot <- gplot + geom_line(aes(x = pred.x, y = yhat)) + 
-        xlab("Time") + ylab(ylab[i]) + ylim(yr)
-    }
-    else if (x$transform == "log") {
-      gplot <- gplot + geom_line(aes(x = log(pred.x), y = yhat)) + 
-        xlab("Time") + ylab(ylab[i]) + ylim(yr)
-    }
-    else {
-      gplot <- gplot + geom_line(aes(x = pred.x, y = yhat)) + 
-        xlab("Time") + ylab(ylab[i]) + scale_x_continuous(breaks = xaxisval, 
-                                                          labels = xaxislab) + ylim(yr)
-    }
-    if (resid) 
-      gplot <- gplot + geom_point(aes(x = xx, y = y), col = point.col, 
-                                  shape = point.shape, size = point.size, alpha = point.alpha)
-    if (se) {
-      gplot <- gplot + geom_line(aes(x = pred.x, y = yup), 
-                                 lty = "dashed") + geom_line(aes(x = pred.x, y = ylow), 
-                                                             lty = "dashed")
-    }
-    # gplot <- .labs(p = gplot, font.main = font.main, font.x = font.x, 
-    #                font.y = font.y)
-    # gplot <- .set_ticks(gplot, font.tickslab = font.tickslab)
-  })
-  #browser()
-  names(plots) <- var
-  #class(plots) <- c("ggcoxzph", "list")
-  if(nrow(x$table)>1) attr(plots, "global_pval") <- x$table["GLOBAL", 3]
-  plots
-}
 
 
 #VERIF LOGLINEARITE
@@ -581,21 +481,20 @@ paste0("pvalue polynome degre 2 : ", round(pval,3))
 
 #HYP DES RISQUES PROP
 
-check_RP <- function(var, data, .time, .censor, type="quanti", respect_loglin=FALSE){
+check_RP <- function(var, data, .time, .censor, type="quanti", recode = TRUE){
   s <- data
   s$a <- s[ ,var]
   s$censor <- s[ ,.censor]
   s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
   s <- s[!is.na(s$a),]
   
-  if (type=="quanti" & respect_loglin==FALSE) {
+  if (type=="quanti" & recode==TRUE) {
     s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
     .title <- paste0 ("RP of ", var, " superior to ", round(median(s$a),0))
   } else {
     s$a_recode <- s$a
     .title <- paste0("RP of ", var)
   }
-  
   mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
   
   #résidus de Shoenfeld
@@ -607,21 +506,23 @@ check_RP <- function(var, data, .time, .censor, type="quanti", respect_loglin=FA
   
   #Test de Harrell
   z <- cox.zph(mod, transform = "rank")
+  cat("Test de Harrell\n\n")
+  print(z)
   pval <- round(z$table[,3],3)
-  paste0("variable(s) p value(s): ", pval)
+  cat(paste0("\nTest de Harrell p value: ", pval))
   #non signif si p>=0.05
 }
 
 
 #RECODAGE EN FONCTION DU TEMPS ET VERIF
-add_vart_and_check <- function(var, data, .time, .censor, type="quanti", respect_loglin=FALSE, .transf="log"){
+add_vart_and_check <- function(var, data, .time, .censor, type="quanti", recode=TRUE, .transf="log"){
   s <- data
   s$a <- s[ ,var]
   s$censor <- s[ ,.censor]
   s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
   s <- s[!is.na(s$a),]
   
-  if (type=="quanti" & respect_loglin==FALSE) {
+  if (type=="quanti" & recode==TRUE) {
     s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
     .title <- paste0 ("RP of ", var, " superior to ", round(median(s$a),0))
   } else {
@@ -635,12 +536,6 @@ add_vart_and_check <- function(var, data, .time, .censor, type="quanti", respect
   slat$stop <- slat$tps
   slat$evt <- slat$censor
   slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
-  
-  # #courbe moche
-  
-  #slat$at<-slat$a_recode*sqrt(slat$stop)#courbe moche
-  #slat$at<-slat$a_recode/(slat$stop) #at non significatif
-  slat$at<-slat$a_recode*(slat$stop) #courbe moche
   
   transf <- .transf 
   print(transf)
@@ -680,13 +575,74 @@ add_vart_and_check <- function(var, data, .time, .censor, type="quanti", respect
   }
 }
 
+#HR et IC
+Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, dep_temps = FALSE, transf=NULL) {
+  s <- data
+  s$a <- s[ ,var]
+  s$censor <- s[ ,.censor]
+  s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+  s <- s[!is.na(s$a),]
+  if (recode==TRUE) {
+    cat(paste0("a = ", var))
+    cat("\ns$a_recode <- ifelse (s$a < median(s$a), 0, 1)")
+    s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
+    cat(paste0("\nmedian of ", var, " = ", median(s$a)))
+  } else {
+    cat("WARNING : we supposed here that loglinearity is respected for \n")
+    cat(paste0("a = ", var))
+    s$a_recode <- s$a
+    cat("\ns$a_recode <- s$a")
+  }
+  
+  
+#TEST DU SCORE ET HR [95%IC]
+  
+  if (dep_temps==TRUE){ #NON RESPECT DES RISQUES PROP
+    #   
+    #        ti <- sort(unique(c(0,s$tps[s$censor==1])))
+    # slat <- s
+    # slat$start <- 0
+    # slat$stop <- slat$tps
+    # slat$evt <- slat$censor
+    # slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
+    # 
+    # transf <- .transf 
+    # print(transf)
+    # 
+    #   if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
+    #   if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
+    #   if (transf=="*t")slat$at<-slat$a_recode*(slat$stop)
+    #   if (transf=="/t")slat$at<-slat$a_recode/(slat$stop)
+    #   mod <- coxph(Surv(tps, censor) ~ a_recode +at , data = s)
+    #   test <- summary (mod)
+    # 
+    #   #ATTENTION PAS ENCORE TESTER ET IL FAUT TERMINER
+    #   S <- vcov(mod)
+    #   b <- coef(mod)
+    #   t <- 1 #choisir le temps en année
+    #   f <- sqrt
+    #   var <- S[1,1]+S[2,2]*f(t)^2+2*S[1,2]*f(t)
+    #   m <- b[1]+b[2]*f(t) #coef de l'HR
+    #   HR <- round(exp(m),3)
+    #   IC <- round(exp(m + qnorm(0.975)*sqrt(var) * c(-1,1)),3)
+    #   cat(paste0("HR[95%IC] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" )
+    
+  } else { #RESPECT DE L'HYP DES RISQUES PROP
+    mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
+    test <- summary (mod)
+    cat(paste0("\n\nTest du score : ", round(test$sctest["pvalue"],4)))
+    
+    cat("\nmod <- coxph(Surv(tps, censor) ~ a_recode, data)")
+    HRIC <- round(test$conf.int,3)
+    cat(paste0("\nHR[95%IC] = ",HRIC[1] , " [", HRIC[3], "-", HRIC[4], "] (if proportional hazards hypothesis is verified)" ))
+  }
+}
 
 
 #COURBE DE SURVIE VARIABLE BINAIRE
 
-vec_time_IC <- c(1, 3)
-time <- "tps"
-text_title <- paste0("Survival by CVF (% predicted) superior to ", round(median(s$a),0), " %")
+#vec_time_IC <- c(1, 3)
+#time <- "tps"
 
 draw_surv_bin <- function(var, data, .time, .censor, vec_time_IC= c(1, 3), type = "quanti") {
 s <- data
@@ -712,6 +668,20 @@ km1 <- survfit(Surv(tps,censor)~a_recode, data=s[s$a_recode==1,], conf.int=.95)
 
 skmi0<-summary(km0, time=vec_time_IC-0.1)
 skmi1<-summary(km1, time=vec_time_IC+0.1) #plus d'évènement apres 1.94 ans
+
+#survies aux tps choisis
+cat("In group 0\n")
+sv <- summary(km0, time=vec_time_IC)
+df <- data.frame(time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+df[,2:4] <- round(df[,2:4], 0)
+cat(paste0("At ", df$time, " year, survival[IC95%] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
+
+cat("\nIn group 1\n")
+sv <- summary(km1, time=vec_time_IC)
+df <- data.frame(time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+df[,2:4] <- round(df[,2:4], 0)
+cat(paste0("At ", df$time, " year, survival[IC95%] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
+
 
 #pour table de survie
 skm0 <- summary(km0, time=seq(0, 10, by=1))
