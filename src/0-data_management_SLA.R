@@ -117,7 +117,7 @@ saveRDS(bdd_1symp, "data/bdd_to_merge/bdd_1symp.rds")
 #BASE DE DONNEES VNI
 
 #DAT1VNI_MEO_V_M et DAT2VNI_MEO_V_M sont NA
-apply(apply(visite[ ,grep("VNI_MEO_", colnames(visite))],2,is.na),2,sum)
+#apply(apply(visite[ ,grep("VNI_MEO_", colnames(visite))],2,is.na),2,sum)
 # > dim(visite)
 # [1] 4243 9700
 
@@ -238,9 +238,9 @@ table(BASE_TOT$diag==1,useNA = "a")
 #patients date vni(parmi sla)
 table(table(BASE_TOT[BASE_TOT$diag==1 & !is.na(BASE_TOT$diag) & !is.na(BASE_TOT$DATEVNI), "PATIENT"]))
 sum(table(tab <- table(BASE_TOT[BASE_TOT$diag==1 & !is.na(BASE_TOT$diag) & !is.na(BASE_TOT$DATEVNI), "PATIENT"])))
-#13 doublons
+#13 doublons#12?
 length(namesdoublons)
-#434 patients
+#434 patients#435?
 table(table(namesSLA))
 #3 patients ont datevni > date décès
 BASE_SLA[BASE_SLA$DATEVNI>BASE_SLA$ddn, "PATIENT"]
@@ -546,9 +546,9 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
         DUREE_ENREG_MIN_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_MIN_PP"]))
         DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
         DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
-        minutes <- (DUREE_ENREG_H_PP*60)+DUREE_ENREG_MIN_PP
+        minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
         heures <- minutes/60
-        time_under_spo2_90_h <- perc_time_under_spo2_90*heures
+        time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
         
         bicar <- as.numeric(as.character(ALLpick[.x, "HCO3_PP"] ))
         
@@ -586,9 +586,9 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
       DUREE_ENREG_MIN_PP <- as.integer(as.character(ALLpick[.x, paste0("DUREE_ENREG_MIN_PV_F",month_bef_vni)]))
       DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
       DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
-      minutes <- (DUREE_ENREG_H_PP*60)+DUREE_ENREG_MIN_PP
+      minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
       heures <- minutes/60
-      time_under_spo2_90_h <- perc_time_under_spo2_90*heures
+      time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
       
       bicar <- as.numeric(as.character(ALLpick[.x, paste0("HCO3_PV_F",month_bef_vni)] ))
       
@@ -616,9 +616,9 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
       DUREE_ENREG_MIN_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_MIN_PP"]))
       DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
       DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
-      minutes <- (DUREE_ENREG_H_PP*60)+DUREE_ENREG_MIN_PP
+      minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
       heures <- minutes/60
-      time_under_spo2_90_h <- perc_time_under_spo2_90*heures
+      time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
       
       bicar <- as.numeric(as.character(ALLpick[.x, "HCO3_PP"] ))
       
@@ -725,7 +725,7 @@ for (i in dfbldep){
 
 BASE_SLA_allbl <- merge(BASE_SLA_invar, bl_dep, by="PATIENT", all.x=T, all.y=F)
 
-
+bck_BASE_SLA
 
 #Data management basique
 BASE_SLA_allbl$DEBRILU <- as_date(BASE_SLA_allbl$DEBRILU)
@@ -745,5 +745,11 @@ BASE_SLA_allbl <- BASE_SLA_allbl[,c(1,28,2:27)]
 
 
 #Mise en commentaire pour ne pas modifier la clé par inadvertance
-#saveRDS(BASE_SLA_allbl[,-2], "data/BASE_SLA_allbl.rds")
-#saveRDS(BASE_SLA_allbl, "data/BASE_SLA_allbl_withnames.rds")
+saveRDS(BASE_SLA_allbl[,-2], "data/BASE_SLA_allbl.rds")
+saveRDS(BASE_SLA_allbl, "data/BASE_SLA_allbl_withnames.rds")
+
+
+
+#-------------------------------------
+#VARIABLES REPETEES
+
