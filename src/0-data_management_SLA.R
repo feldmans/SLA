@@ -755,26 +755,24 @@ saveRDS(BASE_SLA_allbl, "data/BASE_SLA_allbl_withnames.rds")
 
 
 #-------------------------------------
-#VARIABLES REPETEES
-bdd7$SATISF_VENTIL_SV_F1
+#VARIABLES REPETEES : base de donnes bdd7 (pre/)
+
 lapply(bdds, which_col,string1="EPWORTH_VENT_SV", type="explo")
 var_rep <- c("SATISF_VENTIL_SV_","UTIL_VENTIL_DIURN","UTIL_VENTIL_NOCT","CAUSE_V_SATISF_SV_CHOICE_1_","CAUSE_V_SATISF_SV_CHOICE_2_","CAUSE_V_SATISF_SV_CHOICE_3_","CAUSE_V_SATISF_SV_CHOICE_4_",
              "DUREE_SOMM_VENT_SV_","QUALIT_SOMM_VENT_SV_","EVOL_SOMM_VNI_SV_","REVEIL_VENT_SV",
              "ACAUSE_R_VENT_SV_CHOICE_1_","ACAUSE_R_VENT_SV_CHOICE_2_","ACAUSE_R_VENT_SV_CHOICE_3_","ACAUSE_R_VENT_SV_CHOICE_4_",
              "NYCTUR_SV","ORTHOPN_SV_","DYSPN_SVENT_SV_","DYSPN_SOUSVENT_SV_","CEPHAL_SV_","SOMNOL_SV","EPWORTH_VENT_SV")
-#SATISF_VENTIL_SV_
-for (i in var_rep[1]){
+
+for (i in var_rep){
   num <- which(var_rep==i)
   listes_brut <- lapply(bdds, which_col,string1=i, type="merge", keep_col_NA=TRUE)
   listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
   listes_net <- data.frame(listes_net)
-  browser()
   listes_net <- listes_net[listes_net$PATIENT %in% BASE_SLA_allbl$PATIENT1, ]
   listes_net <- reshape (listes_net, direction="long",idvar = "PATIENT",
                  varying=grep(i,colnames(listes_net)), sep="")
-  bdd_rep <- if(num==1) listes_net else merge(bdd_rep, listes_net, by="PATIENT", all=TRUE)
+  bdd_rep <- if(num==1) listes_net else merge(bdd_rep, listes_net, by=c("PATIENT","time"), all=TRUE)
 }
+bdd_rep <- bdd_rep[order(bdd_rep$PATIENT,bdd_rep$time),]
 
-listes_brut <- lapply(bdds, which_col,string1="SATISF_VENTIL_SV_", type="merge", keep_col_NA=TRUE)
-listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
-
+saveRDS(bdd_rep, "data/essairep.rds")
