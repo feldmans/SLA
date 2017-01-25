@@ -417,7 +417,7 @@ get_repet_var_fun <- function (data2,string1, string2=NULL, string3=NULL) {
 which_col <- function(data,string1,string2=NULL, string3=NULL, type="explo", keep_col_NA=FALSE){
   num <- as.integer(str_sub(data,-1,-1))
   bdd <- get(data)
-  if(type=="explo") return(c(data, .dir_csv[num], get_repet_var_fun(bdd, string1, string2, string3,keep_col_NA)$which_col_withcolNA))
+  if(type=="explo") return(c(data, .dir_csv[num], get_repet_var_fun(bdd, string1, string2, string3)$which_col_withcolNA))
   if (type=="merge"){
     if (keep_col_NA==FALSE){
       return(unique(get_repet_var_fun(bdd,string1,string2,string3)$col_and_row_nonNA))  
@@ -548,11 +548,14 @@ add_vart_and_check <- function(var, data, .time, .censor, type="quanti", recode=
   coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
   test <- summary(coxt)
   pval_at <- test$coefficients["at","Pr(>|z|)"]
-  print(paste0("pval for time dependant coefficient : ", pval_at))
+  #print(paste0("pval for time dependant coefficient : ", pval_at))
   if (pval_at>0.05){
-    print(paste0("at non significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test"))
+    #print(paste0("at non significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test"))
+    res <- paste0("\n",transf,": at not significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test")
+    return (res)
   } else {
-    print(paste0("at significant (p<0.05), ", transf," may fit, check shoenfeld and Harrell test"))
+    #print(paste0("at significant (p<0.05), ", transf," may fit, check shoenfeld and Harrell test"))
+    res1 <- paste0("\n",transf, ": at significant (p<0.05), ", transf," may fit, check shoenfeld and Harrell test")
     
     #résidus de Shoenfeld non significatif?
     zt <- cox.zph(coxt, transf="identity")
@@ -566,12 +569,16 @@ add_vart_and_check <- function(var, data, .time, .censor, type="quanti", recode=
     zit
     zit <- cox.zph(coxt, transform = "rank")
     pval <- round(zit$table[,3],3)
-    if (all(as.numeric(pval)>0.05)) print(paste0("Harrell test not significant : if curve ok too, ", transf, "fit"))
-    else print(paste0("Harrell test significant : even if curve ok, ", transf, " do not fit"))
-    
-    print("-----------------------")
+    #if (all(as.numeric(pval)>0.05)) print(paste0("Harrell test not significant : if curve ok too, ", transf, "fit"))
+    #else print(paste0("Harrell test significant : even if curve ok, ", transf, " do not fit"))
+    #print("-----------------------")
     #Les 3 p doivent etre >=0.05 
     
+    if (all(as.numeric(pval)>0.05)) res2 <- paste0(" => Harrell test not significant : if curve ok too, ", transf, "fit")
+    else res2 <- paste0(" => Harrell test significant : even if curve ok, ", transf, " do not fit")
+    
+    res3 <- paste(res1,res2, sep ="\n" )
+    return(res3)
   }
 }
 

@@ -5,17 +5,28 @@ output:
   html_notebook: default
 ---
 
+```{r setup, include=FALSE}
+library(knitr)
+#opts_chunk$set(dev = 'pdf')
+opts_chunk$set(echo=FALSE, comment=NA, fig.width=6, fig.height=6)
+#opts_chunk$set(fig.width=6, fig.height=6)
+```
+
 
 ```{r allsource, echo=FALSE, message=FALSE}
-.dir <- "F:/"
+#.dir <- "F:/"
 #.dir <-  "d:/"
-source(paste0(.dir,"to push/sla_git/src/libraries_SLA.R"))
-source(paste0(.dir,"to push/sla_git/src/fonctions_SLA.R"))
+.dir <- dirname(getwd())
+# source(paste0(.dir,"to push/sla_git/src/libraries_SLA.R"))
+# source(paste0(.dir,"to push/sla_git/src/fonctions_SLA.R"))
+source(paste0(.dir,"/src/libraries_SLA.R"))
+source(paste0(.dir,"/src/fonctions_SLA.R"))
 ```
 
 
 ```{r, echo=FALSE}
-sla <- readRDS(paste0(.dir,"to push/sla_git/data/BASE_SLA_allbl.rds"))
+#sla <- readRDS(paste0(.dir,"to push/sla_git/data/BASE_SLA_allbl.rds"))
+sla <- readRDS(paste0(.dir,"/data/BASE_SLA_allbl.rds"))
 
 sla$rilu <- ifelse (sla$DEBRILU < sla$DATEVNI & (is.na(sla$FINRILU) | sla$FINRILU>sla$DATEVNI), 1, 0) #je fais l'hyp qu'il n'y a pas de NA
 
@@ -154,9 +165,6 @@ plus de 50% d'orthopnee mais moins de 25% de dyspnee au repos.
 ##Suivi global
 
 ```{r, echo=FALSE}
-#range date de debut
-deb1 <- range(sla$FIRSTSYMPTOM,na.rm=T)
-
 #repartition des dates de premier symptome
 s<-sla[!is.na(sla$time.sym),]
 s$tan<-s$time.sym/365.25
@@ -167,30 +175,38 @@ barplot(table(s$an))
 
 Fig.1 Distribution des dates de premier symptome
 
-```{r}
+```{r, echo=FALSE}
 y<-as.numeric(as.Date("01/09/2015", "%d/%m/%Y"))-as.numeric(s$FIRSTSYMPTOM)
 hist(y/365.25)
 #summary(y/365.25)
 ```
 Fig.2 repartition des duree de suivi
 
-range date de debut :  
-`r deb1`
+range date de debut :
+```{r, echo = FALSE }
+#range date de debut
+deb1 <- range(sla$FIRSTSYMPTOM,na.rm=T)
+deb1
+# range date de debut :  
+# `r deb1`
+```
+
 
 La majorite des sujets sont inclus a partir de 2006 (9ans de recul) et quasiment plus d'unclusion en 2011 (4 ans de recul) (Figure 1)
 
+
+Mediane de suivi (an):
 ```{r, echo=FALSE, message=FALSE}
 #suivi
 sym.suiv <- survfit(Surv(time.sym,1-censor)~1,data=s)
 an <- paste0 (round(summary(sym.suiv)$table['median']/365.25,2)," [",round(summary(sym.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(sym.suiv)$table['0.95UCL']/365.25,2),"]")
-
+an
 # #idem (Yann)
 # suivi<-survfit(Surv(tan, 1-censor)~1, data=s)
 # suivi
 
-
+#Mediane de suivi (an) : `r an`  
 ```
-Mediane de suivi (an) : `r an`   
 
 C'est coherent au vu de la figure 1 et de la figure 2.
 
@@ -198,8 +214,6 @@ C'est coherent au vu de la figure 1 et de la figure 2.
 ## Survie globale
 ```{r, echo=FALSE}
 sym.surv <- survfit(Surv(time.sym,censor)~1, data=s, conf.int=.95)
-
-an <- paste0 (round(summary(sym.surv)$table['median']/365.25,2)," [", round(summary(sym.surv)$table['0.95LCL']/365.25,2), "-", round(summary(sym.surv)$table['0.95UCL']/365.25,2),"]")
 
 plot(sym.surv,xscale=365.25, yscale= 100, xlab="time (years)")
 ggsurv(sym.surv) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
@@ -210,8 +224,14 @@ ggsurv(sym.surv) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-
 
 Fig.3 Courbe de survie en fonction du temps 
 
+Mediane de survie (an) :
+```{r, echo=FALSE}
+an <- paste0 (round(summary(sym.surv)$table['median']/365.25,2)," [", round(summary(sym.surv)$table['0.95LCL']/365.25,2), "-", round(summary(sym.surv)$table['0.95UCL']/365.25,2),"]")
+#Mediane de survie (an) : `r an`
+an
+```
 
-Mediane de survie (an) : `r an`
+
 
 
 
@@ -237,9 +257,8 @@ Fig.4 Distribution de la date d'instauration de la vni
 Centre autour de 2010. majorite des vni entre 2008 et 2012 donc entre 7 ans et 3 ans de recul.
 
 
-```{r}
-#range date de debut
-deb1 <- range(sla$DATEVNI,na.rm=T)
+```{r, echo=FALSE}
+
 
 y<-as.numeric(as.Date("01/09/2015", "%d/%m/%Y"))-as.numeric(s$DATEVNI)
 hist(y/365.25)
@@ -247,22 +266,31 @@ hist(y/365.25)
 ```
 Fig.5 repartition des duree de suivi
 
-range date de debut :  
-`r deb1`
+
+range date de debut :
+```{r, echo=FALSE}
+#range date début
+#range date de debut
+deb1 <- range(sla$DATEVNI,na.rm=T)
+deb1
+# range date de debut :  
+# `r deb1`
+```
 
 
+Mediane de suivi (an):
 ```{r, echo=FALSE, message=FALSE}
 #suivi
 sym.suiv <- survfit(Surv(time.vni,1-censor)~1,data=s)
-an <- paste0 (round(summary(sym.suiv)$table['median']/365.25,2)," [",round(summary(sym.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(sym.suiv)$table['0.95UCL']/365.25,2),"]")
-
+an <- paste0 (round(summary(sym.suiv)$table['median']/365.25,2)," [", round(summary(sym.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(sym.suiv)$table['0.95UCL']/365.25,2),"]")
+an
+#Mediane de suivi (an) : `r an` 
 # #idem (Yann)
 # suivi<-survfit(Surv(tan, 1-censor)~1, data=s)
 # suivi
 
 
 ```
-Mediane de suivi (an) : `r an`   
 
 C'est un peu etrange que la mediane de suivi soit si basse, au vu des figures 4 et 5 j'aurais plutôt parie sur une mediane de suivi a 4.5 ans.
 
@@ -270,8 +298,6 @@ C'est un peu etrange que la mediane de suivi soit si basse, au vu des figures 4 
 ## Survie globale
 ```{r, echo=FALSE}
 sym.surv <- survfit(Surv(time.vni,censor)~1, data=s, conf.int=.95)
-
-an <- paste0 (round(summary(sym.surv)$table['median']/365.25,2)," [", round(summary(sym.surv)$table['0.95LCL']/365.25,2), "-", round(summary(sym.surv)$table['0.95UCL']/365.25,2),"]")
 
 #plot(sym.surv,xscale=365.25, yscale= 100, xlab="time (years)")
 
@@ -321,8 +347,14 @@ grid.draw(gt)
 
 Fig.3 Courbe de survie en fonction du temps 
 
+Mediane de survie (an) :
+```{r}
+an <- paste0 (round(summary(sym.surv)$table['median']/365.25,2)," [", round(summary(sym.surv)$table['0.95LCL']/365.25,2), "-", round(summary(sym.surv)$table['0.95UCL']/365.25,2),"]")
+an
+#Mediane de survie (an) : `r an`
+```
 
-Mediane de survie (an) : `r an`
+
 
 ```{r, echo=FALSE, eval=FALSE}
 #--------------------------
@@ -1815,7 +1847,7 @@ draw_surv_bin (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", v
 #### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
 
 ```{r, echo=FALSE}
-check_RP (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", respect_loglin=FALSE)
+check_RP (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
 ```
 La courbe est significative, on ajoute une variable dependante du temps.
 
@@ -1838,7 +1870,7 @@ slat$stop <- slat$tps
 slat$evt <- slat$censor
 slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
 
-#slat$at<-slat$a_recode*log(slat$stop) 
+slat$at<-slat$a_recode*log(slat$stop) 
 #slat$at<-slat$a_recode*sqrt(slat$stop)
 #slat$at<-slat$a_recode/(slat$stop)
 slat$at<-slat$a_recode*(slat$stop) 
@@ -1859,16 +1891,273 @@ zit
 
 ```{r, echo=FALSE}
 
-sapply(c("log","sqrt","*t","/t"),function(x){
-add_vart_and_check (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", respect_loglin=FALSE, .transf=x)  
+tmp <- lapply(c("log","sqrt","*t","/t"),function(x){
+add_vart_and_check (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, .transf=x)  
 })
+cat(do.call(rbind,tmp))
 
 ```
 Aucune correction ne convient, je ne peux pas interpreter
 
+### SNIP_perc_pred
+
+#### Hypothèse de Loglinéarité
+```{r}
+check_loglin (var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor")
+```
+L'hypothese est rejetee car la courbe n'est pas une droite horizontale (Le risque n'est pas le même pour les scores autour de 40).
+Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarité non rejetée car coefficient non significatif.
+Mais comme schéma significatif, on rejette loglinearite. 
+
+Je transforme ma variable en binaire (option type=="quanti").
+
+#### courbe de survie car variable recodée en binaire.
+
+```{r, echo=FALSE}
+draw_surv_bin (var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
+```
+
+#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
+
+```{r, echo=FALSE}
+check_RP (var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
+```
+La courbe est non significative, le test est non significatif, je n'ajoute pas de variable dépendante du temps, je peux interpréter.
+
+
+#### Interprêtation du modèle avec variable binaire : HR[95%IC] et significativité (test du score)
+```{r}
+
+Test_score_HR_IC(var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, dep_temps = FALSE)
+```
+Le test du score n'est pas significatif. Les patients qui ont un snip_perc_pred supérieur à 24% ont un risque de décès multiplié par 0.9 [0.58-1.42] mais ce n'est pas significatif. 
+
+
+### PIMAX_cmH2O
+
+#### Hypothèse de Loglinéarité
+```{r}
+check_loglin (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor")
+```
+L'hypothese de loglinearite est rejetee car la courbe n'est pas une droite horizontale.
+Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite rejetee egalement car coefficient significatif.
+
+
+Je transforme ma variable en binaire (option type=="quanti").
+
+#### courbe de survie car variable recodée en binaire.
+
+```{r, echo=FALSE}
+draw_surv_bin (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
+```
+
+#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
+
+```{r, echo=FALSE}
+check_RP (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
+```
+La courbe est significative, même si le test est non significatif, je dois ajouter variable dépendante du temps.
+
+#### Ajout variable dépendante du temps
+
+```{r}
+tmp <- lapply(c("log","sqrt","*t","/t"),function(x){
+add_vart_and_check (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, .transf=x)  
+})
+cat(do.call(rbind,tmp))
+```
+
+Aucune transformation ne convient, je ne sais pas interprêter.
+
+
+### PIMAX_perc_pred
+
+#### Hypothèse de Loglinéarité
+```{r}
+check_loglin (var="PIMAX_perc_pred", data=sla, .time="time.vni", .censor="censor")
+```
+L'hypothese de loglinearite est rejetee car la courbe n'est pas une droite horizontale.
+Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite non rejetee car coefficient non significatif.
+
+
+Courbe prime, je transforme ma variable en binaire (option type="quanti" pour la courbe et recode=TRUE pour les calculs).
+
+#### courbe de survie car variable recodée en binaire.
+
+```{r, echo=FALSE}
+draw_surv_bin (var="PIMAX_perc_pred", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
+```
+
+#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
+
+```{r, echo=FALSE}
+check_RP (var="PIMAX_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
+```
+La courbe est non significative, le test est non significatif, pas besoin d'ajouter de variable dépendante du temps, je peux interpreter.
+
+#### Interprêtation du modèle avec variable binaire : HR[95%IC] et significativité (test du score)
+```{r}
+
+Test_score_HR_IC(var="PIMAX_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, dep_temps = FALSE)
+```
+Le test du score n'est pas significatif. Les patients qui ont un pimax_perc_pred supérieur à 38% ont un risque de décès multiplié par 0.9 [0.56-1.31] mais ce n'est pas significatif. 
 
 
 
+### perc_time_under_spo2_90
+
+#### Hypothèse de Loglinéarité
+```{r}
+check_loglin (var="perc_time_under_spo2_90", data=sla, .time="time.vni", .censor="censor")
+```
+L'hypothese de loglinearite est respectee car la courbe est une droite horizontale.
+Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite respectée car coefficient non significatif.
+
+Je ne recode pas ma variable, donc je ne peux pas faire de courbe. (recode=FALSE pour les calculs).
+
+#### Hypothèse des risques proportionnels (avec la variable non recodée)
+
+```{r, echo=FALSE}
+check_RP (var="perc_time_under_spo2_90", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE)
+```
+La courbe est non significative, le test est non significatif, pas besoin d'ajouter de variable dépendante du temps, je peux interpreter.
+
+#### Interprêtation du modèle avec variable binaire : HR[95%IC] et significativité (test du score)
+```{r}
+
+Test_score_HR_IC(var="perc_time_under_spo2_90", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = FALSE)
+```
+Le test du score n'est pas significatif. Pour un point de "perc_time_under_spo2_90" en plus, les patients ont un risque de décès multiplié par 1.00 [0.99-1.01] mais ce n'est pas significatif. 
+
+
+
+### time_under_spo2_90_h
+
+#### Hypothèse de Loglinéarité
+```{r}
+check_loglin (var="time_under_spo2_90_h", data=sla, .time="time.vni", .censor="censor")
+```
+L'hypothese de loglinearite n'est pas respectee car la courbe n'est pas une droite horizontale.
+Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite respectée car coefficient non significatif (manque de puissance probablement.
+
+Courbe prime, je transforme ma variable en binaire (option type="quanti" pour la courbe et recode=TRUE pour les calculs).
+
+#### courbe de survie car variable recodée en binaire.
+
+```{r, echo=FALSE, eval=FALSE}
+draw_surv_bin (var="time_under_spo2_90_h", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
+```
+
+Ne marche pas . Mais très peu d'evenement...Peut on vraiment tracer cette courbe? 
+
+
+#### Hypothèse des risques proportionnels (avec la variable recodée)
+
+```{r, echo=FALSE}
+check_RP (var="time_under_spo2_90_h", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
+```
+Ne marche pas car median=0
+
+
+### bicar
+
+#### Hypothèse de Loglinéarité
+```{r}
+check_loglin (var="bicar", data=sla, .time="time.vni", .censor="censor")
+```
+L'hypothese de loglinearite n'est pas rejetée car la courbe est approximativement une droite horizontale.
+Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite non rejetee car coefficient non significatif.
+
+
+Je ne recode pas ma variable, donc je ne peux pas faire de courbe. (recode=FALSE pour les calculs).
+
+#### Hypothèse des risques proportionnels (avec la variable non recodée)
+
+```{r, echo=FALSE}
+check_RP (var="bicar", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE)
+```
+La courbe est non significative, le test est non significatif, pas besoin d'ajouter de variable dépendante du temps, je peux interpreter.
+
+#### Interprêtation du modèle avec variable binaire : HR[95%IC] et significativité (test du score)
+```{r}
+
+Test_score_HR_IC(var="bicar", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = FALSE)
+```
+Le test du score n'est pas significatif. Pour un point de bicar en plus, les patients ont un risque de décès multiplié par 1.04 [0.99-1.10] mais ce n'est pas significatif. 
+
+
+### ALS_score
+
+#### Hypothèse de Loglinéarité
+```{r}
+check_loglin (var="ALS_score", data=sla, .time="time.vni", .censor="censor")
+```
+L'hypothese de loglinearite est rejetee car la courbe n'est pas une droite horizontale.
+Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite non rejetee car coefficient significatif.
+
+
+La courbe prime, je transforme ma variable en binaire (option type=="quanti").
+
+#### courbe de survie car variable recodée en binaire.
+
+```{r, echo=FALSE}
+draw_surv_bin (var="ALS_score", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
+```
+
+#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
+
+```{r, echo=FALSE}
+check_RP (var="ALS_score", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
+```
+La courbe est significative, le test est significatif, je dois ajouter variable dépendante du temps.
+
+#### Ajout variable dépendante du temps
+
+```{r, echo=FALSE}
+tmp <- lapply(c("log","sqrt","*t","/t"),function(x){
+add_vart_and_check (var="ALS_score", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, .transf=x)  
+})
+do.call(rbind, tmp)
+```
+
+Aucune transformation ne convient, je ne sais pas interprêter.
+
+
+### bulb_score
+
+#### Hypothèse de Loglinéarité
+```{r}
+check_loglin (var="bulb_score", data=sla, .time="time.vni", .censor="censor")
+```
+L'hypothese de loglinearite est rejetee car la courbe n'est pas une droite horizontale.
+Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite rejetee car coefficient significatif.
+
+
+Je transforme ma variable en binaire (option type=="quanti").
+
+#### courbe de survie car variable recodée en binaire.
+
+```{r, echo=FALSE}
+draw_surv_bin (var="bulb_score", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
+```
+
+#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
+
+```{r, echo=FALSE}
+check_RP (var="bulb_score", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
+```
+La courbe est significative, meme si le test est non significatif, je dois ajouter variable dépendante du temps.
+
+#### Ajout variable dépendante du temps
+
+```{r}
+tmp <- lapply(c("log","sqrt","*t","/t"),function(x){
+add_vart_and_check (var="bulb_score", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, .transf=x)  
+})
+cat(do.call(rbind,tmp))
+```
+
+Aucune transformation ne convient, je ne sais pas interprêter.
 
 
 
