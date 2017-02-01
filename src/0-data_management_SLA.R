@@ -555,9 +555,18 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
         DUREE_ENREG_MIN_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_MIN_PP"]))
         #DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
         #DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
-        minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
-        heures <- minutes/60
-        time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
+        time_under_spo2_90_h <- ifelse(is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP), NA, sum(DUREE_ENREG_H_PP*60, DUREE_ENREG_MIN_PP, na.rm=T))
+        time_under_spo2_90_h <- time_under_spo2_90_h/60
+        
+        # time_under_spo2_90_h <- apply(ALLpick[ ,c("DUREE_ENREG_H_PP","DUREE_ENREG_MIN_PP")], 1, function(x){
+        #   mytime <- ifelse(is.na(x[1]) & is.na(x[2]), NA, sum(x[1]*60, x[2], na.rm=T))
+        #   mytime <- mytime/60
+        # }) 
+        time_under_spo2_90_h <- time_under_spo2_90_h * perc_time_under_spo2_90/100
+        
+        # minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
+        # heures <- minutes/60
+        # time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
         
         bicar <- as.numeric(as.character(ALLpick[.x, "HCO3_PP"] ))
         
@@ -574,6 +583,8 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
         PIMAX_perc_pred <- NA
         perc_time_under_spo2_90 <- NA
         time_under_spo2_90_h <- NA
+        DUREE_ENREG_H_PP <- NA
+        DUREE_ENREG_MIN_PP <- NA
         bicar <- NA
       }
       
@@ -595,13 +606,21 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
       
       perc_time_under_spo2_90 <- as.numeric(as.character(ALLpick[.x, paste0("SPO2_TPS_PV_F",month_bef_vni)]))
       
-      DUREE_ENREG_H_PP <- as.integer(as.character(ALLpick[.x, paste0("DUREE_ENREG_H_PV_F",month_bef_vni)]))
-      DUREE_ENREG_MIN_PP <- as.integer(as.character(ALLpick[.x, paste0("DUREE_ENREG_MIN_PV_F",month_bef_vni)]))
+      DUREE_ENREG_H_PP <- as.numeric(as.character(ALLpick[.x, paste0("DUREE_ENREG_H_PV_F",month_bef_vni)]))
+      DUREE_ENREG_MIN_PP <- as.numeric(as.character(ALLpick[.x, paste0("DUREE_ENREG_MIN_PV_F",month_bef_vni)]))
       #DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
       #DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
-      minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
-      heures <- minutes/60
-      time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
+      time_under_spo2_90_h <- ifelse(is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP), NA, sum(DUREE_ENREG_H_PP*60, DUREE_ENREG_MIN_PP, na.rm=T))
+      time_under_spo2_90_h <- time_under_spo2_90_h/60
+      
+      # time_under_spo2_90_h <- apply(ALLpick[ ,c("DUREE_ENREG_H_PP","DUREE_ENREG_MIN_PP")], 1, function(x){
+      #   mytime <- ifelse(is.na(x[1]) & is.na(x[2]), NA, sum(x[1]*60, x[2], na.rm=T))
+      #   mytime <- mytime/60
+      # }) 
+      time_under_spo2_90_h <- time_under_spo2_90_h * perc_time_under_spo2_90/100
+      # minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
+      # heures <- minutes/60
+      # time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
       
       bicar <- as.numeric(as.character(ALLpick[.x, paste0("HCO3_PV_F",month_bef_vni)] ))
       
@@ -630,9 +649,17 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
       DUREE_ENREG_MIN_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_MIN_PP"]))
       #DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
       #DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
-      minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
-      heures <- minutes/60
-      time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
+      time_under_spo2_90_h <- ifelse(is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP), NA, sum(DUREE_ENREG_H_PP*60, DUREE_ENREG_MIN_PP, na.rm=T))
+      time_under_spo2_90_h <- time_under_spo2_90_h/60
+      
+      # time_under_spo2_90_h <- apply(ALLpick[ ,c("DUREE_ENREG_H_PP","DUREE_ENREG_MIN_PP")], 1, function(x){
+      #   mytime <- ifelse(is.na(x[1]) & is.na(x[2]), NA, sum(x[1]*60, x[2], na.rm=T))
+      #   mytime <- mytime/60
+      # }) 
+      time_under_spo2_90_h <- time_under_spo2_90_h * perc_time_under_spo2_90/100
+      # minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
+      # heures <- minutes/60
+      # time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
       
       bicar <- as.numeric(as.character(ALLpick[.x, "HCO3_PP"] ))
       
@@ -649,16 +676,18 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
       PIMAX_perc_pred <- NA
       perc_time_under_spo2_90 <- NA
       time_under_spo2_90_h <- NA
+      DUREE_ENREG_H_PP <- NA
+      DUREE_ENREG_MIN_PP <- NA
       bicar <- NA
     }
   }
 
   return (c(last_date_bef_vni, month_bef_vni, dysp, orthop, CVF_ASSIS_perc_pred, CVF_COUCHE_perc_pred, SNIP_cmH2O, SNIP_perc_pred, PIMAX_cmH2O, PIMAX_perc_pred,
-            perc_time_under_spo2_90, time_under_spo2_90_h, bicar))
+            perc_time_under_spo2_90, time_under_spo2_90_h, bicar,DUREE_ENREG_H_PP, DUREE_ENREG_MIN_PP))
 })
 ALLpick <- data.frame(t(pick_data))
 colnames(ALLpick) <- c("last_date_bef_vni","month_bef_vni", "dysp", "orthop", "CVF_ASSIS_perc_pred", "CVF_COUCHE_perc_pred", "SNIP_cmH2O", "SNIP_perc_pred", "PIMAX_cmH2O", "PIMAX_perc_pred",
-                       "perc_time_under_spo2_90", "time_under_spo2_90_h", "bicar")
+                       "perc_time_under_spo2_90", "time_under_spo2_90_h", "bicar", "DUREE_ENREG_H_PP", "DUREE_ENREG_MIN_PP")
 
 ALLpick$PATIENT <- as.character(tmp$PATIENT)
 ALLpick$last_date_bef_vni <- as_date(as.numeric(as.character(ALLpick$last_date_bef_vni)))
@@ -757,7 +786,7 @@ BASE_SLA_allbl$month_bef_vni <- as.character(BASE_SLA_allbl$month_bef_vni)
 BASE_SLA_allbl$PATIENT1 <- BASE_SLA_allbl$PATIENT
 
 BASE_SLA_allbl$PATIENT <- anonymate_sla(BASE_SLA_allbl$PATIENT)
-BASE_SLA_allbl <- BASE_SLA_allbl[,c(1,29,2:28)]
+BASE_SLA_allbl <- BASE_SLA_allbl[,c(1,31,2:30)]
 
 
 #Mise en commentaire pour ne pas modifier la clé par inadvertance

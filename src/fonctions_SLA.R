@@ -603,13 +603,14 @@ Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .
   s$tps <- (s[ ,.time]/365.25*12) + 0.001 
   s <- s[!is.na(s$a),]
   if (type== "quanti" & recode==TRUE) {
+    cat("Loglinearity Hypothesis is not verified, quantitative variable cut at the median \n")
     #cat(paste0("a = ", var))
-    cat("\ns$a_recode <- ifelse (s$a < median(s$a), 0, 1)")
+    #cat("\ns$a_recode <- ifelse (s$a < median(s$a), 0, 1)")
     s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-    cat(paste0("\nmedian of ", var, " = ", median(s$a)))
+    cat(paste0("median of ", var, " = ", median(s$a),"\n"))
     
   } else {
-    if (type=="quanti" & recode==FALSE) cat("Loglinearity Hypothesis is verified \n")
+    if (type=="quanti" & recode==FALSE) cat("Loglinearity Hypothesis is assumed verified \n")
     #cat(paste0("a = ", var))
     s$a_recode <- s$a
     #cat("\ns$a_recode <- s$a\n")
@@ -628,7 +629,7 @@ Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .
     slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
     
     transf <- .transf
-    cat(paste0("=> transformation function of time is added. Transformation = ",transf))
+    cat(paste0("=> transformation function of time is added. \nTransformation = ",transf))
     
     if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
     if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
@@ -654,20 +655,20 @@ Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .
     m <- b[1]+b[2]*(t_t) #coef de l'HR
     
 
-    cat("\n\nmod <- coxph(Surv(tps, censor) ~ ,", var, " + ", var, "(time), data)")
+    cat("\n\nmod <- coxph(Surv(tps, censor) ~ ", var, " + ", var, "(time), data)")
     cat(paste0("\n\nScore test: ", round(test$sctest["pvalue"],3)))
     HR <- round(exp(m),3)
     IC <- round(exp(m + qnorm(0.975)*sqrt(variance) * c(-1,1)),3)
     #cat(paste0("\nHR[95%CI] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" ))
     cat(paste0("\nHR[95%CI] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " months" ))
     param <- round(test$coefficients[,1],4)
-    cat(paste0("\ncoefficient of ", c(var,paste0(var, "(time) transf=",.transf)), ": ", param))
+    cat(paste0("\ncoefficient of ", c(var,paste0(var, "(time)")), ": ", param))
     
   } else { #RESPECT DE L'HYP DES RISQUES PROP
-    cat("Proportionality Hypothesis is verified (or no appropriate tranformation found)")
+    cat("Proportionality Hypothesis is assumed verified")
     mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
     test <- summary (mod)
-    #cat("\nmod <- coxph(Surv(tps, censor) ~ ,", var, ", data)")
+    cat("\n\nmod <- coxph(Surv(tps, censor) ~ ", var, ", data)")
     cat(paste0("\n\nScore test: ", round(test$sctest["pvalue"],3)))
     HRIC <- round(test$conf.int,2)
     param <- round(test$coefficients[,1],4)
@@ -696,54 +697,62 @@ draw_surv_bin <- function(var, data, .time, .censor, vec_time_IC= c(1, 3), type 
   s <- data
   s$a <- s[ ,var]
   s <- s[!is.na(s$a),]
-
+  .title <- paste0("Survival by ", var)
+  
   if (type=="quanti") {
     s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-    .title <- paste0 ("Survival by ", var, " superior to ", round(median(s$a),0))
+    #.title <- paste0 ("Survival by ", var, " superior to ", round(median(s$a),0))
   } else {
     s$a_recode <- s$a
-    .title <- paste0("Survival by ", var)
   }
-
+  
   s$censor <- s[ ,.censor]
   s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-
-
+  
   km <- survfit(Surv(tps,censor)~a_recode, data=s, conf.int=.95)
   km0 <- survfit(Surv(tps,censor)~a_recode, data=s[s$a_recode==0,], conf.int=.95)
   km1 <- survfit(Surv(tps,censor)~a_recode, data=s[s$a_recode==1,], conf.int=.95)
-
+  
   #pour IC95%
-
   skmi0<-summary(km0, time=vec_time_IC-0.1)
   skmi1<-summary(km1, time=vec_time_IC+0.1) #plus d'évènement apres 1.94 ans
-  if(surv_only==TRUE){
-    #survies aux tps choisis
-    cat(paste0("\nIn group ", var, " = 0\n "))
-    sv <- summary(km0, time=vec_time_IC)
-    df <- data.frame(time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
-    df[,2:4] <- round(df[,2:4], 0)
-    cat(paste0("At ", df$time, " year, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
-    #cat(paste0("At ", df$time, " months, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
-
-    cat(paste0("\nIn group ", var, " = 1\n "))
-    sv <- summary(km1, time=vec_time_IC)
-    df <- data.frame(time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
-    df[,2:4] <- round(df[,2:4], 0)
-    cat(paste0("At ", df$time, " year, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
-    #cat(paste0("At ", df$time, " months, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
+  
+  if(type=="quali") {
+    group0 <- paste0("\nIn group ", var, " = 0\n ")
+    group1 <- paste0("\nIn group ", var, " = 1\n ")
+  } else {
+    group0 <- paste0("\nIn group ", var, " < ",round(median(s$a),0), "\n ")
+    group1 <- paste0("\nIn group ", var, " >= ",round(median(s$a),0), "\n ")
   }
-
+  #survies aux tps choisis
+  cat(group0)
+  sv <- summary(km0, time=vec_time_IC)
+  df <- data.frame(time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+  df[,2:4] <- round(df[,2:4], 0)
+  cat(paste0("At ", df$time, " year, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
+  #cat(paste0("At ", df$time, " months, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
+  
+  cat(group1)
+  sv <- summary(km1, time=vec_time_IC)
+  df <- data.frame(time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+  df[,2:4] <- round(df[,2:4], 0)
+  cat(paste0("At ", df$time, " year, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
+  #cat(paste0("At ", df$time, " months, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
+  
+  
+  if(surv_only==FALSE){
     #pour table de survie
     skm0 <- summary(km0, time=seq(0, 10, by=1))
     skm0 <- data.frame(time=skm0$time, n.risk=skm0$n.risk)
     skm1<-summary(km1, time=seq(0, 10, by=1))
     skm1 <- data.frame(time=skm1$time, n.risk=skm1$n.risk)
-
+    
     #preparation legende
-    leg<-str_sub(names(km$strata),-1,-1)
+    if(type=="quali")leg<-str_sub(names(km$strata),-1,-1)
+    
+    if(type=="quanti")leg <- c(paste0(var, " < ", round(median(s$a),0)), paste0(var, " >= ", round(median(s$a),0)))
     col <- hue_pal()(length(leg))
-
+    
     #courbe de survie
     g <- ggsurv(km, CI=FALSE, order.legend=FALSE, surv.col=col, cens.col=col) +
       #changement des axes
@@ -758,13 +767,13 @@ draw_surv_bin <- function(var, data, .time, .censor, vec_time_IC= c(1, 3), type 
       theme(legend.position="right", legend.title=element_blank()) +
       #espace autour du schéma
       theme(plot.margin = unit(c(1,1,3,2), "cm")) #top, right, bottom, left
+    
     #intervalle de confiance
     for (i in 1:2) {
       g <- g + geom_segment(x = skmi0$time[i], y = skmi0$lower[i], xend = skmi0$time[i], yend = skmi0$upper[i], colour = col[1])
       g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$lower[i], xend = skmi0$time[i] + 0.1, yend = skmi0$lower[i], colour = col[1])
       g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$upper[i], xend = skmi0$time[i] + 0.1, yend = skmi0$upper[i], colour = col[1])
-    }
-    for (i in 1:2) {
+    
       g <- g + geom_segment(x = skmi1$time[i], y = skmi1$lower[i], xend = skmi1$time[i], yend = skmi1$upper[i], colour = col[2])
       g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$lower[i], xend = skmi1$time[i] + 0.1, yend = skmi1$lower[i], colour = col[2])
       g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$upper[i], xend = skmi1$time[i] + 0.1, yend = skmi1$upper[i], colour = col[2])
@@ -779,7 +788,7 @@ draw_surv_bin <- function(var, data, .time, .censor, vec_time_IC= c(1, 3), type 
     #display group text
     g <- g + annotation_custom(grob = textGrob(leg[1]), xmin = -1.7, xmax = -1.7, ymin= - 1.5 )
     g <- g + annotation_custom(grob = textGrob(leg[2]), xmin = -1.7, xmax = -1.7, ymin= - 1.7 )
-
+    
     if (pvalue==TRUE){
       if(dep_temps==TRUE){
         ti <- sort(unique(c(0,s$tps[s$censor==1])))
@@ -800,7 +809,7 @@ draw_surv_bin <- function(var, data, .time, .censor, vec_time_IC= c(1, 3), type 
       } else {
         mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
       }
-
+      
       test <- summary (mod)
       pval <- round(test$sctest["pvalue"],3)
       pval <- ifelse(pval<0.05, paste0(pval, " *"), pval)
@@ -810,10 +819,11 @@ draw_surv_bin <- function(var, data, .time, .censor, vec_time_IC= c(1, 3), type 
                         y=0.75*max(km$surv),
                         label=pval)
     }
-
+    
     gt <- ggplotGrob(g)
     gt$layout$clip[gt$layout$name=="panel"] <- "off"
     grid.draw(gt)
+  }
 }
 # draw_surv_bin <- function(var, data, .time, .censor, vec_time_IC= c(1, 3), type = "quanti") {
 #   s <- data
