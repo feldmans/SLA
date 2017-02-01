@@ -23,16 +23,20 @@ for (i in bdds){
 str(bdd1$PATIENT)
 
 
+#A commenter qd datamanagement refait depuis le début
+# BASE_TOT <- readRDS("data/BASE_TOT.rds")
+# BASE_TOT$DOB <- NULL
+# 
+# BASE_SLA <- readRDS("data/BASE_SLA.rds")
+# BASE_SLA$DOB <- NULL
+# 
+# BASE_SLA_invar <- readRDS("data/BASE_SLA_invar.rds")
+# 
+# BASE_SLA_allbl <- readRDS ("data/BASE_SLA_allbl.rds")
 
-BASE_TOT <- readRDS("data/BASE_TOT.rds")
-BASE_TOT$DOB <- NULL
 
-BASE_SLA <- readRDS("data/BASE_SLA.rds")
-BASE_SLA$DOB <- NULL
 
-BASE_SLA_invar <- readRDS("data/BASE_SLA_invar.rds")
 
-BASE_SLA_allbl <- readRDS ("data/BASE_SLA_allbl.rds")
 
 # BDD9 : pick Month just before vni
 

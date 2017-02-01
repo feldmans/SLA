@@ -66,7 +66,7 @@ ddn_tot$ddn <- apply(ddn_tot[,grep("max", colnames(ddn_tot))],1,max,na.rm=T)
 
 ddn_tot <- unique(ddn_tot[ ,c("PATIENT","ddn")]) #pas de duplicatat
 ddn_tot$ddn <- as_date(ddn_tot$ddn)
-ddn_tot <- na.omit(ddn_tot)
+#ddn_tot <- na.omit(ddn_tot) #PB : retire les patients qui ont une ddn NA
 
 dim(ddn_tot)
 
@@ -91,7 +91,7 @@ bdd_dcd <- get_min_max(data = res, fun = "min")
 bdd_dcd$date_dc <- manage_date_ND(bdd_dcd$min)
 
 bdd_dcd <- unique(bdd_dcd[ , c("PATIENT","date_dc")]) #seul les vrais doublons nom et date sont éliminés
-bdd_dcd <- na.omit(bdd_dcd)
+#bdd_dcd <- na.omit(bdd_dcd)
 
 saveRDS(bdd_dcd, "data/bdd_to_merge/bdd_dcd.rds")
 
@@ -109,7 +109,7 @@ bdd_1symp <- res
 bdd_1symp$FIRSTSYMPTOM <- manage_date_ND(bdd_1symp$FIRSTSYMPTOM)
 
 bdd_1symp <- unique(bdd_1symp) #seul les vrais doublons nom et date sont éliminés
-bdd_1symp <- na.omit(bdd_1symp)
+#bdd_1symp <- na.omit(bdd_1symp)
 
 saveRDS(bdd_1symp, "data/bdd_to_merge/bdd_1symp.rds")
 
@@ -137,7 +137,7 @@ bdd_debVNI <- get_min_max(data = res, fun = "min")
 bdd_debVNI$DATEVNI <- manage_date_ND(bdd_debVNI$min)
 
 bdd_debVNI <- unique(bdd_debVNI[,c("PATIENT","DATEVNI")])#seul les vrais doublons nom et date sont éliminés
-bdd_debVNI <- na.omit(bdd_debVNI)
+#bdd_debVNI <- na.omit(bdd_debVNI)
 
 saveRDS(bdd_debVNI, "data/bdd_to_merge/bdd_debVNI.rds")
 
@@ -154,7 +154,7 @@ for (i in 1:length(listes_net)) {
 bdd_DATEDIAG <- get_min_max(data = res, fun = "min")
 bdd_DATEDIAG$date_diag <- manage_date_ND(bdd_DATEDIAG$min)
 bdd_DATEDIAG <- unique(bdd_DATEDIAG[,c("PATIENT","date_diag")])#seul les vrais doublons nom et date sont éliminés
-bdd_DATEDIAG <- na.omit(bdd_DATEDIAG)
+#bdd_DATEDIAG <- na.omit(bdd_DATEDIAG)
 
 saveRDS(bdd_DATEDIAG, "data/bdd_to_merge/bdd_DATEDIAG.rds")
 
@@ -180,7 +180,7 @@ table(tab<-table(bdd_diag$PATIENT))
 pat2diag <- names(tab)[tab>1]
 bdd_diag[bdd_diag$PATIENT %in% pat2diag,]
 
-bdd_diag <- na.omit(bdd_diag)
+#bdd_diag <- na.omit(bdd_diag)
 saveRDS(bdd_diag, "data/bdd_to_merge/bdd_diag.rds")
 
 #-------------
@@ -242,13 +242,15 @@ table(BASE_TOT$diag==1,useNA = "a")
 #patients date vni(parmi sla)
 table(table(BASE_TOT[BASE_TOT$diag==1 & !is.na(BASE_TOT$diag) & !is.na(BASE_TOT$DATEVNI), "PATIENT"]))
 sum(table(tab <- table(BASE_TOT[BASE_TOT$diag==1 & !is.na(BASE_TOT$diag) & !is.na(BASE_TOT$DATEVNI), "PATIENT"])))
-#13 doublons#12? 
+#13 doublons
 length(namesdoublons)
-#434 patients#435?
+#434 patients
 table(table(namesSLA))
 #3 patients ont datevni > date décès
 BASE_SLA[BASE_SLA$DATEVNI>BASE_SLA$ddn, "PATIENT"]
 
+#NB : 8 patients ont toutes les colonnes NA (ils sont elimines si on fait na.omit, explique qu'on passe a 9749 patients au lieu de 9757)
+BASE_TOT[is.na(BASE_TOT$diag) & is.na(BASE_TOT$DATEVNI) & is.na(BASE_TOT$FIRSTSYMPTOM) & is.na(BASE_TOT$ddn), ] 
 #----------------------------------
 #----------------------------------
 #Ajout des baseline
@@ -520,8 +522,10 @@ tmp <- merge(BASE_SLA[ , c("PATIENT","DATEVNI")], bdd7, by="PATIENT", all.x=T, a
 ALLpick <- tmp
 for (i in colnames(ALLpick)[grep("DAT",colnames(ALLpick))]) ALLpick[,i] <- manage_date_ND(ALLpick[,i])
 
+#ALLpick <- ALLpick[ALLpick$PATIENT==namesSLA, ]
 
 pick_data <- sapply(1: nrow(ALLpick),function(.x){
+  #browser()
   .vni <- ALLpick[.x, "DATEVNI"]
   .l <- ALLpick[.x, grep("DATE_PREVENT_PP",colnames(ALLpick))]#je selectionne toutes les colonnes DATE_PREVENT_PP et je considere que sousvent est pendant la ventilation
   .g <- as.vector(t(.l))
@@ -529,11 +533,12 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
   if(any(!is.na(.g))){
     row_last_date_before_vni <- tail(which((.g<=.vni)),1) #dernier mois dispo avant VNI (je fais l'hypothese que l'info si elle existe est bien renseignée)
     
-    if (length(row_last_date_before_vni)==0) { #les dates sont post à vni, alors jessaye PP
+    if (length(row_last_date_before_vni)==0) { #les dates de DATE_PREVENT_PP sont post à vni, alors jessaye DATE_RESP_PP
+      #browser()
       month_bef_vni <- "after vni"
       .l <- ALLpick[.x, "DATE_RESP_PP"]
       if(!is.na(.l) & (.vni-.l)>0 & (.vni-.l)<90) { #ok si mesure faite 3 mois avant vni (je fais l'hypothese que cette colonne est moins bien renseignée que celle de suivi)
-        
+        last_date_bef_vni <- .l
         month_bef_vni <- "DATE_RESP_PP"
         dysp <- ALLpick[.x, "DYSP_REPOS_PP"]
         orthop <- ALLpick[.x, "DYSP_DECUBI_PP"]
@@ -548,15 +553,16 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
         
         DUREE_ENREG_H_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_H_PP"]))
         DUREE_ENREG_MIN_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_MIN_PP"]))
-        DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
-        DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
+        #DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
+        #DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
         minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
         heures <- minutes/60
         time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
         
         bicar <- as.numeric(as.character(ALLpick[.x, "HCO3_PP"] ))
         
-      } else { #date_prevent_PP NA ou post a vni et date_resp_pp post a vni
+      } else { #date_prevent_PP post a vni et date_resp_pp post a vni
+        last_date_bef_vni <- NA
         month_bef_vni <- "after vni"
         dysp <- NA
         orthop <- NA
@@ -571,7 +577,10 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
         bicar <- NA
       }
       
-    } else { #il y a une date prevent antérieure à vni (et je fais l'hypothese qu'elle est juste avant vni)
+    } else { #il y a une date prevent antérieure à vni (et je fais l'hypothese qu'elle est juste avant vni, mais en pratique elle peut être plus de 3 mois avant, cf S******_M*****)
+      
+      last_date_bef_vni <- .g[row_last_date_before_vni]
+      last_date_bef_vni <- as_date(last_date_bef_vni)
       month_bef_vni <- colnames(.l[row_last_date_before_vni])
       month_bef_vni <- ifelse(str_sub(month_bef_vni,-3,-3)=="F", as.numeric(str_sub(month_bef_vni,-2,-1)),as.numeric(str_sub(month_bef_vni,-1,-1)))
       
@@ -588,8 +597,8 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
       
       DUREE_ENREG_H_PP <- as.integer(as.character(ALLpick[.x, paste0("DUREE_ENREG_H_PV_F",month_bef_vni)]))
       DUREE_ENREG_MIN_PP <- as.integer(as.character(ALLpick[.x, paste0("DUREE_ENREG_MIN_PV_F",month_bef_vni)]))
-      DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
-      DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
+      #DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
+      #DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
       minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
       heures <- minutes/60
       time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
@@ -599,11 +608,12 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
     }
     
     
-  } else { # toutes les dates prevent sont NA cad .g=NA
+  } else { # toutes les dates "DATE_PREVENT_PP" sont NA cad .g=NA => je regarde DATE_RESP_PP (=> idem que cas :"les DATE_PREVENT_PP sont posterieures à vni")
     .l <- ALLpick[.x, "DATE_RESP_PP"]
     
-    if(!is.na(.l) & (.vni-.l)>0 & (.vni-.l)<90) { #ok si mesure faite 3 mois avant vni (je fais l'hypothese que cette colonne est moins bien renseignée que celle de suivi)
+    if(!is.na(.l) & (.vni-.l)>0 & (.vni-.l)<90) { #ok si DATE_RESP_PP 3 mois avant vni (je fais l'hypothese que cette colonne est moins bien renseignée que celle de suivi(?))
       #browser()
+      last_date_bef_vni <- .l
       month_bef_vni <- "DATE_RESP_PP"
       dysp <- ALLpick[.x, "DYSP_REPOS_PP"]
       orthop <- ALLpick[.x, "DYSP_DECUBI_PP"]
@@ -618,15 +628,16 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
       
       DUREE_ENREG_H_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_H_PP"]))
       DUREE_ENREG_MIN_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_MIN_PP"]))
-      DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
-      DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
+      #DUREE_ENREG_H_PP <- ifelse(!is.na(DUREE_ENREG_MIN_PP) & is.na(DUREE_ENREG_H_PP),0,DUREE_ENREG_H_PP)
+      #DUREE_ENREG_MIN_PP <- ifelse(!is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP),0,DUREE_ENREG_MIN_PP)
       minutes <- sum((DUREE_ENREG_H_PP*60),DUREE_ENREG_MIN_PP,na.rm=T)
       heures <- minutes/60
       time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
       
       bicar <- as.numeric(as.character(ALLpick[.x, "HCO3_PP"] ))
       
-    } else { #date_prevent_PP NA ou post a vni et date_resp_pp NA ou post a vni
+    } else { #DATE_PREVENT_PP NA et DATE_RESP_PP NA ou post a vni
+      last_date_bef_vni <- NA
       month_bef_vni <- NA
       dysp <- NA
       orthop <- NA
@@ -641,15 +652,16 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
       bicar <- NA
     }
   }
-  
-  return (c(month_bef_vni, dysp, orthop, CVF_ASSIS_perc_pred, CVF_COUCHE_perc_pred, SNIP_cmH2O, SNIP_perc_pred, PIMAX_cmH2O, PIMAX_perc_pred,
+
+  return (c(last_date_bef_vni, month_bef_vni, dysp, orthop, CVF_ASSIS_perc_pred, CVF_COUCHE_perc_pred, SNIP_cmH2O, SNIP_perc_pred, PIMAX_cmH2O, PIMAX_perc_pred,
             perc_time_under_spo2_90, time_under_spo2_90_h, bicar))
 })
 ALLpick <- data.frame(t(pick_data))
-colnames(ALLpick) <- c("month_bef_vni", "dysp", "orthop", "CVF_ASSIS_perc_pred", "CVF_COUCHE_perc_pred", "SNIP_cmH2O", "SNIP_perc_pred", "PIMAX_cmH2O", "PIMAX_perc_pred",
+colnames(ALLpick) <- c("last_date_bef_vni","month_bef_vni", "dysp", "orthop", "CVF_ASSIS_perc_pred", "CVF_COUCHE_perc_pred", "SNIP_cmH2O", "SNIP_perc_pred", "PIMAX_cmH2O", "PIMAX_perc_pred",
                        "perc_time_under_spo2_90", "time_under_spo2_90_h", "bicar")
 
 ALLpick$PATIENT <- as.character(tmp$PATIENT)
+ALLpick$last_date_bef_vni <- as_date(as.numeric(as.character(ALLpick$last_date_bef_vni)))
 #ALLpick$DATEVNI <- tmp$DATEVNI
 ALLpick <- unique(ALLpick)
 names_dataset <- "ALLRESPI_bl"
@@ -729,7 +741,7 @@ for (i in dfbldep){
 
 BASE_SLA_allbl <- merge(BASE_SLA_invar, bl_dep, by="PATIENT", all.x=T, all.y=F)
 
-bck_BASE_SLA
+#bck_BASE_SLA
 
 #Data management basique
 BASE_SLA_allbl$DEBRILU <- as_date(BASE_SLA_allbl$DEBRILU)
@@ -745,7 +757,7 @@ BASE_SLA_allbl$month_bef_vni <- as.character(BASE_SLA_allbl$month_bef_vni)
 BASE_SLA_allbl$PATIENT1 <- BASE_SLA_allbl$PATIENT
 
 BASE_SLA_allbl$PATIENT <- anonymate_sla(BASE_SLA_allbl$PATIENT)
-BASE_SLA_allbl <- BASE_SLA_allbl[,c(1,28,2:27)]
+BASE_SLA_allbl <- BASE_SLA_allbl[,c(1,29,2:28)]
 
 
 #Mise en commentaire pour ne pas modifier la clé par inadvertance
@@ -757,8 +769,15 @@ saveRDS(BASE_SLA_allbl, "data/BASE_SLA_allbl_withnames.rds")
 #-------------------------------------
 #VARIABLES REPETEES : base de donnes bdd7 (pre/)
 
+#pour avoir date de la baseline 
+bef_vni <- readRDS("data/baseline_to_merge/dependant_datevni/ALLRESPI_bl.rds")
+bef_vni <- bef_vni[bef_vni$PATIENT %in% BASE_SLA_allbl$PATIENT1, ]
+bef_vni <- bef_vni[ ,c("PATIENT","last_date_bef_vni","month_bef_vni")]
+#SATISF_VENTIL
+
+#variables répétées
 lapply(bdds, which_col,string1="EPWORTH_VENT_SV", type="explo")
-var_rep <- c("SATISF_VENTIL_SV_","UTIL_VENTIL_DIURN","UTIL_VENTIL_NOCT","CAUSE_V_SATISF_SV_CHOICE_1_","CAUSE_V_SATISF_SV_CHOICE_2_","CAUSE_V_SATISF_SV_CHOICE_3_","CAUSE_V_SATISF_SV_CHOICE_4_",
+var_rep <- c("DATE_SOUSVENT_SV_F","SATISF_VENTIL_SV_","UTIL_VENTIL_DIURN","UTIL_VENTIL_NOCT","CAUSE_V_SATISF_SV_CHOICE_1_","CAUSE_V_SATISF_SV_CHOICE_2_","CAUSE_V_SATISF_SV_CHOICE_3_","CAUSE_V_SATISF_SV_CHOICE_4_",
              "DUREE_SOMM_VENT_SV_","QUALIT_SOMM_VENT_SV_","EVOL_SOMM_VNI_SV_","REVEIL_VENT_SV",
              "ACAUSE_R_VENT_SV_CHOICE_1_","ACAUSE_R_VENT_SV_CHOICE_2_","ACAUSE_R_VENT_SV_CHOICE_3_","ACAUSE_R_VENT_SV_CHOICE_4_",
              "NYCTUR_SV","ORTHOPN_SV_","DYSPN_SVENT_SV_","DYSPN_SOUSVENT_SV_","CEPHAL_SV_","SOMNOL_SV","EPWORTH_VENT_SV")
@@ -771,8 +790,33 @@ for (i in var_rep){
   listes_net <- listes_net[listes_net$PATIENT %in% BASE_SLA_allbl$PATIENT1, ]
   listes_net <- reshape (listes_net, direction="long",idvar = "PATIENT",
                  varying=grep(i,colnames(listes_net)), sep="")
+  #Création de la valeur time=0
+  
+  
+  if (i=="DATE_SOUSVENT_SV_F") {
+    #browser()
+  listes_net$DATE_SOUSVENT_SV_F <- manage_date_ND(listes_net$DATE_SOUSVENT_SV_F)
+  #bdd_0 <- bef_vni[ ,c("PATIENT","last_date_bef_vni")]
+  bdd_0 <- sla[ ,c("PATIENT1","DATEVNI")]
+  colnames(bdd_0)[1] <- "PATIENT"
+  colnames(bdd_0)[2] <- names(listes_net)[3]
+  } else {
+    #browser()
+    bdd_0 <- listes_net[listes_net$time==1 ,c("PATIENT", "time")]
+    bdd_0[ ,names(listes_net)[3]] <- NA
+  }
+  bdd_0$time <- 0
+  
+  #browser()
+  listes_net <- rbind(bdd_0,listes_net)
   bdd_rep <- if(num==1) listes_net else merge(bdd_rep, listes_net, by=c("PATIENT","time"), all=TRUE)
 }
+
 bdd_rep <- bdd_rep[order(bdd_rep$PATIENT,bdd_rep$time),]
+
+# t0 est bien = dateVNI? => délai =0?
+bdd_rep <- merge(bdd_rep, sla[, c("PATIENT1","DATEVNI")], by.x="PATIENT", by.y="PATIENT1",all=T)
+#calcul du délai (vrai time)
+bdd_rep$time <- as.numeric(bdd_rep$DATE_SOUSVENT_SV_F - bdd_rep$DATEVNI)
 
 saveRDS(bdd_rep, "data/essairep.rds")

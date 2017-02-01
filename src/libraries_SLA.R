@@ -11,5 +11,5 @@ library(knitr)
 library(gridExtra)
 library(grid)
 library(GGally)
-
+library(scales)
 
