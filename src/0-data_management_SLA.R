@@ -206,6 +206,8 @@ saveRDS(BASE_TOT, "data/BASE_TOT.rds")
 
 BASE_TOT <- readRDS("data/BASE_TOT.rds")
 
+
+
 #------------------------------------
 #------------------------------------
 #SELECT SLA from BASE_TOT
@@ -238,7 +240,8 @@ table(table(namesSLA))
 #patients totaux
 table(table(unique(BASE_TOT$PATIENT)))
 #patients sla
-table(BASE_TOT$diag==1,useNA = "a")
+sum(table(table(BASE_TOT$PATIENT[BASE_TOT$diag==1])))
+#table(BASE_TOT$diag==1, useNA = "a") #1925 : faux, ne tient pas compte des doublons
 #patients date vni(parmi sla)
 table(table(BASE_TOT[BASE_TOT$diag==1 & !is.na(BASE_TOT$diag) & !is.na(BASE_TOT$DATEVNI), "PATIENT"]))
 sum(table(tab <- table(BASE_TOT[BASE_TOT$diag==1 & !is.na(BASE_TOT$diag) & !is.na(BASE_TOT$DATEVNI), "PATIENT"])))
@@ -351,7 +354,8 @@ saveRDS(site_onset, "data/baseline_to_merge/indep_datevni/site_onset.rds")
 
 #--------------
 #patients taking riluzole
-#listes_brut <- lapply(bdds, which_col,string1="DATDRILU_V_M", type="explo")
+listes_brut <- lapply(bdds, which_col,string1="DATDRILU_V_M", type="explo")
+listes_brut <- lapply(bdds, which_col,string1="RILU", string2="DATF", type="explo")
 
 # #bdd6
 # [3] "RILUZ"
@@ -375,7 +379,8 @@ saveRDS(site_onset, "data/baseline_to_merge/indep_datevni/site_onset.rds")
 # table(bdd9$RILUZ_V_M1,useNA = "a") #
 
 #DATE DEBUT RILU
-listes_brut <- lapply(bdds, which_col,string1="DATDRILU_V_M", type="merge")
+#listes_brut <- lapply(bdds, which_col,string1="DATDRILU_V_M", type="merge")
+listes_brut <- lapply(bdds, which_col,string1="RILU", string2="DATD", type="merge") #permet de récupérer 1500 dates!
 listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
 for (i in 1:length(listes_net)) {
   data <- listes_net[[i]]
@@ -402,7 +407,8 @@ RILU$PATIENT <- as.character(res$PATIENT)
 RILU1 <- unique(RILU[ , c("PATIENT","DEBRILU")])
 
 #DATE FIN RILU
-listes_brut <- lapply(bdds, which_col,string1="DATFRILU_V_M", type="merge")
+#listes_brut <- lapply(bdds, which_col,string1="DATFRILU_V_M", type="merge")
+listes_brut <- lapply(bdds, which_col, string1="RILU", string2="DATF", type="merge")
 listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
 for (i in 1:length(listes_net)) {
   data <- listes_net[[i]]
@@ -435,18 +441,24 @@ saveRDS(RILU, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,"
 
 #----------------
 #ALSFRS-R score
+#listes_brut <- lapply(bdds, which_col,string1="ALS", type="explo") 
+
 tmp <- merge(bdd9,months_before_vni,by="PATIENT",all.y=T)
-ALLpick <- tmp[ ,c("myrow","DATEVNI",colnames(tmp)[grep("ALS_V",colnames(tmp))]) ]
+ALLpick <- tmp[ ,c("PATIENT","myrow","DATEVNI",colnames(tmp)[grep("ALS_V",colnames(tmp))]) ]
 pick_data <- lapply(1: nrow(ALLpick),function(.x){
   #browser()
   myrow <- ALLpick[.x, "myrow"]
-  if (is.na(myrow)){
-    data <- NA
+  if (is.na(myrow)){ # date de visite supplémentaire postérieure à la ise sous vni
+    .pat <- ALLpick[.x, "PATIENT"]
+    .vni <- ALLpick[.x, "DATEVNI"]
+    .datALSPV <- manage_date_ND(bdd6[bdd6$PATIENT==.pat, "DATEXAM"] )
+    if(!is.na(.vni) & !is.na(.datALSPV) & abs(.vni-.datALSPV)<90) data <- bdd6[bdd6$PATIENT==.pat, "ALS"] #Je regarde dans la base premiere visite si date vni proche de date exam
+    else data <- NA
   } else {
     data <- ALLpick[.x, paste0("ALS_V_M",myrow)]
     # if (is.na(data)){
     #   data <- ALLpick[.x, paste0("ALS_V_M",(myrow-1))]#ok pour prendre l'échelle du mois précédent?
-    # }
+    # } else data <- data
   }
   #en prenant la dernière ALS dispo même si le patient est peut être plus grave à linstauration de la VNI: (je ne fais pas ça finalement)
   #.l <- ALLpick[.x, paste0("ALS_V_M",1:myrow)]
@@ -569,6 +581,7 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
         # time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
         
         bicar <- as.numeric(as.character(ALLpick[.x, "HCO3_PP"] ))
+        paco2 <- ALLpick[.x, "PACO2_PP"]
         
       } else { #date_prevent_PP post a vni et date_resp_pp post a vni
         last_date_bef_vni <- NA
@@ -586,6 +599,7 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
         DUREE_ENREG_H_PP <- NA
         DUREE_ENREG_MIN_PP <- NA
         bicar <- NA
+        paco2 <- NA
       }
       
     } else { #il y a une date prevent antérieure à vni (et je fais l'hypothese qu'elle est juste avant vni, mais en pratique elle peut être plus de 3 mois avant, cf S******_M*****)
@@ -623,7 +637,7 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
       # time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
       
       bicar <- as.numeric(as.character(ALLpick[.x, paste0("HCO3_PV_F",month_bef_vni)] ))
-      
+      paco2 <- as.numeric(as.character(ALLpick[.x, paste0("PACO2_PV_F",month_bef_vni)] ))
     }
     
     
@@ -662,7 +676,7 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
       # time_under_spo2_90_h <- (perc_time_under_spo2_90/100)*heures
       
       bicar <- as.numeric(as.character(ALLpick[.x, "HCO3_PP"] ))
-      
+      paco2 <- ALLpick[.x, "PACO2_PP"]
     } else { #DATE_PREVENT_PP NA et DATE_RESP_PP NA ou post a vni
       last_date_bef_vni <- NA
       month_bef_vni <- NA
@@ -679,15 +693,16 @@ pick_data <- sapply(1: nrow(ALLpick),function(.x){
       DUREE_ENREG_H_PP <- NA
       DUREE_ENREG_MIN_PP <- NA
       bicar <- NA
+      paco2 <- NA
     }
   }
 
   return (c(last_date_bef_vni, month_bef_vni, dysp, orthop, CVF_ASSIS_perc_pred, CVF_COUCHE_perc_pred, SNIP_cmH2O, SNIP_perc_pred, PIMAX_cmH2O, PIMAX_perc_pred,
-            perc_time_under_spo2_90, time_under_spo2_90_h, bicar,DUREE_ENREG_H_PP, DUREE_ENREG_MIN_PP))
+            perc_time_under_spo2_90, time_under_spo2_90_h, bicar, paco2, DUREE_ENREG_H_PP, DUREE_ENREG_MIN_PP))
 })
 ALLpick <- data.frame(t(pick_data))
 colnames(ALLpick) <- c("last_date_bef_vni","month_bef_vni", "dysp", "orthop", "CVF_ASSIS_perc_pred", "CVF_COUCHE_perc_pred", "SNIP_cmH2O", "SNIP_perc_pred", "PIMAX_cmH2O", "PIMAX_perc_pred",
-                       "perc_time_under_spo2_90", "time_under_spo2_90_h", "bicar", "DUREE_ENREG_H_PP", "DUREE_ENREG_MIN_PP")
+                       "perc_time_under_spo2_90", "time_under_spo2_90_h", "bicar", "paco2", "DUREE_ENREG_H_PP", "DUREE_ENREG_MIN_PP")
 
 ALLpick$PATIENT <- as.character(tmp$PATIENT)
 ALLpick$last_date_bef_vni <- as_date(as.numeric(as.character(ALLpick$last_date_bef_vni)))
@@ -715,6 +730,54 @@ saveRDS(ALLpick, paste0("data/baseline_to_merge/dependant_datevni/",names_datase
 # 3 = 'Quelques difficultés nocturnes'
 # 4 = 'Aucune'
 #orthopnee : je garde 0 1 2 (3 à discuter) #concordance meilleure en retirant le 3
+
+#--------------
+#Poids de forme
+ALLpick <- bdd6[ ,c("PATIENT","WEIGHT_WB")]
+names_dataset <- "NUTRI"
+assign(names_dataset,ALLpick)
+saveRDS(ALLpick, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds")) #non dependant date vni mais pour éviter doublon ensuite
+
+#--------------
+#Poids, BMI, ALSFRS, echelle bulbaire
+
+tmp <- merge(BASE_SLA[ , c("PATIENT","DATEVNI")], bdd9, by="PATIENT", all.x=T, all.y=F)
+ALLpick <- tmp
+for (i in colnames(ALLpick)[grep("DAT",colnames(ALLpick))]) ALLpick[,i] <- manage_date_ND(ALLpick[,i])
+
+#ALLpick <- ALLpick[ALLpick$PATIENT==namesSLA, ]
+
+pick_data <- sapply(1:nrow(ALLpick),function(.x){
+  #browser()
+  .vni <- ALLpick[.x, "DATEVNI"]
+  .l <- ALLpick[.x, grep("DATEXAM_V",colnames(ALLpick))]#je selectionne toutes les colonnes DATE_PREVENT_PP et je considere que sousvent est pendant la ventilation
+  .g <- as_date(as.vector(t(.l)))
+  if(length(.g)!=0 & !is.na(.vni) & any(!is.na(.g[(.vni-.g)<90]))) { 
+    myrow <- which(.g==min(.g[(.vni-.g)<90],na.rm=T))
+    namesdate <- names(.l[myrow])
+    nummonth <- ifelse(str_sub(namesdate,-3,-3)=="M", as.numeric(str_sub(namesdate,-2,-1)),as.numeric(str_sub(namesdate,-1,-1))) #ne marche que jusqu'à M99
+    
+    WEIGHT <- ALLpick[.x, paste0("WEIGHT_NUTRI_V_M",nummonth)]
+    BMI <- ALLpick[.x, paste0("BMI_V_M",nummonth)]
+    ALSFRS <- ALLpick[.x, paste0("ALS_V_M",nummonth)]
+    EBULB <- ALLpick[.x, paste0("E_BULBAIRE_V_M",nummonth)]
+  }else {
+    WEIGHT <- NA
+    BMI <- NA
+    ALSFRS <- NA
+    EBULB <- NA
+  } 
+  #browser()
+  return(c(WEIGHT,BMI,ALSFRS,EBULB))
+})  
+ALLpick <- data.frame(t(pick_data))
+colnames(ALLpick) <- c("WEIGHT","BMI","ALSFRS","EBULB")
+ALLpick$PATIENT <- as.character(tmp$PATIENT)
+
+ALLpick <- unique(ALLpick)
+names_dataset <- "BASE_SUIVI_NEURO"
+assign(names_dataset,ALLpick)
+saveRDS(ALLpick, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds"))
 
 
 # #---------
@@ -749,35 +812,28 @@ saveRDS(ALLpick, paste0("data/baseline_to_merge/dependant_datevni/",names_datase
 #MERGE des baselines dep et indep vni
 
 name_df_baseline <- str_sub(dir("data/baseline_to_merge/indep_datevni"),1,-5)[sapply(dir("data/baseline_to_merge/indep_datevni"),function(x)is.data.frame(get(str_sub(x,1,-5))))]
-#merge
 for (i in name_df_baseline){
   num <- which(name_df_baseline==i)
   .bd <- get(i)
-  baseline_tot <- if(num==1) .bd else merge(baseline_tot, .bd, by="PATIENT", suffixes= c(num-1,num),all=TRUE)
+  bl_indep <- if(num==1) .bd else merge(bl_indep, .bd, by="PATIENT", suffixes= c(num-1,num),all=TRUE)
 }
 
-BASE_SLA_invar <- merge(BASE_SLA, baseline_tot, by="PATIENT", all.x=T, all.y=F)
-saveRDS(BASE_SLA_invar, "data/BASE_SLA_invar.rds")
-
-
 dfbldep <- str_sub(dir("data/baseline_to_merge/dependant_datevni"),1,-5)[sapply(dir("data/baseline_to_merge/dependant_datevni"),function(x)is.data.frame(get(str_sub(x,1,-5))))]
-#merge
 for (i in dfbldep){
   num <- which(dfbldep==i)
   .bd <- get(i)
   bl_dep <- if(num==1) .bd else merge(bl_dep, .bd, by="PATIENT", all=TRUE)
 }
-
+BASE_SLA_invar <- merge(BASE_SLA, bl_indep, by="PATIENT", all.x=T, all.y=F)
 BASE_SLA_allbl <- merge(BASE_SLA_invar, bl_dep, by="PATIENT", all.x=T, all.y=F)
 
-#bck_BASE_SLA
 
 #Data management basique
 BASE_SLA_allbl$DEBRILU <- as_date(BASE_SLA_allbl$DEBRILU)
 BASE_SLA_allbl$FINRILU <- as_date(BASE_SLA_allbl$FINRILU)
 
 for (i in c("dysp","orthop","CVF_ASSIS_perc_pred","CVF_COUCHE_perc_pred","SNIP_cmH2O","SNIP_perc_pred","PIMAX_cmH2O",
-            "PIMAX_perc_pred","perc_time_under_spo2_90","time_under_spo2_90_h","bicar")){
+            "PIMAX_perc_pred","perc_time_under_spo2_90","time_under_spo2_90_h","bicar", "paco2")){
   BASE_SLA_allbl[,i] <- as.numeric(as.character(BASE_SLA_allbl[,i]))
 }
 BASE_SLA_allbl$LIEUDEB_recode <- as.character(BASE_SLA_allbl$LIEUDEB_recode)
@@ -792,7 +848,6 @@ BASE_SLA_allbl <- BASE_SLA_allbl[,c(1,31,2:30)]
 #Mise en commentaire pour ne pas modifier la clé par inadvertance
 saveRDS(BASE_SLA_allbl[,-2], "data/BASE_SLA_allbl.rds")
 saveRDS(BASE_SLA_allbl, "data/BASE_SLA_allbl_withnames.rds")
-
 
 
 #-------------------------------------
@@ -849,3 +904,96 @@ bdd_rep <- merge(bdd_rep, sla[, c("PATIENT1","DATEVNI")], by.x="PATIENT", by.y="
 bdd_rep$time <- as.numeric(bdd_rep$DATE_SOUSVENT_SV_F - bdd_rep$DATEVNI)
 
 saveRDS(bdd_rep, "data/essairep.rds")
+
+#--------
+#--------
+#BASE POUR ANALYSE DE TOUS LES SLA
+all_SLA <- BASE_TOT[BASE_TOT$diag==1 & !is.na(BASE_TOT$diag), ] 
+.tmp <- all_SLA
+table(tab <- table(.tmp$PATIENT))
+namesdoublons <- names(tab)[tab>1]
+.tmp <- .tmp[!.tmp$PATIENT %in% namesdoublons, ]
+.tmp$DOB <- NULL
+.tmp$ddn <- as_date(.tmp$ddn)
+all_SLA <- .tmp
+
+
+#-----------
+#variables
+
+#var respi à baseline #je prend PP
+tmp <- merge(BASE_SLA[ , c("PATIENT","DATEVNI")], bdd7, by="PATIENT", all.x=T, all.y=F)
+ALLpick <- tmp
+for (i in colnames(ALLpick)[grep("DAT",colnames(ALLpick))]) ALLpick[,i] <- manage_date_ND(ALLpick[,i])
+pick_data <- sapply(1: nrow(ALLpick),function(.x){
+  
+date_exam_resp <- ALLpick[.x, "DATE_RESP_PP"]
+dysp <- ALLpick[.x, "DYSP_REPOS_PP"]
+orthop <- ALLpick[.x, "DYSP_DECUBI_PP"]
+CVF_ASSIS_perc_pred <- as.numeric(as.character(ALLpick[.x, "CVF_ASSIS_THEO_PP"]))
+CVF_COUCHE_perc_pred <- as.numeric(as.character(ALLpick[.x, "CVF_THEO_PP"]))
+SNIP_cmH2O <- as.numeric(as.character(ALLpick[.x, "SNIP_PP"]))
+SNIP_perc_pred <- as.numeric(as.character(ALLpick[.x, "SNIP_THEO_PP"]))
+PIMAX_cmH2O <- as.numeric(as.character(ALLpick[.x, "PIMAX_PP"]))
+PIMAX_perc_pred <- as.numeric(as.character(ALLpick[.x, "PIMAX_THEO_PP"]))
+
+perc_time_under_spo2_90 <- as.numeric(as.character(ALLpick[.x, "SPO2_TPS_PP"]))
+
+DUREE_ENREG_H_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_H_PP"]))
+DUREE_ENREG_MIN_PP <- as.numeric(as.character(ALLpick[.x, "DUREE_ENREG_MIN_PP"]))
+time_under_spo2_90_h <- ifelse(is.na(DUREE_ENREG_H_PP) & is.na(DUREE_ENREG_MIN_PP), NA, sum(DUREE_ENREG_H_PP*60, DUREE_ENREG_MIN_PP, na.rm=T))
+time_under_spo2_90_h <- time_under_spo2_90_h/60
+time_under_spo2_90_h <- time_under_spo2_90_h * perc_time_under_spo2_90/100
+
+bicar <- as.numeric(as.character(ALLpick[.x, "HCO3_PP"] ))
+paco2 <- ALLpick[.x, "PACO2_PP"]
+
+return (c(date_exam_resp, dysp, orthop, CVF_ASSIS_perc_pred, CVF_COUCHE_perc_pred, SNIP_cmH2O, SNIP_perc_pred, PIMAX_cmH2O, PIMAX_perc_pred,
+          perc_time_under_spo2_90, time_under_spo2_90_h, bicar, paco2, DUREE_ENREG_H_PP, DUREE_ENREG_MIN_PP))
+})
+ALLpick <- data.frame(t(pick_data))
+colnames(ALLpick) <- c("date_exam_resp", "dysp", "orthop", "CVF_ASSIS_perc_pred", "CVF_COUCHE_perc_pred", "SNIP_cmH2O", "SNIP_perc_pred", "PIMAX_cmH2O", "PIMAX_perc_pred",
+                       "perc_time_under_spo2_90", "time_under_spo2_90_h", "bicar", "paco2", "DUREE_ENREG_H_PP", "DUREE_ENREG_MIN_PP")
+
+ALLpick$PATIENT <- as.character(tmp$PATIENT)
+#ALLpick$DATEVNI <- tmp$DATEVNI
+ALLpick <- unique(ALLpick)
+names_dataset <- "ALLRESPI_bl_all"
+assign(names_dataset,ALLpick)
+
+#var neuro et nutri à baseline :bdd6
+
+#BMI à l'inclusion
+#c("BMI","BMI_CL1")] #même info mais BMI est plus précise
+#c("WEIGHT_REF","WEIGHT_WB")] #même info mais WEIGHT_WB renseigné plus souvent
+#c("WEIGHT_NUTRI","WEIGHT")] #WEIGHT_NUTRI plus souvent renseigné #même info
+#Donc je prend BMI, WEIGHT WB, WEIGHT_NUTRI et DATE_NUTRI (et DATE_EXAM car DATE_NUTRI mal renseignée mais probablement meme date)
+
+NEURO_NUTRI <- bdd6[,c("PATIENT","DATE_NUTRI", "DATEXAM","WEIGHT_NUTRI","BMI","WEIGHT_WB","ALS","E_BULBAIRE")]
+for (i in c("DATEXAM","DATE_NUTRI")) NUTRI[,i] <- manage_date_ND(NUTRI[,i])
+for (i in c("WEIGHT_NUTRI","BMI","WEIGHT_WB")) NUTRI[,i] <- as.numeric(as.character(NUTRI[,i]))
+
+
+#indep : "DOB", "familial", "sex_def", "LIEUDEB_recode"
+all_SLA_bl <- merge(all_SLA, bl_indep, by="PATIENT", all.x=T, all.y=F)
+all_SLA_bl <- merge(all_SLA_bl, RILU, by="PATIENT", all.x=T, all.y=F) #donne les date de rilu donc ne depend pas de VNI
+all_SLA_bl <- merge(all_SLA_bl, NEURO_NUTRI, by="PATIENT", all.x=T, all.y=F)
+all_SLA_bl <- merge(all_SLA_bl, ALLRESPI_bl_all, by="PATIENT", all.x=T, all.y=F)
+
+
+
+#Data management basique
+all_SLA_bl$DEBRILU <- as_date(all_SLA_bl$DEBRILU)
+all_SLA_bl$FINRILU <- as_date(all_SLA_bl$FINRILU)
+
+for (i in c("dysp","orthop","CVF_ASSIS_perc_pred","CVF_COUCHE_perc_pred","SNIP_cmH2O","SNIP_perc_pred","PIMAX_cmH2O",
+            "PIMAX_perc_pred","perc_time_under_spo2_90","time_under_spo2_90_h","bicar","paco2")){
+  all_SLA_bl[,i] <- as.numeric(as.character(all_SLA_bl[,i]))
+}
+all_SLA_bl$LIEUDEB_recode <- as.character(all_SLA_bl$LIEUDEB_recode)
+all_SLA_bl$PATIENT1 <- all_SLA_bl$PATIENT
+
+#all_SLA_bl$PATIENT <- anonymate_sla(all_SLA_bl$PATIENT)
+#all_SLA_bl <- all_SLA_bl[,c(1,31,2:30)]
+#saveRDS(all_SLA_bl[,-2], "data/all_SLA_bl.rds")
+saveRDS(all_SLA_bl, "data/all_SLA_bl.rds")
