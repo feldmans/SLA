@@ -449,6 +449,67 @@ scan_notebook <- function(string, onepath_or_pathlist){
 #verif graphique des risques proportionnels en ggplot2
 
 
+#DESCRIPTION
+
+des_quali <- function(var, data){
+  data <- data[,var]
+  names_levels <- levels(as.factor(data))
+  a <- lapply(names_levels, function(x) {
+    tmp <- as.numeric(table(data)[x])
+    tmpbis <- round(as.numeric(prop.table(table(data))[x]),3)*100
+    tmptot <- paste0(tmp," (",tmpbis,"%)")
+    
+    nNA <- table(is.na(data))
+    pNA <- round(prop.table(table(is.na(data))),3)
+    if (is.na(nNA[2]))  {
+      if (which(names_levels==x)==1) nNA <- paste0 (0," (0%)")
+      else nNA <- ""
+    }
+    else {
+      if (which(names_levels==x)==1){
+        nNA <- as.numeric (nNA[names(nNA)==TRUE])
+        pNA <- as.numeric (pNA[names(pNA)==TRUE])*100
+        nNA <- paste0(nNA," (",pNA,"%)")  
+      }
+      else nNA <- ""
+    }
+    cbind(tmptot,nNA)
+    
+  })
+  a <- do.call(rbind,a)
+  #a <- cbind (a,nNA)
+  rownames(a) <- paste0(var,"_",names_levels) 
+  colnames(a) <- c("values","missing values")
+  # a <- rbind (a,nNA)
+  # rownames(a)[-nrow(a)] <- paste0(i,"_",names_levels) 
+  return(a)
+}
+
+des_quanti <- function(var, data){ 
+  data <- data[,var]
+  med <- round(median (data,na.rm=T),2)
+  quant <- round(quantile(data,na.rm=T),2)
+  Q1 <- quant[2]
+  Q3 <- quant[4]
+  a <- paste0(med," (",Q1,"-",Q3,")")
+  #browser()
+  
+  nNA <- table(is.na(data))
+  pNA <- round(prop.table(table(is.na(data))),3)
+  if (is.na(nNA[2]))  nNA <- paste0 (0," (0%)")
+  else {
+    nNA <- as.numeric (nNA[names(nNA)==TRUE])
+    pNA <- as.numeric (pNA[names(pNA)==TRUE])*100
+    nNA <- paste0(nNA," (",pNA,"%)")
+  }
+  # a <- rbind (a,nNA)
+  # rownames(a)[-nrow(a)] <- paste0(i,"*") 
+  a <- cbind (a,nNA)
+  rownames(a) <- paste0(var,"*")
+  colnames(a) <- c("values","missing values")
+  return(a)
+}
+
 
 #VERIF LOGLINEARITE
 

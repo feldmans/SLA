@@ -139,6 +139,15 @@ bdd_debVNI$DATEVNI <- manage_date_ND(bdd_debVNI$min)
 bdd_debVNI <- unique(bdd_debVNI[,c("PATIENT","DATEVNI")])#seul les vrais doublons nom et date sont éliminés
 #bdd_debVNI <- na.omit(bdd_debVNI)
 
+
+
+# for (i in 1:nrow(bdd7)){
+#   datvni <- bdd7[i, grep("DAT_MISOVR_VENT", colnames(bdd7))]
+#   echecvni <- bdd7[i ,grep("ECHEC_MEO_VENT", colnames(bdd7))]
+# }
+
+
+
 saveRDS(bdd_debVNI, "data/bdd_to_merge/bdd_debVNI.rds")
 
 
@@ -254,6 +263,195 @@ BASE_SLA[BASE_SLA$DATEVNI>BASE_SLA$ddn, "PATIENT"]
 
 #NB : 8 patients ont toutes les colonnes NA (ils sont elimines si on fait na.omit, explique qu'on passe a 9749 patients au lieu de 9757)
 BASE_TOT[is.na(BASE_TOT$diag) & is.na(BASE_TOT$DATEVNI) & is.na(BASE_TOT$FIRSTSYMPTOM) & is.na(BASE_TOT$ddn), ] 
+
+
+#------------------------
+#------------------------
+#Nouvelle date vni à partir de DATEVNI et bdd7
+
+#CREATION BASES
+
+tmp <- merge(BASE_SLA[ , c("PATIENT","DATEVNI")], bdd7, by="PATIENT", all.x=T, all.y=T)
+ALLpick <- tmp
+
+namesallSLA <- BASE_TOT[BASE_TOT$diag==1 & !is.na(BASE_TOT$diag), "PATIENT"] 
+
+.l <- lapply(unique(namesallSLA), function(i){
+  #.l <- lapply(namesSLA, function(i){
+  #.l <- lapply("AIME_CORINNE", function(i){
+  print(paste(which(i==namesallSLA), "/", length(namesallSLA)))
+  DATE_PP <- colnames(ALLpick)[grep("DATE_RESP_PP",colnames(ALLpick))]
+  VNIon_PP <- colnames(ALLpick)[grep("VNI_ON_PP",colnames(ALLpick))] #decision de vni associée à la date prevent
+  MEODAT_PP <- colnames(ALLpick)[grep("DAT_MISOVR_VENT_PP",colnames(ALLpick))] #date de VNI
+  delaiMEO_PP <- colnames(ALLpick)[grep("DELAI_VENT_PP",colnames(ALLpick))] #delai de MEO prevu a partir de la date prevent
+  echec_PP <-  colnames(ALLpick)[grep("ECHEC_MEO_VENT_PP",colnames(ALLpick))] #delai de MEO prevu a partir de la date prevent
+  echec_RES_PP <-  colnames(ALLpick)[grep("MOTIFS_ECHEC_VENT_PP",colnames(ALLpick))]
+  #browser()
+  DATE_PV <- colnames(ALLpick)[grep("DATE_PREVENT_PP",colnames(ALLpick))] #PV n'existe pas, et associées aux var PV
+  VNIon_PV <- colnames(ALLpick)[grep("VNI_ON_PV",colnames(ALLpick))] #decision de vni associée à la date prevent
+  MEODAT_PV <- colnames(ALLpick)[grep("DAT_MISOVR_VENT_PV",colnames(ALLpick))] #date de VNI
+  delaiMEO_PV <- colnames(ALLpick)[grep("DELAI_VENT_PV",colnames(ALLpick))] #delai de MEO prevu a partir de la date prevent
+  echec_PV <-  colnames(ALLpick)[grep("ECHEC_MEO_VENT_PV",colnames(ALLpick))] #delai de MEO prevu a partir de la date prevent
+  echec_RES_PV <-  colnames(ALLpick)[grep("MOTIFS_ECHEC_VENT_PV",colnames(ALLpick))]
+  
+  varDATE <- manage_date_ND(as.vector(t(ALLpick[ALLpick$PATIENT==i, c(DATE_PP, DATE_PV)])))
+  varVNIon <- as.vector(t(ALLpick[ALLpick$PATIENT==i, c(VNIon_PP, VNIon_PV)]))
+  MEODAT <- manage_date_ND(as.vector(t(ALLpick[ALLpick$PATIENT==i, c(MEODAT_PP, MEODAT_PV)])))
+  delaiMEO <- as.vector(t(ALLpick[ALLpick$PATIENT==i, c(delaiMEO_PP,  delaiMEO_PV)]))
+  echec <- as.vector(t(ALLpick[ALLpick$PATIENT==i, c(echec_PP,  echec_PV)]))
+  raisechec <- as.vector(t(ALLpick[ALLpick$PATIENT==i, c(echec_RES_PP,  echec_RES_PV)]))
+  #dateTOT <- data.frame(cbind(varDATE, varVNIon, MEODAT, delaiMEO, echec)); colnames(dateTOT) <- c("DATEXAM_RESPI", "VNIon", "MEODATE", "delaiMEO", "echecVNI")
+  dateTOT <- data.frame(varDATE, varVNIon, MEODAT, delaiMEO, echec, raisechec); colnames(dateTOT) <- c("DATEXAM_RESPI", "VNIon", "MEODATE", "delaiMEO", "echecVNI", "raison")
+  #browser()
+  # if (nrow(dateTOT[!is.na(dateTOT$DATEXAM_RESPI),])==0){
+  #   dateTOT2 <- data.frame(NA,NA,NA,NA,NA) 
+  #   colnames(dateTOT2) <- c("DATEXAM_RESPI", "VNIon", "MEODATE", "delaiMEO", "echecVNI") 
+  # } 
+  #else dateTOT2 <- dateTOT[!is.na(dateTOT$DATEXAM_RESPI), ]
+  dateTOT$PATIENT <- i
+  #dateTOT2 <- dateTOT2[ ,c(6, 1:5)]
+  dateTOT <- dateTOT[!is.na(dateTOT$DATEXAM_RESPI), ]
+  return (dateTOT)
+})
+dec_vni <- do.call(rbind, .l)
+saveRDS(dec_vni, "data/dec_vni.rds")
+dec_vni <- readRDS("data/dec_vni.rds")
+
+.l <- lapply(unique(namesallSLA), function(i){ #ne sert que pour voir les infos dispo afin de voir si algorythme pertinent
+  #.l <- lapply(namesSLA, function(i){
+  #.l <- lapply("AIME_CORINNE", function(i){
+  print(paste(which(i==namesallSLA), "/", length(namesallSLA)))
+  #browser()
+  namesPP <- colnames(ALLpick)[grep("DATE_RESP_PP",colnames(ALLpick))]
+  namesPV <- colnames(ALLpick)[grep("DATE_PREVENT_PP",colnames(ALLpick))]
+  namesSV <- colnames(ALLpick)[grep("DATE_SOUSVENT",colnames(ALLpick))]
+  var1 <- manage_date_ND(t(ALLpick[ALLpick$PATIENT==i, namesPP]))
+  var2 <- manage_date_ND(t(ALLpick[ALLpick$PATIENT==i, namesPV]))
+  var3 <- manage_date_ND(t(ALLpick[ALLpick$PATIENT==i, namesSV]))
+  dateTOT <- data.frame(c(var1,var2,var3)) ; colnames(dateTOT) <- "DATEXAM_RESPI" #; rownames(dateTOT) <- c(namesPP, namesPV,namesSV)
+  #dateTOT$DATEVNI <- ALLpick[ ALLpick$PATIENT==i, "DATEVNI"]
+  dateTOT$PATIENT <- ALLpick[ ALLpick$PATIENT==i, "PATIENT"]
+  dateTOT$visite <- c(namesPP, namesPV,namesSV)
+  #browser()
+  
+  listv <- list(c("DYSP_DECUBI_PP","DYSP_DECUBI_PV","ORTHOPN_SV_F"), c("PACO2_PP","PACO2_PV","PACO2_SV_F"), c("PAO2_PP","PAO2_PV","PAO2_SV_F"), 
+                c("HCO3_PP", "HCO3_PV_F", "HCO3_SV_F"), c("PH_PP", "PH_PV_F", "PH_SV_F"), c("CEPHAL_PP", "CEPHAL_PV_F", "CEPHAL_SV_F"))
+  for (j in listv){
+    #browser()
+    namesPP <- colnames(ALLpick)[grep(j[1],colnames(ALLpick))]
+    namesPV <- colnames(ALLpick)[grep(j[2],colnames(ALLpick))]
+    namesSV <- colnames(ALLpick)[grep(j[3],colnames(ALLpick))][! grep(j[3],colnames(ALLpick)) %in% grep("CL1",colnames(ALLpick))]
+    var1 <- t(ALLpick[ALLpick$PATIENT==i, namesPP])
+    var2 <- t(ALLpick[ALLpick$PATIENT==i, namesPV])
+    var3 <- t(ALLpick[ALLpick$PATIENT==i, namesSV])
+    dateTOT2 <- data.frame(c(var1,var2,var3)) #; rownames(dateTOT2) <- c(namesPP, namesPV,namesSV)
+    colnames(dateTOT2) <- str_sub(j[1],1,-4)
+    resresp <- if (length(which(j[1]==listv[[1]]))!=0) cbind(dateTOT, dateTOT2) else cbind(resresp, dateTOT2)
+  }
+  resresp  <-  resresp [!is.na( resresp $DATEXAM_RESPI),]
+})
+
+bvr <- do.call(rbind, .l)
+saveRDS(bvr, "data/bvr.rds")  
+
+mm <- merge(dec_vni, bvr, by=c("PATIENT","DATEXAM_RESPI"), all = TRUE) #NB : si DATEXAM RESPI jms renseigné, datevni devient NA
+mm <- merge(mm[,!names(mm) %in%"DATEVNI"], BASE_SLA[,c("PATIENT", "DATEVNI")], by="PATIENT", all=T)
+mm <- mm %>% select(-raison)
+
+
+#ALGORITHME
+.l <- lapply(unique(mm$PATIENT), function(x){
+  if (x== "ARCHAMBAULT_FRANCOIS") browser()
+  db <- mm %>% filter(PATIENT==x)
+  if (any(!is.na(db$MEODATE))) {
+    VNI <- min(db[!is.na(db$MEODATE), "MEODATE"], na.rm = T)
+  } else {
+    
+    if(any(!is.na(db$DATEXAM_RESPI))) {
+      db2 <- db[!is.na(db$DATEXAM_RESPI), ]
+      
+      if (length(grep("SOUSVENT",db2$visite))==nrow(db2)) { #que des visites SOUS VENT
+        if (any(!is.na(db$DATEVNI))) VNI <- min(db$DATEVNI, na.rm=TRUE) #elimine les NA et ne garde qu'une date
+        else VNI <- NA
+      } else { #certaines visites sont PREVENT ou PP
+        if (any(!is.na(db2$delaiMEO)) | any(db2$VNIon==1 & !is.na(db2$VNIon))){
+          VNI <- min(db2[!is.na(db2$delaiMEO) | (db2$VNIon==1 & !is.na(db2$VNIon)), "DATEXAM_RESPI"], na.rm=T)
+        } else {
+          if (any(!is.na(db$DATEVNI))) VNI <- min(db$DATEVNI, na.rm=TRUE) #elimine les NA et ne garde qu'une date
+          else VNI <- NA
+        }
+      }
+      
+    } else {
+      if (any(!is.na(db$DATEVNI))) VNI <- min(db$DATEVNI, na.rm=TRUE) #elimine les NA et ne garde qu'une date
+      else VNI <- NA
+    }
+  }
+})
+
+newVNI <- data.frame(unique(mm$PATIENT)) ; colnames(newVNI) <- "PATIENT"
+newVNI$NEWVNI <- as.vector(do.call(rbind,.l))
+newVNI$NEWVNI <- as_date(newVNI$NEWVNI)
+
+saveRDS(newVNI, "data/newVNI.rds")
+
+
+#recreation de BASE_SLA avec nouvelle dateVNI
+
+newVNI <- readRDS("data/newVNI.rds")
+
+BASE_TOT2 <- merge(BASE_TOT, newVNI, by=("PATIENT"), all=T)
+BASE_TOT2$DATEVNIinit <- BASE_TOT2$DATEVNI
+BASE_TOT2$DATEVNI <- BASE_TOT2$NEWVNI
+BASE_TOT2$DATEVNI <- ifelse(is.na(BASE_TOT2$DATEVNI), BASE_TOT2$DATEVNIinit, BASE_TOT2$DATEVNI)
+BASE_TOT2$DATEVNI <- as_date(BASE_TOT2$DATEVNI)
+BASE_SLA2 <- BASE_TOT2[BASE_TOT2$diag==1 & !is.na(BASE_TOT2$diag) & !is.na(BASE_TOT2$DATEVNI),]
+BASE_SLA2 <- BASE_SLA2[ ,!colnames(BASE_SLA2)%in%c("DATEVNIinit","NEWVNI")]
+BASE_SLA2 <- unique(BASE_SLA2)
+
+
+#doublons
+table(tab <- table(BASE_SLA2$PATIENT))
+namesdoublons2 <- names(tab)[tab>1]
+#1 doublon dans bdd7 qui pose pb pour les mesures repetees => je retire (G******-N*****)
+table(tab <- table(bdd7$PATIENT))
+db2 <- names(tab)[tab>1] [ !names(tab)[tab>1] %in% namesdoublons2 & names(tab)[tab>1] %in% BASE_SLA2$PATIENT]
+namesdoublons2 <- c(namesdoublons2,db2)
+# data.frame(namesdoublons)
+# BASE_SLA[BASE_SLA$PATIENT%in% namesdoublons,]
+# names2 <- names(tab)[tab==2]
+# BASE_SLA[BASE_SLA$PATIENT%in% names2,] #les doublons sont foireux, je les supprime
+
+BASE_SLA2 <- BASE_SLA2[!BASE_SLA2$PATIENT %in% namesdoublons2, ]
+BASE_SLA2$ddn <- as_date(BASE_SLA2$ddn)
+
+saveRDS(BASE_SLA2, "data/BASE_SLA_new.rds")
+
+BASE_SLA2 <- readRDS("data/BASE_SLA_new.rds")
+namesSLA2 <- BASE_SLA2$PATIENT
+
+#flowchart : 
+#patients totaux
+table(table(unique(BASE_TOT2$PATIENT)))
+#patients sla
+sum(table(table(BASE_TOT2$PATIENT[BASE_TOT2$diag==1])))
+#table(BASE_TOT$diag==1, useNA = "a") #1925 : faux, ne tient pas compte des doublons
+#patients date vni(parmi sla)
+table(table(BASE_TOT2[BASE_TOT2$diag==1 & !is.na(BASE_TOT2$diag) & !is.na(BASE_TOT2$DATEVNI), "PATIENT"]))
+sum(table(tab <- table(BASE_TOT2[BASE_TOT2$diag==1 & !is.na(BASE_TOT2$diag) & !is.na(BASE_TOT2$DATEVNI), "PATIENT"])))
+#6 doublons
+length(namesdoublons2)
+#497 patients
+table(table(namesSLA2))
+#4 patients ont datevni > date décès
+BASE_SLA2[BASE_SLA2$DATEVNI>BASE_SLA2$ddn, "PATIENT"]
+
+#NB : 8 patients ont toutes les colonnes NA (ils sont elimines si on fait na.omit, explique qu'on passe a 9749 patients au lieu de 9757)
+BASE_TOT2[is.na(BASE_TOT$diag) & is.na(BASE_TOT2$DATEVNI) & is.na(BASE_TOT2$FIRSTSYMPTOM) & is.na(BASE_TOT2$ddn), ] 
+
+
+
+
 #----------------------------------
 #----------------------------------
 #Ajout des baseline
@@ -851,7 +1049,220 @@ saveRDS(BASE_SLA_allbl, "data/BASE_SLA_allbl_withnames.rds")
 
 
 #-------------------------------------
-#VARIABLES REPETEES : base de donnes bdd7 (pre/)
+#VARIABLES NEURO REPETEES:
+
+#Poids, BMI, ALSFRS, echelle bulbaire
+
+tmp <- merge(BASE_SLA[ , c("PATIENT","DATEVNI")], bdd9, by="PATIENT", all.x=T, all.y=F)
+ALLpick <- tmp
+for (i in colnames(ALLpick)[grep("DAT",colnames(ALLpick))]) ALLpick[,i] <- manage_date_ND(ALLpick[,i])
+
+.l <- lapply(namesSLA, function(i){
+  var1 <- manage_date_ND(t(ALLpick[ALLpick$PATIENT==i, grep("DATEXAM_V_M",colnames(ALLpick))]))
+  .tmp <- data.frame(var1) ; colnames(.tmp) <- "DATEXAM_V_M" ; rownames(.tmp) <- paste0(i,1:nrow(.tmp))
+  .tmp$PATIENT <- i
+  .tmp$DATEVNI <- ALLpick[ ALLpick$PATIENT==i, "DATEVNI"]
+  
+  var_rep_neuro <- c("WEIGHT_NUTRI_V_M","BMI_V_M","ALS_V_M","E_BULBAIRE_V_M")  
+  
+  for (j in var_rep_neuro) {
+    numvar <- which(j==var_rep_neuro)
+    
+    var <- j
+    var2 <- t(ALLpick[ALLpick$PATIENT==i, grep(var,colnames(ALLpick))])
+    if(j=="BMI_V_M") {
+      var2 <- data.frame(var2)
+      var2 <- var2[!rownames(var2)%in% rownames(var2)[grep("CL", rownames(var2))], ]
+    }
+    .res <- if(numvar==1) cbind(.tmp,var2) else cbind(.res,var2); colnames(.res)[ncol(.res)] <- j
+  }
+  .res <- .res[!is.na(.res$DATEXAM_V_M), ]
+  #selectionne la plus récente date antérieure à VNI 
+  max_date_bef_vni <- max(.res$DATEXAM_V_M[.res$DATEXAM_V_M<=.res$DATEVNI])
+  #selectionne la date la plus proche de date vni
+  #.res$DATEXAM_V_M[which(abs(.res$DATEXAM_V_M - .res$DATEVNI)==min(abs(.res$DATEXAM_V_M - .res$DATEVNI)))]
+  .res <- .res[.res$DATEXAM_V_M>=max_date_bef_vni,]
+
+  return(.res)
+})
+
+base_rep_neuro <- do.call(rbind, .l)
+saveRDS(base_rep_neuro, "data/data_rep/base_rep_neuro.rds")
+
+
+
+# #récupérer info à baseline (inutile finalement)
+# nummonth <- ifelse(str_sub(namesdate,-3,-3)=="M", as.numeric(str_sub(namesdate,-2,-1)),as.numeric(str_sub(namesdate,-1,-1))) #ne marche que jusqu'à M99
+# 
+# pick_data <- sapply(1:nrow(ALLpick),function(.x){
+#   #browser()
+#   .vni <- ALLpick[.x, "DATEVNI"]
+#   .l <- ALLpick[.x, grep("DATEXAM_V",colnames(ALLpick))]#je selectionne toutes les colonnes DATE_PREVENT_PP et je considere que sousvent est pendant la ventilation
+#   .g <- as_date(as.vector(t(.l)))
+#   if(length(.g)!=0 & !is.na(.vni) & any(!is.na(.g[(.vni-.g)<90]))) { 
+#     myrow <- which(.g==min(.g[(.vni-.g)<90],na.rm=T))
+#     namesdate <- names(.l[myrow])
+#     nummonth <- ifelse(str_sub(namesdate,-3,-3)=="M", as.numeric(str_sub(namesdate,-2,-1)),as.numeric(str_sub(namesdate,-1,-1))) #ne marche que jusqu'à M99
+#     
+#     WEIGHT <- ALLpick[.x, paste0("WEIGHT_NUTRI_V_M",nummonth)]
+#     BMI <- ALLpick[.x, paste0("BMI_V_M",nummonth)]
+#     ALSFRS <- ALLpick[.x, paste0("ALS_V_M",nummonth)]
+#     EBULB <- ALLpick[.x, paste0("E_BULBAIRE_V_M",nummonth)]
+#   }else {
+#     WEIGHT <- NA
+#     BMI <- NA
+#     ALSFRS <- NA
+#     EBULB <- NA
+#   } 
+#   #browser()
+#   return(c(WEIGHT,BMI,ALSFRS,EBULB))
+# })  
+# ALLpick <- data.frame(t(pick_data))
+# colnames(ALLpick) <- c("WEIGHT","BMI","ALSFRS","EBULB")
+# ALLpick$PATIENT <- as.character(tmp$PATIENT)
+# 
+# ALLpick <- unique(ALLpick)
+# names_dataset <- "BASE_SUIVI_NEURO"
+# assign(names_dataset,ALLpick)
+# saveRDS(ALLpick, paste0("data/baseline_to_merge/dependant_datevni/",names_dataset,".rds"))
+
+#----
+
+#VARIABLES PNEUMO REPETEES : base de donnes bdd7 (pre/)
+#tmp <- merge(BASE_SLA[ , c("PATIENT","DATEVNI")], bdd7, by="PATIENT", all.x=T, all.y=F)
+
+tmp <- merge(BASE_SLA[ , c("PATIENT","DATEVNI")], bdd7, by="PATIENT", all.x=T, all.y=T)
+ALLpick <- tmp
+#for (i in colnames(ALLpick)[grep("DAT",colnames(ALLpick))]) ALLpick[,i] <- manage_date_ND(ALLpick[,i])
+for (i in colnames(ALLpick)[grep("DATEVNI",colnames(ALLpick))]) ALLpick[,i] <- manage_date_ND(ALLpick[,i])
+
+
+.l <- lapply(unique(namesallSLA), function(i){ #ne sert que pour voir les infos dispo afin de voir si algorythme pertinent
+  #.l <- lapply(namesSLA, function(i){
+  #.l <- lapply("AIME_CORINNE", function(i){
+  print(paste(which(i==namesallSLA), "/", length(namesallSLA)))
+  #browser()
+  namesPP <- colnames(ALLpick)[grep("DATE_RESP_PP",colnames(ALLpick))]
+  namesPV <- colnames(ALLpick)[grep("DATE_PREVENT_PP",colnames(ALLpick))]
+  namesSV <- colnames(ALLpick)[grep("DATE_SOUSVENT",colnames(ALLpick))]
+  var1 <- manage_date_ND(t(ALLpick[ALLpick$PATIENT==i, namesPP]))
+  var2 <- manage_date_ND(t(ALLpick[ALLpick$PATIENT==i, namesPV]))
+  var3 <- manage_date_ND(t(ALLpick[ALLpick$PATIENT==i, namesSV]))
+  dateTOT <- data.frame(c(var1,var2,var3)) ; colnames(dateTOT) <- "DATEXAM_RESPI" #; rownames(dateTOT) <- c(namesPP, namesPV,namesSV)
+  #dateTOT$DATEVNI <- ALLpick[ ALLpick$PATIENT==i, "DATEVNI"]
+  dateTOT$PATIENT <- ALLpick[ ALLpick$PATIENT==i, "PATIENT"]
+  dateTOT$visite <- c(namesPP, namesPV,namesSV)
+  #browser()
+  
+  listv <- list(c("DYSP_DECUBI_PP","DYSP_DECUBI_PV","ORTHOPN_SV_F"), c("PACO2_PP","PACO2_PV","PACO2_SV_F"), c("PAO2_PP","PAO2_PV","PAO2_SV_F"), 
+                c("HCO3_PP", "HCO3_PV_F", "HCO3_SV_F"), c("PH_PP", "PH_PV_F", "PH_SV_F"), c("CEPHAL_PP", "CEPHAL_PV_F", "CEPHAL_SV_F"))
+  for (j in listv){
+    #browser()
+    namesPP <- colnames(ALLpick)[grep(j[1],colnames(ALLpick))]
+    namesPV <- colnames(ALLpick)[grep(j[2],colnames(ALLpick))]
+    namesSV <- colnames(ALLpick)[grep(j[3],colnames(ALLpick))][! grep(j[3],colnames(ALLpick)) %in% grep("CL1",colnames(ALLpick))]
+    var1 <- t(ALLpick[ALLpick$PATIENT==i, namesPP])
+    var2 <- t(ALLpick[ALLpick$PATIENT==i, namesPV])
+    var3 <- t(ALLpick[ALLpick$PATIENT==i, namesSV])
+    dateTOT2 <- data.frame(c(var1,var2,var3)) #; rownames(dateTOT2) <- c(namesPP, namesPV,namesSV)
+    colnames(dateTOT2) <- str_sub(j[1],1,-4)
+    resresp <- if (length(which(j[1]==listv[[1]]))!=0) cbind(dateTOT, dateTOT2) else cbind(resresp, dateTOT2)
+  }
+  resresp  <-  resresp [!is.na( resresp $DATEXAM_RESPI),]
+})
+
+bvr <- do.call(rbind, .l)
+
+
+# namesPP <- colnames(ALLpick)[grep("DYSP_DECUBI_PP",colnames(ALLpick))]
+# namesPV <- colnames(ALLpick)[grep("DYSP_DECUBI_PV",colnames(ALLpick))]
+# namesSV <- colnames(ALLpick)[grep("ORTHOPN_SV_F",colnames(ALLpick))]
+# var1 <- t(ALLpick[ALLpick$PATIENT==i, namesPP])
+# var2 <- t(ALLpick[ALLpick$PATIENT==i, namesPV])
+# var3 <- t(ALLpick[ALLpick$PATIENT==i, namesSV])
+# dateTOT2 <- data.frame(c(var1,var2,var3))#rownames(dateTOT) <- c(namesPP, namesPV,namesSV)
+# colnames(dateTOT2) <- "DYSP_DECUBI"
+# dateTOT <- cbind(dateTOT, dateTOT2)
+# 
+# namesPP <- colnames(ALLpick)[grep("PACO2_PP",colnames(ALLpick))]
+# namesPV <- colnames(ALLpick)[grep("PACO2_PV",colnames(ALLpick))]
+# namesSV <- colnames(ALLpick)[grep("PACO2_SV_F",colnames(ALLpick))][! grep("PACO2_SV_F",colnames(ALLpick)) %in% grep("CL1",colnames(ALLpick))]
+# var1 <- t(ALLpick[ALLpick$PATIENT==i, namesPP])
+# var2 <- t(ALLpick[ALLpick$PATIENT==i, namesPV])
+# var3 <- t(ALLpick[ALLpick$PATIENT==i, namesSV])
+# dateTOT2 <- data.frame(c(var1,var2,var3))#rownames(dateTOT) <- c(namesPP, namesPV,namesSV)
+# colnames(dateTOT2) <- "PACO2"
+# dateTOT <- cbind(dateTOT, dateTOT2)
+# 
+# namesPP <- colnames(ALLpick)[grep("PAO2_PP",colnames(ALLpick))]
+# namesPV <- colnames(ALLpick)[grep("PAO2_PV",colnames(ALLpick))]
+# namesSV <- colnames(ALLpick)[grep("PAO2_SV_F",colnames(ALLpick))][! grep("PAO2_SV_F",colnames(ALLpick)) %in% grep("CL1",colnames(ALLpick))]
+# var1 <- t(ALLpick[ALLpick$PATIENT==i, namesPP])
+# var2 <- t(ALLpick[ALLpick$PATIENT==i, namesPV])
+# var3 <- t(ALLpick[ALLpick$PATIENT==i, namesSV])
+# dateTOT2 <- data.frame(c(var1,var2,var3))#rownames(dateTOT) <- c(namesPP, namesPV,namesSV)
+# colnames(dateTOT2) <- "PAO2"
+# dateTOT <- cbind(dateTOT, dateTOT2)
+
+
+max_date_bef_vni <- max(.res$DATEXAM_V_M[.res$DATEXAM_V_M<.res$DATEVNI])
+.res <- .res[.res$DATEXAM_V_M>=max_date_bef_vni,] 
+})
+
+
+#ORTHOPNEE: pb = la derniere est sous ventilation
+
+#pb : certaines variables sont plus compliquées comme PAO2 et PACO2 
+# listv <- list(c("DYSP_DECUBI_PP","DYSP_DECUBI_PV","ORTHOPN_SV_F"), c("PACO2_PP","PACO2_PV","PACO2_SV_F"))
+# for (j in listv[2]){
+#   #browser()
+#   namesPP <- colnames(ALLpick)[grep(j[1],colnames(ALLpick))]
+#   namesPV <- colnames(ALLpick)[grep(j[2],colnames(ALLpick))]
+#   namesSV <- colnames(ALLpick)[grep(j[3],colnames(ALLpick))]
+#   var1 <- t(ALLpick[ALLpick$PATIENT==i, namesPP])
+#   var2 <- t(ALLpick[ALLpick$PATIENT==i, namesPV])
+#   var3 <- t(ALLpick[ALLpick$PATIENT==i, namesSV])
+#   dateTOT2 <- data.frame(c(var1,var2,var3)) ; rownames(dateTOT2) <- c(namesPP, namesPV,namesSV)
+#   .res <- if (length(which(j[1]==listv[[1]]))!=0) cbind(dateTOT, dateTOT2) else cbind(.res, dateTOT2)
+# } 
+
+  
+.l <- lapply(namesSLA, function(i){
+  var1 <- manage_date_ND(t(ALLpick[ALLpick$PATIENT==i, grep("DATEXAM_V_M",colnames(ALLpick))]))
+  .tmp <- data.frame(var1) ; colnames(.tmp) <- "DATEXAM_V_M" ; rownames(.tmp) <- paste0(i,1:nrow(.tmp))
+  .tmp$PATIENT <- i
+  .tmp$DATEVNI <- ALLpick[ ALLpick$PATIENT==i, "DATEVNI"]
+  
+  var_rep_neuro <- c("WEIGHT_NUTRI_V_M","BMI_V_M","ALS_V_M","E_BULBAIRE_V_M")  
+  
+  for (j in var_rep_neuro) {
+    numvar <- which(j==var_rep_neuro)
+    
+    var <- j
+    var2 <- t(ALLpick[ALLpick$PATIENT==i, grep(var,colnames(ALLpick))])
+    if(j=="BMI_V_M") {
+      var2 <- data.frame(var2)
+      var2 <- var2[!rownames(var2)%in% rownames(var2)[grep("CL", rownames(var2))], ]
+    }
+    .res <- if(numvar==1) cbind(.tmp,var2) else cbind(.res,var2); colnames(.res)[ncol(.res)] <- j
+  }
+  .res <- .res[!is.na(.res$DATEXAM_V_M), ]
+  #selectionne la plus récente date antérieure à VNI 
+  max_date_bef_vni <- max(.res$DATEXAM_V_M[.res$DATEXAM_V_M<.res$DATEVNI])
+  #selectionne la date la plus proche de date vni
+  #.res$DATEXAM_V_M[which(abs(.res$DATEXAM_V_M - .res$DATEVNI)==min(abs(.res$DATEXAM_V_M - .res$DATEVNI)))]
+  .res <- .res[.res$DATEXAM_V_M>=max_date_bef_vni,]
+  
+  return(.res)
+})
+
+base_rep_neuro <- do.call(rbind, .l)
+saveRDS(base_rep_neuro, "data/data_rep/base_rep_neuro.rds")
+
+
+#---
+#ancienne version
+
 
 #pour avoir date de la baseline 
 bef_vni <- readRDS("data/baseline_to_merge/dependant_datevni/ALLRESPI_bl.rds")
