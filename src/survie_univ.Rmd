@@ -1,24 +1,19 @@
 ---
-title: "Survie univariee"
+title: "Rapport SLA 1er février 2017"
+author: "Yann de Rycke et Sarah F. Feldman"
 output:
   word_document: default
-  html_notebook: default
+  html_document: default
 ---
-
 ```{r setup, include=FALSE}
 library(knitr)
-#opts_chunk$set(dev = 'pdf')
+
 opts_chunk$set(echo=FALSE, comment=NA, fig.width=6, fig.height=6)
 #opts_chunk$set(fig.width=6, fig.height=6)
 ```
 
-
 ```{r allsource, echo=FALSE, message=FALSE}
-#.dir <- "F:/"
-#.dir <-  "d:/"
 .dir <- dirname(getwd())
-# source(paste0(.dir,"to push/sla_git/src/libraries_SLA.R"))
-# source(paste0(.dir,"to push/sla_git/src/fonctions_SLA.R"))
 source(paste0(.dir,"/src/libraries_SLA.R"))
 source(paste0(.dir,"/src/fonctions_SLA.R"))
 ```
@@ -36,10 +31,9 @@ sla <- sla[sla$keep==1, ]
 sla$time.vni <- as.numeric(sla$ddn - sla$DATEVNI)
 sla$time.sym <- as.numeric(sla$ddn - sla$FIRSTSYMPTOM)
 sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
-#sla$sex <- factor(sla$sex_def, levels=c(1,2), labels=c("h","f") ) #1 = 'Masculin' 2 = 'Feminin'
+# sex : 1 = 'Masculin' 2 = 'Feminin' => 0 = 'Masculin' 1 = 'Feminin'
 sla$sex <- ifelse(sla$sex_def==1,0,sla$sex_def) #0 = 'Masculin' 1 = 'Feminin'
 sla$sex <- ifelse(sla$sex_def==2,1,sla$sex) #0 = 'Masculin' 1 = 'Feminin'
-#sla$sex <- sla$sex_def #1 = 'Masculin' 2 = 'Feminin'
 sla$agevni <- round(as.numeric(sla$DATEVNI-sla$DOB)/365.25,0)
 sla$rilu <- ifelse(sla$DATEVNI>sla$DEBRILU & !is.na(sla$DEBRILU), 1,0)
 sla$rilu <- ifelse(sla$DATEVNI<sla$FINRILU & !is.na(sla$FINRILU), 0,sla$rilu)
@@ -55,1135 +49,282 @@ var_quanti <- var_bl [! var_bl %in% var_quali]
 
 sla[,var_quanti] <- apply(sla[,var_quanti], 2, function(x) as.numeric(x))
 sla[,var_quali[!var_quali%in% "LIEUDEB_recode"]] <- apply(sla[,var_quali[!var_quali%in% "LIEUDEB_recode"]], 2, function(x) as.numeric(x))
-
-#summary(sla)
-#str(sla)
 ```
 
-#Description de la population 
-```{r, echo=FALSE}
-table_var_quali <- lapply(var_quali, function(i){
-  data <- sla[,i]
-  names_levels <- levels(as.factor(data))
-  a <- lapply(names_levels, function(x) {
-    tmp <- as.numeric(table(data)[x])
-    tmpbis <- round(as.numeric(prop.table(table(data))[x]),3)*100
-    tmptot <- paste0(tmp," (",tmpbis,"%)")
-    
-    nNA <- table(is.na(data))
-    pNA <- round(prop.table(table(is.na(data))),3)
-    if (is.na(nNA[2]))  {
-      if (which(names_levels==x)==1) nNA <- paste0 (0," (0%)")
-      else nNA <- ""
-    }
-    else {
-      if (which(names_levels==x)==1){
-        nNA <- as.numeric (nNA[names(nNA)==TRUE])
-        pNA <- as.numeric (pNA[names(pNA)==TRUE])*100
-        nNA <- paste0(nNA," (",pNA,"%)")  
-      }
-      else nNA <- ""
-    }
-    cbind(tmptot,nNA)
-      
-  })
-  a <- do.call(rbind,a)
-  #a <- cbind (a,nNA)
-  rownames(a) <- paste0(i,"_",names_levels) 
-  colnames(a) <- c("valeur","missing values")
-  # a <- rbind (a,nNA)
-  # rownames(a)[-nrow(a)] <- paste0(i,"_",names_levels) 
-  return(a)
-})
+# Baselines all SLA patients 
+
+```{r}
+all_SLA <- readRDS(paste0(.dir,"/data/all_SLA_bl.rds"))
+all_SLA$rilu <- ifelse (!is.na(all_SLA$DEBRILU), 1, 0) #je fais l'hyp qu'il n'y a pas de NA
+all_SLA$rilu <- ifelse ((all_SLA$DEBRILU > all_SLA$DATEVNI & !is.na(all_SLA$DATEVNI) & !is.na(all_SLA$DEBRILU)), 0, all_SLA$rilu) #je fais l'hyp qu'il n'y a pas de NA
+all_SLA$rilu <- ifelse (all_SLA$FINRILU < all_SLA$DATEVNI & !is.na(all_SLA$DATEVNI) & !is.na(all_SLA$FINRILU), 0, all_SLA$rilu)
+all_SLA$keep <- ifelse ((all_SLA$DATEVNI<=all_SLA$ddn & !is.na(all_SLA$DATEVNI)) | is.na(all_SLA$DATEVNI),1,0)
+all_SLA <- all_SLA[all_SLA$keep==1, ]
+all_SLA$ddn <- as_date(all_SLA$ddn)
+all_SLA$time.vni <- as.numeric(all_SLA$ddn - all_SLA$DATEVNI)
+all_SLA$time.sym <- as.numeric(all_SLA$ddn - all_SLA$FIRSTSYMPTOM)
+all_SLA$censor <- ifelse (!is.na(all_SLA$date_dc),1, 0)
+# sex : 1 = 'Masculin' 2 = 'Feminin' => 0 = 'Masculin' 1 = 'Feminin'
+all_SLA$sex <- ifelse(all_SLA$sex_def==1,0,all_SLA$sex_def) #0 = 'Masculin' 1 = 'Feminin'
+all_SLA$sex <- ifelse(all_SLA$sex_def==2,1,all_SLA$sex) #0 = 'Masculin' 1 = 'Feminin'
+all_SLA$agevni <- round(as.numeric(all_SLA$DATEVNI-all_SLA$DOB)/365.25,0)
+all_SLA$rilu <- ifelse(all_SLA$DATEVNI>all_SLA$DEBRILU & !is.na(all_SLA$DEBRILU), 1,0)
+all_SLA$rilu <- ifelse(all_SLA$DATEVNI<all_SLA$FINRILU & !is.na(all_SLA$FINRILU), 0,all_SLA$rilu)
+all_SLA$familial <- ifelse (is.na(all_SLA$familial),0,all_SLA$familial)
+all_SLA$LIEUDEB_recode <- as.factor(all_SLA$LIEUDEB_recode)
+
+```
+
+# Flowchart
+
+
+# Range DATEVNI
+```{r}
+range(sla$DATEVNI,na.rm=T)
+```
+
+#range DATE FIRST SYMP
+
+```{r}
+range(sla$FIRSTSYMPTOM,na.rm=T)
+```
+
+# Patients characteristics
+
+## Tous patients SLA
+```{r}
+table_var_quali <- lapply(var_quali, des_quali, all_SLA)
 table_var_quali <- do.call(rbind,table_var_quali)
 
-table_var_quanti <- lapply(var_quanti, function(i){ #median ou moyenne? (sachant qu'on ne verifie pas normalite des baselines)
-  data <- sla[,i]
-  med <- round(median (data,na.rm=T),2)
-  quant <- round(quantile(data,na.rm=T),2)
-  Q1 <- quant[2]
-  Q3 <- quant[4]
-  a <- paste0(med," (",Q1,"-",Q3,")")
-  #browser()
-
-  nNA <- table(is.na(data))
-  pNA <- round(prop.table(table(is.na(data))),3)
-  if (is.na(nNA[2]))  nNA <- paste0 (0," (0%)")
-  else {
-    nNA <- as.numeric (nNA[names(nNA)==TRUE])
-    pNA <- as.numeric (pNA[names(pNA)==TRUE])*100
-    nNA <- paste0(nNA," (",pNA,"%)")
-  }
-  # a <- rbind (a,nNA)
-  # rownames(a)[-nrow(a)] <- paste0(i,"*") 
-  a <- cbind (a,nNA)
-  rownames(a) <- paste0(i,"*")
-  colnames(a) <- c("valeur","missing values")
-  return(a)
-})
+table_var_quanti <- lapply(var_quanti, des_quanti, all_SLA)
 table_var_quanti <- do.call(rbind,table_var_quanti)
 
 table_var <- rbind(table_var_quali,table_var_quanti)
 kable(table_var)
 
 ```
-
-Table 1 Characteristiques a baseline (t=debut de la vni)
-*variables quantitatives
-
-<1% de donnees manquantes pour :   
-- familial(atcd familiaux de sla oui ou non)   
-- sex  
-- lieu de debut des symptomes  
-- a commence un traitement par riluzole avant vni oui ou non  
-- age a l'instauration de la vni   
-
-Environ 30% de donnees manquantes pour :    
-- le score ALS a l'instauration de la VNI  
-
-Environ 50 % de donnees manquantes pour :  
-- orthopnee au moment de l'instauration de la vni  
-- dyspnee au moment de l'instauration de la vni   
-
-Plus de 65% de donnees manquantes pour :  
-- CVF assis et couche   
-- SNIP en cmH20 ou pourcentage de la theorie   
-- PIMAX en cmH20 ou pourcentage de la theorie  
-- pourcentage de temps inferieur a 90% de sp02  
-- bicarbonates   
-- score bulbaire  
-
-64% d'homme   
-98% de formes non familiales  
-7% de traitement par riluzole  
-plus de 50% d'orthopnee mais moins de 25% de dyspnee au repos.  
+pb : de nombreuses valeurs de base sont définies par rapport à la VNI...
 
 
-#VERSION DEBUT = PREMIERS SYMPTOMES
-
-
-##Suivi global
-
+## Patients SLA sous VNI
 ```{r, echo=FALSE}
-#repartition des dates de premier symptome
-s<-sla[!is.na(sla$time.sym),]
-s$tan<-s$time.sym/365.25
-s$an<-substring(s$FIRSTSYMPTOM, 1, 4)
-#table(s$an)
-barplot(table(s$an))
+table_var_quali <- lapply(var_quali, des_quali, sla)
+table_var_quali <- do.call(rbind,table_var_quali)
+
+table_var_quanti <- lapply(var_quanti, des_quanti, sla)
+table_var_quanti <- do.call(rbind,table_var_quanti)
+
+table_var <- rbind(table_var_quali,table_var_quanti)
+kable(table_var)
 ```
 
-Fig.1 Distribution des dates de premier symptome
-
-```{r, echo=FALSE}
-y<-as.numeric(as.Date("01/09/2015", "%d/%m/%Y"))-as.numeric(s$FIRSTSYMPTOM)
-hist(y/365.25)
-#summary(y/365.25)
-```
-Fig.2 repartition des duree de suivi
-
-range date de debut :
-```{r, echo = FALSE }
-#range date de debut
-deb1 <- range(sla$FIRSTSYMPTOM,na.rm=T)
-deb1
-# range date de debut :  
-# `r deb1`
-```
+Table 1 Patients characteristics at baseline (t(baseline) = NIV beginning)
+*quantitative variables
 
 
-La majorite des sujets sont inclus a partir de 2006 (9ans de recul) et quasiment plus d'unclusion en 2011 (4 ans de recul) (Figure 1)
+# median follow-up from NIV beginning
 
+median follow-up (year):
 
-Mediane de suivi (an):
 ```{r, echo=FALSE, message=FALSE}
 #suivi
-sym.suiv <- survfit(Surv(time.sym,1-censor)~1,data=s)
-an <- paste0 (round(summary(sym.suiv)$table['median']/365.25,2)," [",round(summary(sym.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(sym.suiv)$table['0.95UCL']/365.25,2),"]")
-an
-# #idem (Yann)
-# suivi<-survfit(Surv(tan, 1-censor)~1, data=s)
-# suivi
-
-#Mediane de suivi (an) : `r an`  
-```
-
-C'est coherent au vu de la figure 1 et de la figure 2.
-
-
-## Survie globale
-```{r, echo=FALSE}
-sym.surv <- survfit(Surv(time.sym,censor)~1, data=s, conf.int=.95)
-
-plot(sym.surv,xscale=365.25, yscale= 100, xlab="time (years)")
-ggsurv(sym.surv) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
-  scale_x_continuous(breaks=seq(0,max(s$time.sym),365.25), labels=0:(length(seq(0,max(s$time.sym),365.25))-1)) +
-  scale_y_continuous(labels=percent) 
-```
-
-
-Fig.3 Courbe de survie en fonction du temps 
-
-Mediane de survie (an) :
-```{r, echo=FALSE}
-an <- paste0 (round(summary(sym.surv)$table['median']/365.25,2)," [", round(summary(sym.surv)$table['0.95LCL']/365.25,2), "-", round(summary(sym.surv)$table['0.95UCL']/365.25,2),"]")
-#Mediane de survie (an) : `r an`
-an
-```
-
-
-
-
-
-
-
-#VERSION DEBUT = MISE EN PLACE VNI
-
-##Suivi global
-
-```{r, echo=FALSE}
-
-
-#repartition des dates de premier symptome
 s<-sla[!is.na(sla$time.vni),]
-s$tan<-s$time.vni/365.25
-s$an<-substring(s$DATEVNI, 1, 4)
-#table(s$an)
-barplot(table(s$an))
-```
-
-Fig.4 Distribution de la date d'instauration de la vni
-
-Centre autour de 2010. majorite des vni entre 2008 et 2012 donc entre 7 ans et 3 ans de recul.
-
-
-```{r, echo=FALSE}
-
-
-y<-as.numeric(as.Date("01/09/2015", "%d/%m/%Y"))-as.numeric(s$DATEVNI)
-hist(y/365.25)
-#summary(y/365.25)
-```
-Fig.5 repartition des duree de suivi
-
-
-range date de debut :
-```{r, echo=FALSE}
-#range date début
-#range date de debut
-deb1 <- range(sla$DATEVNI,na.rm=T)
-deb1
-# range date de debut :  
-# `r deb1`
-```
-
-
-Mediane de suivi (an):
-```{r, echo=FALSE, message=FALSE}
-#suivi
 sym.suiv <- survfit(Surv(time.vni,1-censor)~1,data=s)
 an <- paste0 (round(summary(sym.suiv)$table['median']/365.25,2)," [", round(summary(sym.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(sym.suiv)$table['0.95UCL']/365.25,2),"]")
 an
-#Mediane de suivi (an) : `r an` 
-# #idem (Yann)
-# suivi<-survfit(Surv(tan, 1-censor)~1, data=s)
-# suivi
-
-
 ```
 
-C'est un peu etrange que la mediane de suivi soit si basse, au vu des figures 4 et 5 j'aurais plutôt parie sur une mediane de suivi a 4.5 ans.
+median follow-up (months):
 
-
-## Survie globale
-```{r, echo=FALSE}
-sym.surv <- survfit(Surv(time.vni,censor)~1, data=s, conf.int=.95)
-
-#plot(sym.surv,xscale=365.25, yscale= 100, xlab="time (years)")
-
-s<-sla
-s$tps<-s$time.vni/365.25
-km <- survfit(Surv(tps,censor)~1, data=s, conf.int=.95)
-skmi<-summary(km, time=c(3, 6)) #pour IC95%
-skm<-summary(km, time=seq(0, 10, by=1)) #pour table survie
-skm <- data.frame(time=skm$time, n.risk=skm$n.risk)
-skm
-
-g <- ggsurv(km, CI=FALSE) +
-  scale_x_continuous(breaks=seq(0,max(s$time.vni),1), labels=0:(length(seq(0,max(s$time.vni),1))-1)) +
-  scale_y_continuous(labels=percent) +
-  theme(legend.position="bottom", legend.title=element_blank()) +
-  theme(plot.margin = unit(c(1,1,3,1), "cm")) +
-  labs(x="Time of follow-up, year")
-#intervalle de confiance
-for (i in 1:2) {
-   g <- g + geom_segment(x = skmi$time[i], y = skmi$lower[i], xend = skmi$time[i], yend = skmi$upper[i])
-   g <- g + geom_segment(x = skmi$time[i] - 0.1, y = skmi$lower[i], xend = skmi$time[i] + 0.1, yend = skmi$lower[i])
-   g <- g + geom_segment(x = skmi$time[i] - 0.1, y = skmi$upper[i], xend = skmi$time[i] + 0.1, yend = skmi$upper[i])
-}
-#risk table
-for (ii in 1:nrow(skm)) {
-  g <- g + annotation_custom(grob = textGrob(skm$n.risk[ii]), xmin = skm$time[ii], xmax = skm$time[ii], ymin= - 1.3 )
-
-  # #display group text
-  # if (ii %in% c(1,4)) #there is probably a better way
-  # {
-  #   p1=p1+ annotation_custom(grob = textGrob(skm$group[ii]),
-  #                            xmin = 0.85,
-  #                            xmax = 0.85,
-  #                            ymin = skm$ypos[ii],
-  #                            ymax = skm$ypos[ii])
-  # }
-
-}
-gt <- ggplotGrob(g)
-gt$layout$clip[gt$layout$name=="panel"] <- "off"
-grid.draw(gt)
-
-# ggsurv(sym.surv) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
-#   scale_x_continuous(breaks=seq(0,max(s$time.vni),365.25), labels=0:(length(seq(0,max(s$time.vni),365.25))-1)) +
-#   scale_y_continuous(labels=percent) 
+```{r, echo=FALSE, message=FALSE}
+#suivi
+sym.suiv2 <- survfit(Surv((time.vni*12/365.25),1-censor)~1,data=s)
+m <- paste0 (round(summary(sym.suiv2)$table['median'],2)," [", round(summary(sym.suiv2)$table['0.95LCL'],2),"-",round(summary(sym.suiv2)$table['0.95UCL'],2),"]")
+m
 ```
 
-Fig.3 Courbe de survie en fonction du temps 
+# Survival from first symptoms
 
-Mediane de survie (an) :
 ```{r}
-an <- paste0 (round(summary(sym.surv)$table['median']/365.25,2)," [", round(summary(sym.surv)$table['0.95LCL']/365.25,2), "-", round(summary(sym.surv)$table['0.95UCL']/365.25,2),"]")
+s<-sla[!is.na(sla$time.sym),]
+sym.surv <- survfit(Surv(time.sym,censor)~1, data=s, conf.int=.95)
+
+
+# sym.surv2 <- survfit(Surv(time.sym*12/365.25,censor)~1, data=s, conf.int=.95)
+# ggsurv(sym.surv2) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
+#   #scale_x_continuous(breaks=seq(0,max(s$time.sym),1), labels=0:(length(seq(0,max(s$time.sym),1))-1)) +
+#   scale_y_continuous(labels=percent) +
+#   labs(x="Time of follow-up, months") 
+
+ggsurv(sym.surv) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
+  scale_x_continuous(breaks=seq(0,max(s$time.sym),365.25), labels=0:(length(seq(0,max(s$time.sym),365.25))-1)) +
+  scale_y_continuous(labels=percent) +
+  labs(x="Time of follow-up, years") 
+```
+
+Fig.2 Survival from first symptoms 
+
+```{r}
+#summary(sym.surv)
+sv <- summary(sym.surv, time=(365*2))
+df <- data.frame(time = sv$time/365 , survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+df[,2:4] <- round(df[,2:4], 0)
+cat(paste0(df$time, " years after first symptoms, survival[IC95%] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
+
+```
+
+median survival (year):
+
+```{r, echo=FALSE, message=FALSE}
+#suivi
+s<-sla[!is.na(sla$time.sym),]
+sym.surv <- survfit(Surv(time.sym,censor)~1, data=s, conf.int=.95)
+an <- paste0 (round(summary(sym.surv)$table['median']/365.25,2)," [", round(summary(sym.surv)$table['0.95LCL']/365.25,2),"-",round(summary(sym.surv)$table['0.95UCL']/365.25,2),"]")
 an
-#Mediane de survie (an) : `r an`
 ```
 
+median follow-up (month):
 
-
-```{r, echo=FALSE, eval=FALSE}
-#--------------------------
-#Yann : rajout de table de survie et d'intervalle de confiance a la main 
-
-#VERSION MODELE VIDE
-s<-sla
-s$tps<-s$time.vni/365.25
-km <- survfit(Surv(tps,censor)~1, data=s, conf.int=.95)
-skmi<-summary(km, time=c(3, 6)) #pour IC95%
-skm<-summary(km, time=seq(0, 10, by=1)) #pour table survie
-skm
-
-#preparation de la fenetre de plot : conserve de l'espace autour du plot
-par(mai=c(2,1.5,1.5,.5)) 
-#plot sans l'intervalle de confiance
-  plot(km, conf.int=F, col="blue")
-#intervalle de confiance a 3 et 6 ans
-  #barre vertical
-  segments(skmi$time, skmi$lower, skmi$time, skmi$upper, col="blue")
-  #lower
-  segments(skmi$time-0.1, skmi$lower, skmi$time+0.1, skmi$lower, col="blue") #-0.1 et +0.1 pour tracer traits horizontaux
-  #upper
-  segments(skmi$time-0.1, skmi$upper, skmi$time+0.1, skmi$upper, col="blue") #-0.1 et +0.1 pour tracer traits horizontaux
-#table de survie
-    mtext(side=1, at=skm$time, skm$n.risk, adj=.5, col="blue", line=2, cex=0.75)
-
-
-#VERSION 1 COVARIABLE
-s<-sla
-s$tps<-s$time.vni/365.25
-#courbe de KM
-km <- survfit(Surv(tps,censor)~sex, data=s, conf.int=.95)
-km0 <- survfit(Surv(tps,censor)~sex, data=s[s$sex==0,], conf.int=.95)
-km1 <- survfit(Surv(tps,censor)~sex, data=s[s$sex==1,], conf.int=.95)
-km
-#pour IC95%
-skmi0<-summary(km0, time=c(3, 6)-0.1)
-skmi1<-summary(km1, time=c(3, 6)+0.1)
-#pour table de survie
-skm0<-summary(km0, time=seq(0, 10, by=1))
-skm1<-summary(km1, time=seq(0, 10, by=1))
-skm
-
-#preparation legende
-leg<-names(km$strata)
-coul<-c("blue", "red")
-#prepapration fenetre
-par(mai=c(2,1.5,1.5,.5))
-
-#plot
-  plot(km, conf.int = F, col = coul)
-  #legende
-  legend("topright", adj=0, col=coul, leg=leg, lty=1)
-  #trait vertical pour sex=0
-  segments(skmi0$time, skmi0$lower, skmi0$time, skmi0$upp, col=coul[1])
-  segments(skmi0$time-0.1, skmi0$lower, skmi0$time+0.1, skmi0$lower, col="blue")
-  segments(skmi0$time-0.1, skmi0$upper, skmi0$time+0.1, skmi0$upper, col="blue")
-  #trait vertical pour sex=1
-  segments(skmi1$time, skmi1$lower, skmi1$time, skmi1$upp, col=coul[2])
-  segments(skmi1$time-0.1, skmi1$lower, skmi1$time+0.1, skmi1$lower, col="red") #-0.1 et +0.1 pour tracer traits horizontaux
-  segments(skmi1$time-0.1, skmi1$upper, skmi1$time+0.1, skmi1$upper, col="red") #-0.1 et +0.1 pour tracer traits horizontaux
-#table de survie
-  #sex=0
-  mtext(side=1, at=-0.7, leg[1], col=coul[1], line=2)
-  mtext(side=1, at=skm0$time, skm0$n.risk, adj=.5, col=coul[1], line=2, cex=0.75)
-  #sex=1
-  mtext(side=1, at=-0.7, leg[2], col=coul[2], line=2)
-  mtext(side=1, at=skm1$time, skm1$n.risk, adj=.5, col=coul[2], line=3, cex=0.75)
-#-----------------
+```{r, echo=FALSE, message=FALSE}
+#suivi
+s<-sla[!is.na(sla$time.sym),]
+sym.surv2 <- survfit(Surv(time.sym*12/365.25,censor)~1, data=s, conf.int=.95)
+m <- paste0 (round(summary(sym.surv2)$table['median'],2)," [", round(summary(sym.surv2)$table['0.95LCL'],2),"-",round(summary(sym.surv2)$table['0.95UCL'],2),"]")
+m
 ```
 
-
-
-## Modeles de Cox univarie
-
-Ils seront de la forme 
-modcox <- coxph(Surv(time.vni, censor) ~ ALS_score, data = sla) #ALS_score au autre variable baseline
-
-un modele par variable a baseline
-
-NB : on ne verifiera l'hypothese de loglinearite que pour les variables quantiatives
-On ne fera de courbes de survie que pour les variables binaires et qualitatives non ordonnees.
-
-### Familial
-
-#### Hypothese des risques proportionnels
-```{r, echo=FALSE}
-s <- sla
-s$tps <- (s$time.vni/365.25) + 0.001
-s$a_recode <- s$familial
-mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
-
-#residus de Shoenfeld
-z <- cox.zph(mod, transf="identity")
-plot(z)
-abline(h=0, col="red")
-abline(h=coef(mod), col="blue")
-
-#Test de Harrell
-z <- cox.zph(mod, transform = "rank")
-z
-```
-
-La representation graphique des residus de shoenfeld est non significatif.  
-Le test de Harrell est non significatif.  
-
-Conclusion : l'hypothese des risques proportionnels est verifiee.
-
-#### Interpretation
-```{r, echo=FALSE}
-summary(mod)
-```
-
-Je peux donc en deduire que les individus avec un antecedent familial ont un risque de deces multiplie par 2.5  (test du score p<0.05)
+# Survival from NIV beginning
 
 ```{r}
-var <- "familial"
-km <- survfit(Surv(tps,censor)~familial, data=s, conf.int=.95)
-km0 <- survfit(Surv(tps,censor)~familial, data=s[s$familial==0,], conf.int=.95)
-km1 <- survfit(Surv(tps,censor)~familial, data=s[s$familial==1,], conf.int=.95)
-
-#pour IC95%
-#skmi0<-summary(km0, time=c(3, 6)-0.1)
-skmi0<-summary(km0, time=c(0.5, 1)-0.1)
-#skmi1<-summary(km1, time=c(3, 6)+0.1)
-skmi1<-summary(km1, time=c(0.5, 1)+0.1) #plus d'évènement apres 1.94 ans
-
-#pour table de survie
-skm0 <- summary(km0, time=seq(0, 10, by=1))
-skm0 <- data.frame(time=skm0$time, n.risk=skm0$n.risk)
-skm1<-summary(km1, time=seq(0, 10, by=1))
-skm1 <- data.frame(time=skm1$time, n.risk=skm1$n.risk)
+s<-sla[!is.na(sla$time.vni),]
+vni.surv <- survfit(Surv(time.vni,censor)~1, data=s, conf.int=.95)
 
 
-#preparation legende
-leg<-names(km$strata)
+# vni.surv2 <- survfit(Surv(time.vni*12/365.25,censor)~1, data=s, conf.int=.95)
+# ggsurv(vni.surv2) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
+#   #scale_x_continuous(breaks=seq(0,max(s$time.vni),1), labels=0:(length(seq(0,max(s$time.vni),1))-1)) +
+#   scale_y_continuous(labels=percent) +
+#   labs(x="Time of follow-up, months") 
 
-#courbe de survie
-g <- ggsurv(km, CI=FALSE, order.legend=FALSE) +
-  #changement des axes
-  scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
+ggsurv(vni.surv) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
+  scale_x_continuous(breaks=seq(0,max(s$time.vni),365.25), labels=0:(length(seq(0,max(s$time.vni),365.25))-1)) +
   scale_y_continuous(labels=percent) +
-  labs(x="Time of follow-up, year") +
-  #changement legende
-  guides (linetype = FALSE) +
-  scale_colour_discrete(breaks = c(0,1), labels = leg) +
-  theme(legend.position="right", legend.title=element_blank()) +
-  #espace autour du schéma
-  theme(plot.margin = unit(c(1,1,3,1), "cm")) 
-
-#intervalle de confiance
-for (i in 1:2) {
-   g <- g + geom_segment(x = skmi0$time[i], y = skmi0$lower[i], xend = skmi0$time[i], yend = skmi0$upper[i])
-   g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$lower[i], xend = skmi0$time[i] + 0.1, yend = skmi0$lower[i])
-   g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$upper[i], xend = skmi0$time[i] + 0.1, yend = skmi0$upper[i])
-}
-for (i in 1:2) {
-   g <- g + geom_segment(x = skmi1$time[i], y = skmi1$lower[i], xend = skmi1$time[i], yend = skmi1$upper[i])
-   g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$lower[i], xend = skmi1$time[i] + 0.1, yend = skmi1$lower[i])
-   g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$upper[i], xend = skmi1$time[i] + 0.1, yend = skmi1$upper[i])
-}
-
-#risk table
-for (ii in 1:nrow(skm0)) {
-  g <- g + annotation_custom(grob = textGrob(skm0$n.risk[ii]), xmin = skm0$time[ii], xmax = skm0$time[ii], ymin= - 1.5 )
-}  
-for (ii in 1:nrow(skm1)) {
-  g <- g + annotation_custom(grob = textGrob(skm1$n.risk[ii]), xmin = skm1$time[ii], xmax = skm1$time[ii], ymin= - 1.7 )
-} 
-  #display group text
-  g <- g + annotation_custom(grob = textGrob(leg[1]), xmin = -1.7, xmax = -1.7, ymin= - 1.5 )
-  g <- g + annotation_custom(grob = textGrob(leg[2]), xmin = -1.7, xmax = -1.7, ymin= - 1.7 )
-  
-gt <- ggplotGrob(g)
-gt$layout$clip[gt$layout$name=="panel"] <- "off"
-grid.draw(gt)
-
-
+  labs(x="Time of follow-up, years") 
 ```
 
+Fig.3 Survival from NIV beginning 
 
-### Sexe
-
-#### Hypothese des risques proportionnels
-```{r, echo=FALSE}
-s <- sla
-s$tps <- (s$time.vni/365.25) + 0.001
-s$a_recode <- s$sex
-mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
-
-#residus de Shoenfeld
-z <- cox.zph(mod, transf="identity")
-plot(z)
-abline(h=0, col="red")
-abline(h=coef(mod), col="blue")
-
-#Test de Harrell
-zi <- cox.zph(mod, transform = "rank")
-zi
-```
-
-L'hypothese Nulle de risque proportionnel est rejetee par methode graphique (pas par le test) entre 6 mois et 1 an et demi environ.  
-
-Je dois rajouter une variable dependante du temps.
-
-##### Log
-
-```{r, echo=FALSE}
-#----- Log -----
-s <- s[!is.na(s$a_recode),]
-
-ti <- sort(unique(c(0,s$tps[s$censor==1])))
-slat <- s
-slat$start <- 0
-slat$stop <- slat$tps
-slat$evt <- slat$censor
-#slat <- survSplit(slat, end="stop", event="evt", start="start",cut=ti) #Yann
-slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)           #Sarah
-slat$at <- slat$a_recode * log(slat$stop)
-
-coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-summary(coxt)$coefficients
-```
-
-at est significatif, la correction est peut etre bonne.  
-Donc je reverifie l'hypothese des risques proportionnels
-
-```{r, echo=FALSE}
-#residus de Shoenfeld
-zt <- cox.zph(coxt, transf="identity")
-plot(zt[1])
-abline(h=0, col="red")
-#abline(h=coef(coxt)[1], col="blue")
-
-#Test de Harrell
-zit <- cox.zph(coxt, transform = "rank")
-zit
-```
-
-Je ne comprends pas le schema. J'ai 2 schema, je lis lequel? La courbe est lineaire centree sur 0 mais droite h=0 pas exactement dans l'IC.
-Test significatif mais je lis quelle ligne?
-
-##### sqrt
-
-```{r, echo=FALSE}
-#------ sqrt------
-slat$at <- slat$a_recode * sqrt(slat$stop)
-slat$at1 <- slat$a_recode * ifelse(slat$stop<1, slat$stop, 0) #valeur de la covariable quand tps<1
-slat$at2 <- slat$a_recode * ifelse(slat$stop>=1, 1, 0)        #valeur de la covariable qd tps>=1
-
-coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-#coxt <- coxph(Surv(start, stop, censor) ~ at1+at2, data=slat)
-summary(coxt)$coefficients
-
-#residus de Shoenfeld
-zt <- cox.zph(coxt, transf="identity")
-iz<-1 #a_recode
-plot(zt[iz])
-abline(h=0, col="red")
-iz<-2 #at
-plot(zt[iz])
-abline(h=0, col="red")
-#abline(h=coef(coxt)[iz], col="blue")
-
-#Test de Harrell
-zit <- cox.zph(coxt, transform = "rank")
-zit
-```
-plot a peu pres ok...
-mais test de harrell significatif pour a_recode et at
-
-
-##### 1/t
-```{r, echo=FALSE}
-#--------1/t-----------
-slat$at <- slat$a_recode/(slat$stop)
-
-coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-summary(coxt)$coefficients
-#residus de Shoenfeld
-zt <- cox.zph(coxt, transf="identity")
-iz<-1 #a_recode
-plot(zt[iz])
-abline(h=0, col="red")
-iz<-2 #at
-plot(zt[iz])
-abline(h=0, col="red")
-#abline(h=coef(coxt)[iz], col="blue")
-
-#Test de Harrell
-zit <- cox.zph(coxt, transform = "rank")
-zit
-```
-ne fitte pas
-
-##### t
-```{r, echo=FALSE}
-#----- t -----
-slat$at<-slat$a_recode*(slat$stop)
-
-coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-summary(coxt)$coefficients
-#residus de Shoenfeld
-zt <- cox.zph(coxt, transf="identity")
-iz<-1 #a_recode
-plot(zt[iz])
-abline(h=0, col="red")
-iz<-2 #at
-plot(zt[iz])
-abline(h=0, col="red")
-#abline(h=coef(coxt)[iz], col="blue")
-
-#Test de Harrell
-zit <- cox.zph(coxt, transform = "rank")
-zit
-```
-
-Fitte moins bien que sqrt
-
-Donc finalement c'est la racine carree qui fitte le mieux.
-
-#### Interprétation
-```{r, echo=FALSE}
-slat$at <- slat$a_recode * sqrt(slat$stop)
-
-coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-summary(coxt)
-
-S <- vcov(coxt)
-b <- coef(coxt)
-t <- 1
-f <- sqrt
-var <- S[1,1]+S[2,2]*f(t)^2+2*S[1,2]*f(t)
-m <- b[1]+b[2]*f(t)
-HR <- round(exp(m),3)
-#IC <- round(exp(m + qnorm(0.975,m,sqrt(var))*sqrt(var) * c(-1,1)),3) #faux
-IC <- round(exp(m + qnorm(0.975)*sqrt(var) * c(-1,1)),3) #oui
-
-#qnorm(c(0.025,0.975), m, sqrt(var)) ??
-
-paste0("HR[95%IC] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" )
-```
-
-Je peux donc en deduire que les femmes(a_recode=1) ont un risque de deces significativement different (a_recode signif) multiplie par :  
-- HR = exp(beta(a_recode))= 1,151 a t0  IC=[1.146-1.156] : version calcul a la main
-- HR = exp(beta(a_recode) + beta(at) x f(t)) = exp(0.139 + 0.308 * sqrt(1)) = 1.563 a 1 an IC = [1.553-1.572]
-
-Pourquoi l'IC est plus etroit pour t=0 quand on calcule a la main vs lecture de summary? (1,151[1.100-1.204] vs 1.151[1.146-1.156])
-parce que le logiciel prend zalpha/2 = 1.96 (qnorm(0.975,0,1))  alors que je prends 0.19 (qnorm(0.975, b[1]+b[2]*f(t), sqrt(var)))
-
-
-```{r, message=FALSE}
-var <- "Sexe"
-km <- survfit(Surv(tps,censor)~sex, data=s, conf.int=.95)
-#km <- survfit(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-km0 <- survfit(Surv(tps,censor)~sex, data=s[s$sex==0,], conf.int=.95)
-km1 <- survfit(Surv(tps,censor)~sex, data=s[s$sex==1,], conf.int=.95)
-
-#pour IC95%
-skmi0<-summary(km0, time=c(3, 6)-0.1)
-#skmi0<-summary(km0, time=c(0.5, 1)-0.1)
-skmi1<-summary(km1, time=c(3, 6)+0.1)
-#skmi1<-summary(km1, time=c(0.5, 1)+0.1) #plus d'évènement apres 1.94 ans
-
-#pour table de survie
-skm0 <- summary(km0, time=seq(0, 10, by=1))
-skm0 <- data.frame(time=skm0$time, n.risk=skm0$n.risk)
-skm1<-summary(km1, time=seq(0, 10, by=1))
-skm1 <- data.frame(time=skm1$time, n.risk=skm1$n.risk)
-
-
-#preparation legende
-leg<-names(km$strata)
-
-#courbe de survie
-g <- ggsurv(km, CI=FALSE, order.legend=FALSE) +
-  #changement des axes
-  scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
-  scale_y_continuous(labels=percent) +
-  labs(x="Time of follow-up, year") +
-  #changement legende
-  guides (linetype = FALSE) +
-  scale_colour_discrete( labels = leg) +
-  theme(legend.position="right", legend.title=element_blank()) +
-  #espace autour du schéma
-  theme(plot.margin = unit(c(1,1,3,1), "cm")) 
-
-#intervalle de confiance
-for (i in 1:2) {
-   g <- g + geom_segment(x = skmi0$time[i], y = skmi0$lower[i], xend = skmi0$time[i], yend = skmi0$upper[i])
-   g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$lower[i], xend = skmi0$time[i] + 0.1, yend = skmi0$lower[i])
-   g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$upper[i], xend = skmi0$time[i] + 0.1, yend = skmi0$upper[i])
-}
-for (i in 1:2) {
-   g <- g + geom_segment(x = skmi1$time[i], y = skmi1$lower[i], xend = skmi1$time[i], yend = skmi1$upper[i])
-   g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$lower[i], xend = skmi1$time[i] + 0.1, yend = skmi1$lower[i])
-   g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$upper[i], xend = skmi1$time[i] + 0.1, yend = skmi1$upper[i])
-}
-
-#risk table
-for (ii in 1:nrow(skm0)) {
-  g <- g + annotation_custom(grob = textGrob(skm0$n.risk[ii]), xmin = skm0$time[ii], xmax = skm0$time[ii], ymin= - 1.5 )
-}  
-for (ii in 1:nrow(skm1)) {
-  g <- g + annotation_custom(grob = textGrob(skm1$n.risk[ii]), xmin = skm1$time[ii], xmax = skm1$time[ii], ymin= - 1.7 )
-} 
-  #display group text
-  g <- g + annotation_custom(grob = textGrob(leg[1]), xmin = -1.7, xmax = -1.7, ymin= - 1.5 )
-  g <- g + annotation_custom(grob = textGrob(leg[2]), xmin = -1.7, xmax = -1.7, ymin= - 1.7 )
-  
-gt <- ggplotGrob(g)
-gt$layout$clip[gt$layout$name=="panel"] <- "off"
-grid.draw(gt)
-```
-
-
-### Riluzole
-#### Hypothese des risques proportionnels
-```{r, echo=FALSE}
-s <- sla
-s$tps <- (s$time.vni/365.25) + 0.001
-s$a_recode <- s$rilu
-mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
-
-#residus de Shoenfeld
-z <- cox.zph(mod, transf="identity")
-plot(z)
-abline(h=0, col="red")
-abline(h=coef(mod), col="blue")
-
-#Test de Harrell
-zi <- cox.zph(mod, transform = "rank")
-zi
-```
-L'hypothese des risques proportionnels est verifie (p>0.05), je peux interpreter
-
-#### Interpretation
 ```{r}
-summary(mod)
-```
-Le risque de deces n'est pas significativement different selon que les individus sont traites ou non par riluzole. (test du score p=0.848)
-
-```{r, message=FALSE}
-var <- "Riluzole"
-km <- survfit(Surv(tps,censor)~rilu, data=s, conf.int=.95)
-km0 <- survfit(Surv(tps,censor)~rilu, data=s[s$rilu==0,], conf.int=.95)
-km1 <- survfit(Surv(tps,censor)~rilu, data=s[s$rilu==1,], conf.int=.95)
-
-#pour IC95%
-skmi0<-summary(km0, time=c(3, 6)-0.1)
-#skmi0<-summary(km0, time=c(0.5, 1)-0.1)
-skmi1<-summary(km1, time=c(3, 6)+0.1)
-#skmi1<-summary(km1, time=c(0.5, 1)+0.1) #plus d'évènement apres 1.94 ans
-
-#pour table de survie
-skm0 <- summary(km0, time=seq(0, 10, by=1))
-skm0 <- data.frame(time=skm0$time, n.risk=skm0$n.risk)
-skm1<-summary(km1, time=seq(0, 10, by=1))
-skm1 <- data.frame(time=skm1$time, n.risk=skm1$n.risk)
-
-
-#preparation legende
-leg<-names(km$strata)
-
-#courbe de survie
-g <- ggsurv(km, CI=FALSE, order.legend = FALSE) +
-  #changement des axes
-  scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
-  scale_y_continuous(labels=percent) +
-  labs(x="Time of follow-up, year") +
-  #changement legende
-  guides (linetype = FALSE) +
-  scale_colour_discrete( labels = leg) +
-  theme(legend.position="right", legend.title=element_blank()) +
-  #espace autour du schéma
-  theme(plot.margin = unit(c(1,1,3,1), "cm")) 
-
-#intervalle de confiance
-for (i in 1:2) {
-   g <- g + geom_segment(x = skmi0$time[i], y = skmi0$lower[i], xend = skmi0$time[i], yend = skmi0$upper[i])
-   g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$lower[i], xend = skmi0$time[i] + 0.1, yend = skmi0$lower[i])
-   g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$upper[i], xend = skmi0$time[i] + 0.1, yend = skmi0$upper[i])
-}
-for (i in 1:2) {
-   g <- g + geom_segment(x = skmi1$time[i], y = skmi1$lower[i], xend = skmi1$time[i], yend = skmi1$upper[i])
-   g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$lower[i], xend = skmi1$time[i] + 0.1, yend = skmi1$lower[i])
-   g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$upper[i], xend = skmi1$time[i] + 0.1, yend = skmi1$upper[i])
-}
-
-#risk table
-for (ii in 1:nrow(skm0)) {
-  g <- g + annotation_custom(grob = textGrob(skm0$n.risk[ii]), xmin = skm0$time[ii], xmax = skm0$time[ii], ymin= - 1.5 )
-}  
-for (ii in 1:nrow(skm1)) {
-  g <- g + annotation_custom(grob = textGrob(skm1$n.risk[ii]), xmin = skm1$time[ii], xmax = skm1$time[ii], ymin= - 1.7 )
-} 
-  #display group text
-  g <- g + annotation_custom(grob = textGrob(leg[1]), xmin = -1.7, xmax = -1.7, ymin= - 1.5 )
-  g <- g + annotation_custom(grob = textGrob(leg[2]), xmin = -1.7, xmax = -1.7, ymin= - 1.7 )
-  
-gt <- ggplotGrob(g)
-gt$layout$clip[gt$layout$name=="panel"] <- "off"
-grid.draw(gt)
-```
-
-### Dyspnee de repos
-#### Hypothese des risques proportionnels
-
-```{r, echo=FALSE}
-s <- sla
-s$tps <- (s$time.vni/365.25) + 0.001
-s$a_recode <- s$dysp
-mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
-
-#residus de Shoenfeld
-z <- cox.zph(mod, transf="identity")
-plot(z)
-abline(h=0, col="red")
-abline(h=coef(mod), col="blue")
-
-#Test de Harrell
-zi <- cox.zph(mod, transform = "rank")
-zi
-```
-
-Significatif de 0 a 6 mois environ. J'ajoute une variable dependante du temps.
-
-###### Log
-```{r, echo=FALSE}
-s <- s[!is.na(s$a_recode),]
-
-ti <- sort(unique(c(0,s$tps[s$censor==1])))
-slat <- s
-slat$start <- 0
-slat$stop <- slat$tps
-slat$evt <- slat$censor
-#slat <- survSplit(slat, end="stop", event="evt", start="start",cut=ti) #Yann
-slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)           #Sarah
-slat$at <- slat$a_recode * log(slat$stop)
-
-coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-summary(coxt)$coefficients
-```
-
-at significatif avec log, je reverifie HRR
-
-```{r, echo=FALSE}
-#residus de Shoenfeld
-zt <- cox.zph(coxt, transf="identity")
-iz<-1 #a_recode
-plot(zt[iz])
-abline(h=0, col="red")
-iz<-2 #at
-plot(zt[iz])
-abline(h=0, col="red")
-#abline(h=coef(coxt)[iz], col="blue")
-
-#Test de Harrell
-zit <- cox.zph(coxt, transform = "rank")
-zit
-```
-
-Le log correspond : courbe a peu pres ok et test ok
-
-#### Interprétation
-
-```{r, echo=FALSE}
-summary(coxt)
-```
-
-```{r, echo=FALSE, eval=FALSE}
-S <- vcov(coxt)
-b <- coef(coxt)
-t <- 1
-f <- sqrt
-var <- S[1,1]+S[2,2]*f(t)^2+2*S[1,2]*f(t)
-m <- b[1]+b[2]*f(t)
-HR <- round(exp(m),3)
-#IC <- round(exp(m + qnorm(0.975,m,sqrt(var))*sqrt(var) * c(-1,1)),3)#faux
-IC <- round(exp(m + qnorm(0.975)*sqrt(var) * c(-1,1)),3) #oui
-
-#qnorm(c(0.025,0.975), m, sqrt(var)) ??
-
-paste0("HR[95%IC] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" )
+#summary(vni.surv)
+sv <- summary(vni.surv, time=(365))
+df <- data.frame(time = sv$time/365 , survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+df[,2:4] <- round(df[,2:4], 0)
+cat(paste0(df$time, " year(s) after beginning of NIV, survival[IC95%] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
 
 ```
 
-Le risque de deces n'est pas significativement different (test du score p>=0.05) selon que le patient ait ou non une dyspnee de repos a l'instauration de la vni.  
+median survival (year):
 
 ```{r, echo=FALSE, message=FALSE}
-var <- "Dyspnee de repos"
-km <- survfit(Surv(tps,censor)~dysp, data=s, conf.int=.95)
-km0 <- survfit(Surv(tps,censor)~dysp, data=s[s$dysp==0,], conf.int=.95)
-km1 <- survfit(Surv(tps,censor)~dysp, data=s[s$dysp==1,], conf.int=.95)
-
-#pour IC95%
-#skmi0<-summary(km0, time=c(3, 6)-0.1)
-skmi0<-summary(km0, time=c(1, 3)-0.1)
-#skmi1<-summary(km1, time=c(3, 6)+0.1)
-skmi1<-summary(km1, time=c(1, 3)+0.1) #plus d'évènement apres 3.6 ans
-
-#pour table de survie
-skm0 <- summary(km0, time=seq(0, 10, by=1))
-skm0 <- data.frame(time=skm0$time, n.risk=skm0$n.risk)
-skm1<-summary(km1, time=seq(0, 10, by=1))
-skm1 <- data.frame(time=skm1$time, n.risk=skm1$n.risk)
-
-
-#preparation legende
-leg<-names(km$strata)
-
-#courbe de survie
-g <- ggsurv(km, CI=FALSE, order.legend = FALSE) +
-  #changement des axes
-  scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
-  scale_y_continuous(labels=percent) +
-  labs(x="Time of follow-up, year") +
-  #changement legende
-  guides (linetype = FALSE) +
-  scale_colour_discrete( labels = leg) +
-  theme(legend.position="right", legend.title=element_blank()) +
-  #espace autour du schéma
-  theme(plot.margin = unit(c(1,1,3,2), "cm")) 
-
-#intervalle de confiance
-for (i in 1:2) {
-   g <- g + geom_segment(x = skmi0$time[i], y = skmi0$lower[i], xend = skmi0$time[i], yend = skmi0$upper[i])
-   g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$lower[i], xend = skmi0$time[i] + 0.1, yend = skmi0$lower[i])
-   g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$upper[i], xend = skmi0$time[i] + 0.1, yend = skmi0$upper[i])
-}
-for (i in 1:2) {
-   g <- g + geom_segment(x = skmi1$time[i], y = skmi1$lower[i], xend = skmi1$time[i], yend = skmi1$upper[i])
-   g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$lower[i], xend = skmi1$time[i] + 0.1, yend = skmi1$lower[i])
-   g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$upper[i], xend = skmi1$time[i] + 0.1, yend = skmi1$upper[i])
-}
-
-#risk table
-for (ii in 1:nrow(skm0)) {
-  g <- g + annotation_custom(grob = textGrob(skm0$n.risk[ii]), xmin = skm0$time[ii], xmax = skm0$time[ii], ymin= - 1.5 )
-}  
-for (ii in 1:nrow(skm1)) {
-  g <- g + annotation_custom(grob = textGrob(skm1$n.risk[ii]), xmin = skm1$time[ii], xmax = skm1$time[ii], ymin= - 1.7 )
-} 
-  #display group text
-  g <- g + annotation_custom(grob = textGrob(leg[1]), xmin = -1.7, xmax = -1.7, ymin= - 1.5 )
-  g <- g + annotation_custom(grob = textGrob(leg[2]), xmin = -1.7, xmax = -1.7, ymin= - 1.7 )
-  
-gt <- ggplotGrob(g)
-gt$layout$clip[gt$layout$name=="panel"] <- "off"
-grid.draw(gt)
+#suivi
+s<-sla[!is.na(sla$time.vni),]
+vni.surv <- survfit(Surv(time.vni,censor)~1, data=s, conf.int=.95)
+an <- paste0 (round(summary(vni.surv)$table['median']/365.25,2)," [", round(summary(vni.surv)$table['0.95LCL']/365.25,2),"-",round(summary(vni.surv)$table['0.95UCL']/365.25,2),"]")
+an
 ```
 
-
-### Orthopnee
-#### Hypothese des risques proportionnels
-```{r, echo=FALSE}
-s <- sla
-s$tps <- (s$time.vni/365.25) + 0.001
-s$a_recode <- s$orthop
-mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
-
-#residus de Shoenfeld
-z <- cox.zph(mod, transf="identity")
-plot(z)
-abline(h=0, col="red")
-abline(h=coef(mod), col="blue")
-
-#Test de Harrell
-zi <- cox.zph(mod, transform = "rank")
-zi
-```
-
-L'hypothese des risques proportionnels est verifiee, je peux interpreter.
-
-```{r, echo=FALSE}
-summary(mod)
-```
-
-Le test du score est non significatif (p>=0.05), le risque de deces n'est pas modifie selon qu'il y a ou non une orthopnee a l'instauration de la vni.
+median survival (month):
 
 ```{r, echo=FALSE, message=FALSE}
-var <- "Orthopnee"
-km <- survfit(Surv(tps,censor)~orthop, data=s, conf.int=.95)
-km0 <- survfit(Surv(tps,censor)~orthop, data=s[s$orthop==0,], conf.int=.95)
-km1 <- survfit(Surv(tps,censor)~orthop, data=s[s$orthop==1,], conf.int=.95)
+#suivi
+s<-sla[!is.na(sla$time.vni),]
+vni.surv2 <- survfit(Surv(time.vni*12/365.25,censor)~1, data=s, conf.int=.95)
+m <- paste0 (round(summary(vni.surv2)$table['median'],2)," [", round(summary(vni.surv2)$table['0.95LCL'],2),"-",round(summary(vni.surv2)$table['0.95UCL'],2),"]")
+m
+```
 
-#pour IC95%
-#skmi0<-summary(km0, time=c(3, 6)-0.1)
-skmi0<-summary(km0, time=c(1, 3)-0.1) #plus d'évènement apres 5.2 ans
-#skmi1<-summary(km1, time=c(3, 6)+0.1)
-skmi1<-summary(km1, time=c(1, 3)+0.1) #plus d'évènement apres 4.6 ans
+# Bivariate analysis : cox regressions
 
-#pour table de survie
-skm0 <- summary(km0, time=seq(0, 10, by=1))
-skm0 <- data.frame(time=skm0$time, n.risk=skm0$n.risk)
-skm1<-summary(km1, time=seq(0, 10, by=1))
-skm1 <- data.frame(time=skm1$time, n.risk=skm1$n.risk)
+For all the following analysis, beginning = NIV
+
+## Familial
+```{r}
+#check_RP (var="familial", data=sla, .time="time.vni", .censor="censor", type="quali")
+draw_surv_bin(var="familial", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
+Test_score_HR_IC(var="familial", data=sla, .time="time.vni", .censor="censor", type="quali", dep_temps = FALSE)
+```
+
+Proportionnal hazard hypothesis verified.
 
 
-#preparation legende
-leg<-names(km$strata)
+## Sex
+```{r, eval=FALSE}
+check_RP (var="sex", data=sla, .time="time.vni", .censor="censor", type="quali")
+#tmp <- lapply(c("log","sqrt","*t","/t","2sqrt"),function(x){
+tmp <- lapply("*t^0.7",function(x){
+add_vart_and_check (var="sex", data=sla, .time="time.vni", .censor="censor", type="quali", recode=FALSE, .transf=x)  
+})
+cat(do.call(rbind,tmp))
+```
+Proportionnal hazard hypothesis not verified, time dependant variable added (var*t^0.7)
 
-#courbe de survie
-g <- ggsurv(km, CI=FALSE, order.legend = FALSE) +
-  #changement des axes
-  scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
-  scale_y_continuous(labels=percent) +
-  labs(x="Time of follow-up, year") +
-  #changement legende
-  guides (linetype = FALSE) +
-  scale_colour_discrete( labels = leg) +
-  theme(legend.position="right", legend.title=element_blank()) +
-  #espace autour du schéma
-  theme(plot.margin = unit(c(1,1,3,2), "cm")) 
+```{r}
+draw_surv_bin(var="sex", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
+```
+0: male 1: female
 
-#intervalle de confiance
-for (i in 1:2) {
-   g <- g + geom_segment(x = skmi0$time[i], y = skmi0$lower[i], xend = skmi0$time[i], yend = skmi0$upper[i])
-   g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$lower[i], xend = skmi0$time[i] + 0.1, yend = skmi0$lower[i])
-   g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$upper[i], xend = skmi0$time[i] + 0.1, yend = skmi0$upper[i])
-}
-for (i in 1:2) {
-   g <- g + geom_segment(x = skmi1$time[i], y = skmi1$lower[i], xend = skmi1$time[i], yend = skmi1$upper[i])
-   g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$lower[i], xend = skmi1$time[i] + 0.1, yend = skmi1$lower[i])
-   g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$upper[i], xend = skmi1$time[i] + 0.1, yend = skmi1$upper[i])
-}
+```{r}
+Test_score_HR_IC(var="sex", data=sla, .time="time.vni", .censor="censor", type="quali", recode=FALSE, dep_temps = TRUE, .transf="*t^0.7", vec_time=12)
+```
 
-#risk table
-for (ii in 1:nrow(skm0)) {
-  g <- g + annotation_custom(grob = textGrob(skm0$n.risk[ii]), xmin = skm0$time[ii], xmax = skm0$time[ii], ymin= - 1.5 )
-}  
-for (ii in 1:nrow(skm1)) {
-  g <- g + annotation_custom(grob = textGrob(skm1$n.risk[ii]), xmin = skm1$time[ii], xmax = skm1$time[ii], ymin= - 1.7 )
-} 
-  #display group text
-  g <- g + annotation_custom(grob = textGrob(leg[1]), xmin = -1.7, xmax = -1.7, ymin= - 1.5 )
-  g <- g + annotation_custom(grob = textGrob(leg[2]), xmin = -1.7, xmax = -1.7, ymin= - 1.7 )
-  
-gt <- ggplotGrob(g)
-gt$layout$clip[gt$layout$name=="panel"] <- "off"
-grid.draw(gt)
+## Riluzole
+```{r, eval=FALSE}
+check_RP (var="rilu", data=sla, .time="time.vni", .censor="censor", type="quali")
+```
+
+Proportionnal HR hypothesis verified
+```{r}
+draw_surv_bin(var="rilu", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
 ```
 
 
-
-### LIEUDEB
-
-```{r, echo=FALSE, message=FALSE}
-vec_time_IC=1
-s <- sla
-s$tps <- (s$time.vni/365.25) + 0.001 
-
-var <- "beginning of onset"
-km <- survfit(Surv(tps,censor)~LIEUDEB_recode, data=s, conf.int=.95)
-
-for (i in 1:length(km$strata)){
-  .km <- survfit(Surv(tps,censor)~LIEUDEB_recode, data=s[s$LIEUDEB_recode==levels(s$LIEUDEB_recode)[i], ], conf.int=.95)
-assign(paste0("km",i), .km)
-#pour IC95%
-am <- i/10
-.skmi <- summary(.km, time=vec_time_IC-am)
-assign(paste0("skmi",i), .skmi)
-#pour table de survie
-.skm <- summary(.km, time=seq(0, 10, by=1))
-.skm <- data.frame(time=.skm$time, n.risk=.skm$n.risk)
-assign(paste0("skm",i), .skm)
-
-#survies aux tps choisis
-  cat(paste0("\nIn group ", var, " = ", levels(s$LIEUDEB_recode)[i], "\n "))
-  sv <- summary(.km, time=vec_time_IC)
-  df <- data.frame(time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
-  df[,2:4] <- round(df[,2:4], 0)
-  cat(paste0("At ", df$time, " year, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
-  #cat(paste0("At ", df$time, " months, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
-}
-
-#preparation legende
-leg<-names(km$strata)
-leg <- str_sub(leg,16,-1)
-col <- hue_pal()(length(leg))
-.title <- paste0("Survival by ", var)
-
-#courbe de survie
-g <- ggsurv(km, CI=FALSE, order.legend = FALSE, surv.col=col, cens.col=col) +
-  #changement des axes
-  scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
-  scale_y_continuous(labels=percent) +
-  labs(x="Time of follow-up, year", title=.title) +
-  #changement legende
-  guides (linetype = FALSE) +
-  scale_colour_discrete( labels = leg) +
-  theme(legend.position="right", legend.title=element_blank()) +
-  #espace autour du schéma
-  theme(plot.margin = unit(c(0,1,4,2), "cm")) #top, right, bottom, left
-
-#intervalle de confiance
-for (j in 1:length(km$strata)){
-  .skmi <- get(paste0(paste0("skmi",j)))
-  for (i in 1:2) {
-    g <- g + geom_segment(x = .skmi$time[i], y = .skmi$lower[i], xend = .skmi$time[i], yend = .skmi$upper[i], colour = col[j])
-    g <- g + geom_segment(x = .skmi$time[i] - 0.1, y = .skmi$lower[i], xend = .skmi$time[i] + 0.1, yend = .skmi$lower[i], colour = col[j])
-    g <- g + geom_segment(x = .skmi$time[i] - 0.1, y = .skmi$upper[i], xend = .skmi$time[i] + 0.1, yend = .skmi$upper[i], colour = col[j])
-  }
-}
-
-#risk table
-#position_y <- c(-1.2, -1.5, -1.7, -1.9, -2.1)
-position_y <- c(-1.4, -1.5, -1.6, -1.7, -1.8)
-for (j in 1:5){
-    .skm <- get(paste0(paste0("skm",j)))
-    .pos <- position_y[j]
-  for (ii in 1:nrow(.skm)) {
-    g <- g + annotation_custom(grob = textGrob(.skm$n.risk[ii]), xmin = .skm$time[ii], xmax = .skm$time[ii], ymin= .pos )
-  } 
-}
-
-  #display group text
-for (j in 1:5){
-  g <- g + annotation_custom(grob = textGrob(leg[j]), xmin = -2.1, xmax = -2.1, ymin = position_y[j])
-}
-  
-gt <- ggplotGrob(g)
-gt$layout$clip[gt$layout$name=="panel"] <- "off"
-grid.draw(gt)
-
+```{r}
+Test_score_HR_IC(var="rilu", data=sla, .time="time.vni", .censor="censor", type="quali", dep_temps = FALSE)
 ```
 
+## Rest dyspnoea
 
+```{r, eval=FALSE}
+check_RP (var="dysp", data=sla, .time="time.vni", .censor="censor", type="quali")
+tmp <- lapply(c("log"),function(x){
+add_vart_and_check (var="dysp", data=sla, .time="time.vni", .censor="censor", type="quali", recode=FALSE, .transf=x)  
+})
+cat(do.call(rbind,tmp))
+```
+
+Proportionnal hazard hypothesis not verified, time dependant variable added (var*var(t), transf=log). Log don't suit completely (curve not perfect).
+```{r}
+draw_surv_bin(var="dysp", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
+```
+```{r}
+Test_score_HR_IC(var="dysp", data=sla, .time="time.vni", .censor="censor", type="quali", recode=FALSE, dep_temps = TRUE, .transf="log", vec_time=24)
+```
+
+Score test significant but HR include 1...
+
+## Orthopnea
+
+```{r, eval=FALSE}
+check_RP (var="orthop", data=sla, .time="time.vni", .censor="censor", type="quali")
+Test_score_HR_IC(var="orthop", data=sla, .time="time.vni", .censor="censor", type="quali", recode=FALSE, dep_temps = FALSE)
+```
+```{r}
+draw_surv_bin(var="orthop", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", surv_only = TRUE)
+```
+
+Proportionnal hazard hypothesis verified.
+
+## onset localisation
 #### Recodage en 4 variables binaires
 
 ```{r, echo=FALSE}
@@ -1198,10 +339,7 @@ s$ulimb <- ifelse(s$LIEUDEB_recode=="upper limb onset", 1, 0)
 
 cox <- coxph(Surv(tps, censor) ~ cerv + llimb + resp + ulimb, data = s)
 ```
-
-#### Verification des risques proportionnels
-
-```{r}
+```{r, eval=FALSE}
 #résidus de Shoenfeld non significatif?
 zt <- cox.zph(cox, transf="identity")
 for (i in 1:(nrow(zt$table)-1)){
@@ -1213,21 +351,12 @@ for (i in 1:(nrow(zt$table)-1)){
 #Test de Harrell non significatif?
 zit <- cox.zph(cox, transform = "rank")
 zit
-```
 
-Les 4 courbes sont significatives. test de harrell non significatif
+tmp <- lapply(c("log","sqrt","*t","/t","*t^2"),function(x){
+add_vart_and_check (var="llimb", data=s, .time="time.vni", .censor="censor", type="quali", recode=FALSE, .transf=x)
+})
+cat(do.call(rbind,tmp))
 
-#### ajout vairable dependant du temps
-
-
-```{r, echo=FALSE}
-#recodage en variable binaire
-s$cerv <- ifelse(s$LIEUDEB_recode=="cervical",1,0)
-s$llimb <- ifelse(s$LIEUDEB_recode=="lower limb onset", 1, 0)
-s$resp <- ifelse(s$LIEUDEB_recode=="respiratory", 1, 0)
-s$ulimb <- ifelse(s$LIEUDEB_recode=="upper limb onset", 1, 0)
-
-#variable dependante du temps
 ti <- sort(unique(c(0,s$tps[s$censor==1])))
 slat <- s
 slat$start <- 0
@@ -1236,996 +365,262 @@ slat$evt <- slat$censor
 #slat <- survSplit(slat, end="stop", event="evt", start="start",cut=ti) #Yann
 slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)           #Sarah
 
-slat$cerv_t <- slat$cerv * sqrt(slat$stop) #non graphe mauvais
-slat$llimb_t <- slat$llimb * sqrt(slat$stop) #non graphe mauvais
-slat$resp_t <- slat$resp * sqrt(slat$stop) #non graphe mauvais
-slat$ulimb_t <- slat$ulimb * sqrt(slat$stop) #non graphe mauvais
-
-#nouveau modele
-coxt <- coxph(Surv(start, stop, censor) ~ cerv + llimb + resp + ulimb + cerv_t + llimb_t + resp_t + ulimb_t, data=slat)
-summary(coxt)$coefficients
+#s$cerv : log
+#s$resp : rien
+#s$ulimb : rien
+#s$llimb :t^2
 
 ```
-var dep t est significatif pour tous sauf cerv
 
+PHH not verified, couldn't correct variable
 
 ```{r}
-#résidus de Shoenfeld non significatif?
-zt <- cox.zph(coxt, transf="identity")
-for (i in 1:(nrow(zt$table)-1)){
-  iz<-i
-  plot(zt[iz])
-  abline(h=0, col="red")
-}
-
-#Test de Harrell non significatif?
-zit <- cox.zph(coxt, transform = "rank")
-zit
+surv_lieudeb (surv_only=TRUE)
+Test_score_HR_IC(var="LIEUDEB_recode", data=sla, .time="time.vni", .censor="censor", type="quali2", recode=FALSE, dep_temps = FALSE)
 ```
 
-
-sqrt et log ne conviennent pas, je ne sais pas interpreter en l'etat
-
-
-### agevni
-
-```{r, echo=FALSE}
-s <- sla
-
-s$a <- s$agevni
-
-s$tps <- (s$time.vni/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-s <- s[!is.na(s$a),]
-
-cox <- coxph(Surv(tps, censor) ~ a, data = s) 
-```
-
-
-#### Hypothèse de Loglinéarité
-
-```{r, echo=FALSE}
-check_loglin(var="agevni", data=sla , .time="time.vni", .censor="censor")
-```
-
-##### 1/ plot résidus du modèle vide en fonction de la variable explicative
-```{r, echo=FALSE, eval=FALSE}
-cox1<-coxph(Surv(tps,censor)~1, data=s)
-r<-residuals(cox1, "martingale")
-lw<-lowess(r~s$a)
-plot(s$a, r)
-lines(lw)
-```
-L'hypothese est rejetee car la courbe n'est pas une droite horizontale (Le risque n'est pas le même pour les scores les plus élevés).
-
-##### 2/ découpe la variable le variable en fonction du temps avec une polynome de degré 2
-```{r, echo=FALSE, eval=FALSE}
-cox2<-coxph(Surv(tps,censor)~poly(a, df=2, raw=T), data=s)
-summary(cox2)
-```
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarité non rejetée car coefficient non significatif.
-
-Mais comme schéma significatif, on rejette loglinearite
-
-
-#### Recodage de la variable quantitative en variable binaire car non respect de loglinearite 
-```{r, echo=FALSE}
-s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-```
-
-Je met option type==quanti +/- recode==TRUE
-
-#### courbe de survie car variable recodée en binaire.
-```{r, echo=FALSE}
-draw_surv_bin (var="agevni", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
-```
-
-
-```{r, echo=FALSE, eval=FALSE}
-var <- paste0("Survival by age at vni superior to ", round(median(s$a),0), " ans")
-km <- survfit(Surv(tps,censor)~a_recode, data=s, conf.int=.95)
-#km <- survfit(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-km0 <- survfit(Surv(tps,censor)~a_recode, data=s[s$a_recode==0,], conf.int=.95)
-km1 <- survfit(Surv(tps,censor)~a_recode, data=s[s$a_recode==1,], conf.int=.95)
-
-#pour IC95%
-skmi0<-summary(km0, time=c(3, 6)-0.1)
-#skmi0<-summary(km0, time=c(0.5, 1)-0.1)
-skmi1<-summary(km1, time=c(3, 6)+0.1)
-#skmi1<-summary(km1, time=c(0.5, 1)+0.1) #plus d'évènement apres 1.94 ans
-
-#pour table de survie
-skm0 <- summary(km0, time=seq(0, 10, by=1))
-skm0 <- data.frame(time=skm0$time, n.risk=skm0$n.risk)
-skm1<-summary(km1, time=seq(0, 10, by=1))
-skm1 <- data.frame(time=skm1$time, n.risk=skm1$n.risk)
-
-#preparation legende
-leg<-str_sub(names(km$strata),-1,-1)
-col <- hue_pal()(length(leg))
-
-#courbe de survie
-g <- ggsurv(km, CI=FALSE, order.legend=FALSE, surv.col=col, cens.col=col) +
-  #changement des axes
-  scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
-  scale_y_continuous(labels=percent) +
-  labs(x="Time of follow-up, year", title=var) +
-  #changement legende
-  guides (linetype = FALSE) +
-  scale_colour_discrete( labels = leg) +
-  theme(legend.position="right", legend.title=element_blank()) +
-  #espace autour du schéma
-  theme(plot.margin = unit(c(1,1,3,2), "cm")) #top, right, bottom, left
-#intervalle de confiance
-for (i in 1:2) {
-  g <- g + geom_segment(x = skmi0$time[i], y = skmi0$lower[i], xend = skmi0$time[i], yend = skmi0$upper[i], colour = col[1])
-  g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$lower[i], xend = skmi0$time[i] + 0.1, yend = skmi0$lower[i], colour = col[1])
-  g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$upper[i], xend = skmi0$time[i] + 0.1, yend = skmi0$upper[i], colour = col[1])
-}
-for (i in 1:2) {
-  g <- g + geom_segment(x = skmi1$time[i], y = skmi1$lower[i], xend = skmi1$time[i], yend = skmi1$upper[i], colour = col[2])
-  g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$lower[i], xend = skmi1$time[i] + 0.1, yend = skmi1$lower[i], colour = col[2])
-  g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$upper[i], xend = skmi1$time[i] + 0.1, yend = skmi1$upper[i], colour = col[2])
-}
-#risk table
-for (ii in 1:nrow(skm0)) {
-  g <- g + annotation_custom(grob = textGrob(skm0$n.risk[ii]), xmin = skm0$time[ii], xmax = skm0$time[ii], ymin= - 1.5 )
-}  
-for (ii in 1:nrow(skm1)) {
-  g <- g + annotation_custom(grob = textGrob(skm1$n.risk[ii]), xmin = skm1$time[ii], xmax = skm1$time[ii], ymin= - 1.7 )
-} 
-#display group text
-g <- g + annotation_custom(grob = textGrob(leg[1]), xmin = -1.7, xmax = -1.7, ymin= - 1.5 )
-g <- g + annotation_custom(grob = textGrob(leg[2]), xmin = -1.7, xmax = -1.7, ymin= - 1.7 )
-
-gt <- ggplotGrob(g)
-gt$layout$clip[gt$layout$name=="panel"] <- "off"
-grid.draw(gt)
-```
-
-
-#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
+## agevni
 
 ```{r}
-check_RP(var="agevni", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = TRUE)
+# check_loglin (var="agevni", data=sla, .time="time.vni", .censor="censor")
+# check_RP(var="agevni", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = FALSE)
+# tmp <- lapply(c("log","sqrt","*t","/t","*t^0.7"),function(x){
+# add_vart_and_check (var="agevni", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, .transf=x)
+# })
+# cat(do.call(rbind, tmp))
+Test_score_HR_IC(var="agevni", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = FALSE)
+
 ```
+Loglinearity hypothesis verified.
+Proportionnality not verified, variable cannot be corrected. 
 
-```{r, echo=FALSE, eval=FALSE}
-mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
-```
-```{r, echo=FALSE, eval=FALSE}
-#résidus de Shoenfeld
-z <- cox.zph(mod, transf="identity")
-plot(z)
-abline(h=0, col="red")
-abline(h=coef(mod), col="blue")
-#non significatif si l'IC contient a tout moment la courbe rouge
-
-#Test de Harrell
-z <- cox.zph(mod, transform = "rank")
-z
-#non signif si p>=0.05
-```
-
-La courbe et le test sont significatifs, on ajoute une variable dependante du temps
-
-##### Ajout et vérification variable dependante du temps
+## CVF_ASSIS_perc_pred
 
 ```{r}
-tmp <- lapply(c("log","sqrt","*t","/t"),function(x){
-add_vart_and_check (var="agevni", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, .transf=x)  
-})
-cat(do.call(rbind,tmp))
-
+#check_loglin (var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .censor="censor")
+# check_RP(var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = FALSE)
+# tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
+# add_vart_and_check (var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, .transf=x)
+# })
+# cat(do.call(rbind, tmp))
+Test_score_HR_IC(var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = TRUE, vec_time=12, .transf="*t^3")
 ```
+Loglinearity hypothesis verified.
+Proportionnality not verified, variable corrected with t^3 (not perfect)
 
-```{r, echo=FALSE, eval=FALSE}
-ti <- sort(unique(c(0,s$tps[s$censor==1])))
-slat <- s
-slat$start <- 0
-slat$stop <- slat$tps
-slat$evt <- slat$censor
-slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
-
-#slat$at<-slat$a_recode*log(slat$stop) #courbe moche
-#slat$at<-slat$a_recode*sqrt(slat$stop)#courbe moche
-#slat$at<-slat$a_recode/(slat$stop) #at non significatif
-slat$at<-slat$a_recode*(slat$stop) #courbe moche
-```
-
-```{r, echo=FALSE, eval=FALSE}
-#at significatif?
-coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-summary(coxt)
-```
-si non significatif on test une autre variable at
-si significatif on refait test de harrell et plot des résidus
-at significatif avec log, je reteste les conditions(Harrel et plot)
-=> si significatif on test une autre variable dépendante du temps
-=> si non significatifs, la correction est bonne, on passe à l'interpretation
-
-
-```{r, echo=FALSE, eval=FALSE}
-#résidus de Shoenfeld non significatif?
-zt <- cox.zph(coxt, transf="identity")
-for (i in 1:(nrow(zt$table)-1)){
-  iz<-i
-  plot(zt[iz])
-  abline(h=0, col="red")
-}
-#Les 2 courbes doivent être non significatives
-
-#Test de Harrell non significatif?
-zit <- cox.zph(coxt, transform = "rank")
-zit
-#Les 3 p doivent etre >=0.05 
-
-```
-
-
-ICI aucune des transformations ne convient, je ne peux pas interpreter.
-
-
-#### Interprêtation du modèle dépendant du temps : HR[95%IC] et significativité (test du score)
-```{r, echo=FALSE, eval=FALSE}
-summary(coxt)
-```
-
-#### IC : utiliser la matrice de variance covariance pour calculer la variance de l'HR si variable dependante du temps introduite
-```{r, echo=FALSE}
-S <- vcov(coxt)
-b <- coef(coxt)
-t <- 1 #choisir le temps en année
-f <- sqrt
-var <- S[1,1]+S[2,2]*f(t)^2+2*S[1,2]*f(t)
-m <- b[1]+b[2]*f(t) #coef de l'HR
-HR <- round(exp(m),3)
-IC <- round(exp(m + qnorm(0.975)*sqrt(var) * c(-1,1)),3)
-
-paste0("HR[95%IC] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" )
-```
-
-
-
-
-### CVF_ASSIS_perc_pred
-
-```{r, echo=FALSE}
-s <- sla
-
-s$a <- s$CVF_ASSIS_perc_pred
-
-s$tps <- (s$time.vni/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-s <- s[!is.na(s$a),]
-
-cox <- coxph(Surv(tps, censor) ~ a, data = s) 
-```
-
-#### Hypothèse de Loglinéarité
-
-##### 1/ plot résidus du modèle vide en fonction de la variable explicative
-```{r, echo=FALSE}
-cox1<-coxph(Surv(tps,censor)~1, data=s)
-r<-residuals(cox1, "martingale")
-lw<-lowess(r~s$a)
-plot(s$a, r)
-lines(lw)
-```
-L'hypothese est rejetee car la courbe n'est pas une droite horizontale (Le risque n'est pas le même pour les scores les plus élevés).
-
-##### 2/ découpe la variable le variable en fonction du temps avec une polynome de degré 2
-```{r, echo=FALSE}
-cox2<-coxph(Surv(tps,censor)~poly(a, df=2, raw=T), data=s)
-summary(cox2)
-```
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarité non rejetée car coefficient non significatif.
-
-Mais comme schéma significatif, on rejette loglinearite
-
-
-#### Recodage de la variable quantitative en variable binaire car non respect de loglinearite 
-```{r, echo=FALSE}
-s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-```
-#### courbe de survie car variable recodée en binaire.
-
-```{r, echo=FALSE}
-var <- paste0("Survival by sitted CVF (% predicted) superior to ", round(median(s$a),0), " %")
-km <- survfit(Surv(tps,censor)~a_recode, data=s, conf.int=.95)
-#km <- survfit(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-km0 <- survfit(Surv(tps,censor)~a_recode, data=s[s$a_recode==0,], conf.int=.95)
-km1 <- survfit(Surv(tps,censor)~a_recode, data=s[s$a_recode==1,], conf.int=.95)
-
-#pour IC95%
-#skmi0<-summary(km0, time=c(3, 6)-0.1)
-skmi0<-summary(km0, time=c(1, 3)-0.1)
-#skmi1<-summary(km1, time=c(3, 6)+0.1)
-skmi1<-summary(km1, time=c(1, 3)+0.1) #plus d'évènement apres 1.94 ans
-
-#pour table de survie
-skm0 <- summary(km0, time=seq(0, 10, by=1))
-skm0 <- data.frame(time=skm0$time, n.risk=skm0$n.risk)
-skm1<-summary(km1, time=seq(0, 10, by=1))
-skm1 <- data.frame(time=skm1$time, n.risk=skm1$n.risk)
-
-#preparation legende
-leg<-str_sub(names(km$strata),-1,-1)
-col <- hue_pal()(length(leg))
-
-#courbe de survie
-g <- ggsurv(km, CI=FALSE, order.legend=FALSE, surv.col=col, cens.col=col) +
-  #changement des axes
-  scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
-  scale_y_continuous(labels=percent) +
-  labs(x="Time of follow-up, year", title=var) +
-  #changement legende
-  guides (linetype = FALSE) +
-  scale_colour_discrete( labels = leg) +
-  theme(legend.position="right", legend.title=element_blank()) +
-  #espace autour du schéma
-  theme(plot.margin = unit(c(1,1,3,2), "cm")) #top, right, bottom, left
-#intervalle de confiance
-for (i in 1:2) {
-  g <- g + geom_segment(x = skmi0$time[i], y = skmi0$lower[i], xend = skmi0$time[i], yend = skmi0$upper[i], colour = col[1])
-  g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$lower[i], xend = skmi0$time[i] + 0.1, yend = skmi0$lower[i], colour = col[1])
-  g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$upper[i], xend = skmi0$time[i] + 0.1, yend = skmi0$upper[i], colour = col[1])
-}
-for (i in 1:2) {
-  g <- g + geom_segment(x = skmi1$time[i], y = skmi1$lower[i], xend = skmi1$time[i], yend = skmi1$upper[i], colour = col[2])
-  g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$lower[i], xend = skmi1$time[i] + 0.1, yend = skmi1$lower[i], colour = col[2])
-  g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$upper[i], xend = skmi1$time[i] + 0.1, yend = skmi1$upper[i], colour = col[2])
-}
-#risk table
-for (ii in 1:nrow(skm0)) {
-  g <- g + annotation_custom(grob = textGrob(skm0$n.risk[ii]), xmin = skm0$time[ii], xmax = skm0$time[ii], ymin= - 1.5 )
-}  
-for (ii in 1:nrow(skm1)) {
-  g <- g + annotation_custom(grob = textGrob(skm1$n.risk[ii]), xmin = skm1$time[ii], xmax = skm1$time[ii], ymin= - 1.7 )
-} 
-#display group text
-g <- g + annotation_custom(grob = textGrob(leg[1]), xmin = -1.7, xmax = -1.7, ymin= - 1.5 )
-g <- g + annotation_custom(grob = textGrob(leg[2]), xmin = -1.7, xmax = -1.7, ymin= - 1.7 )
-
-gt <- ggplotGrob(g)
-gt$layout$clip[gt$layout$name=="panel"] <- "off"
-grid.draw(gt)
-```
-
-
-#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
-
-```{r, echo=FALSE}
-mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
-```
-```{r, echo=FALSE}
-#résidus de Shoenfeld
-z <- cox.zph(mod, transf="identity")
-plot(z)
-abline(h=0, col="red")
-abline(h=coef(mod), col="blue")
-#non significatif si l'IC contient a tout moment la courbe rouge
-
-#Test de Harrell
-z <- cox.zph(mod, transform = "rank")
-z
-#non signif si p>=0.05
-```
-La courbe et le test sont significatifs, on ajoute une variable dependante du temps
-
-
-##### Ajout variable dependante du temps
-
-```{r, echo=FALSE}
-ti <- sort(unique(c(0,s$tps[s$censor==1])))
-slat <- s
-slat$start <- 0
-slat$stop <- slat$tps
-slat$evt <- slat$censor
-slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
-
-#slat$at<-slat$a_recode*log(slat$stop) #courbe moche
-#slat$at<-slat$a_recode*sqrt(slat$stop)#courbe moche
-#slat$at<-slat$a_recode/(slat$stop) #at non significatif
-slat$at<-slat$a_recode*(slat$stop) #courbe bof mais mieux que les autres
-```
-
-##### Verification de la variable dépendante du temps
-
-```{r, echo=FALSE}
-#at significatif?
-coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-summary(coxt)
-```
-si non significatif on test une autre variable at
-si significatif on refait test de harrell et plot des résidus
-
-at significatif avec log, je reteste les conditions
-
-```{r, echo=FALSE}
-#résidus de Shoenfeld non significatif?
-zt <- cox.zph(coxt, transf="identity")
-for (i in 1:(nrow(zt$table)-1)){
-  iz<-i
-  plot(zt[iz])
-  abline(h=0, col="red")
-}
-#Les 2 courbes doivent être non significatives
-
-#Test de Harrell non significatif?
-zit <- cox.zph(coxt, transform = "rank")
-zit
-#Les 3 p doivent etre >=0.05 
-
-```
-Je vais prendre la correction *t car courbes a peu près correctes et tests non significatifs
-
-#### Interprêtation du modèle dépendant du temps : HR[95%IC] et significativité (test du score)
-```{r, echo=FALSE, eval=FALSE}
-summary(coxt)
-```
-
-Test du score significatif
-
-#### IC : utiliser la matrice de variance covariance pour calculer la variance de l'HR
-```{r, echo=FALSE, eval=FALSE}
-S <- vcov(coxt)
-b <- coef(coxt)
-t <- 1 #choisir le temps en année
-f <- sqrt
-var <- S[1,1]+S[2,2]*f(t)^2+2*S[1,2]*f(t)
-m <- b[1]+b[2]*f(t) #coef de l'HR
-HR <- round(exp(m),3)
-IC <- round(exp(m + qnorm(0.975)*sqrt(var) * c(-1,1)),3)
-
-paste0("HR[95%IC] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" )
-```
-
-HR[95%IC] = 0.916 [0.823-1.018] pour t = 1 an
-A un an le risque de decès est multiplié par 0.92 pour les patients qui ont une CVF superieur à 49% de la théorique à t0.
-
-
-### CVF_COUCHE_perc_pred
-
-```{r, echo=FALSE}
-s <- sla
-
-s$a <- s$CVF_COUCHE_perc_pred
-
-s$tps <- (s$time.vni/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-s <- s[!is.na(s$a),]
-
-cox <- coxph(Surv(tps, censor) ~ a, data = s) 
-```
-
-#### Hypothèse de Loglinéarité
-
-##### 1/ plot résidus du modèle vide en fonction de la variable explicative
-```{r, echo=FALSE}
-cox1<-coxph(Surv(tps,censor)~1, data=s)
-r<-residuals(cox1, "martingale")
-lw<-lowess(r~s$a)
-plot(s$a, r)
-lines(lw)
-```
-L'hypothese est rejetee car la courbe n'est pas une droite horizontale (Le risque n'est pas le même pour les scores les plus élevés).
-
-##### 2/ découpe la variable le variable en fonction du temps avec une polynome de degré 2
-```{r, echo=FALSE}
-cox2<-coxph(Surv(tps,censor)~poly(a, df=2, raw=T), data=s)
-summary(cox2)
-```
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarité non rejetée car coefficient non significatif.
-
-Mais comme schéma significatif, on rejette loglinearite
-
-
-#### Recodage de la variable quantitative en variable binaire car non respect de loglinearite 
-```{r, echo=FALSE}
-s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-```
-#### courbe de survie car variable recodée en binaire.
-
-```{r, echo=FALSE}
-var <- paste0("Survival by CVF (% predicted) superior to ", round(median(s$a),0), " %")
-km <- survfit(Surv(tps,censor)~a_recode, data=s, conf.int=.95)
-#km <- survfit(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-km0 <- survfit(Surv(tps,censor)~a_recode, data=s[s$a_recode==0,], conf.int=.95)
-km1 <- survfit(Surv(tps,censor)~a_recode, data=s[s$a_recode==1,], conf.int=.95)
-
-#pour IC95%
-#skmi0<-summary(km0, time=c(3, 6)-0.1)
-skmi0<-summary(km0, time=c(1, 3)-0.1)
-#skmi1<-summary(km1, time=c(3, 6)+0.1)
-skmi1<-summary(km1, time=c(1, 3)+0.1) #plus d'évènement apres 1.94 ans
-
-#pour table de survie
-skm0 <- summary(km0, time=seq(0, 10, by=1))
-skm0 <- data.frame(time=skm0$time, n.risk=skm0$n.risk)
-skm1<-summary(km1, time=seq(0, 10, by=1))
-skm1 <- data.frame(time=skm1$time, n.risk=skm1$n.risk)
-
-#preparation legende
-leg<-str_sub(names(km$strata),-1,-1)
-col <- hue_pal()(length(leg))
-
-#courbe de survie
-g <- ggsurv(km, CI=FALSE, order.legend=FALSE, surv.col=col, cens.col=col) +
-  #changement des axes
-  scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
-  scale_y_continuous(labels=percent) +
-  labs(x="Time of follow-up, year", title=var) +
-  #changement legende
-  guides (linetype = FALSE) +
-  scale_colour_discrete( labels = leg) +
-  theme(legend.position="right", legend.title=element_blank()) +
-  #espace autour du schéma
-  theme(plot.margin = unit(c(1,1,3,2), "cm")) #top, right, bottom, left
-#intervalle de confiance
-for (i in 1:2) {
-  g <- g + geom_segment(x = skmi0$time[i], y = skmi0$lower[i], xend = skmi0$time[i], yend = skmi0$upper[i], colour = col[1])
-  g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$lower[i], xend = skmi0$time[i] + 0.1, yend = skmi0$lower[i], colour = col[1])
-  g <- g + geom_segment(x = skmi0$time[i] - 0.1, y = skmi0$upper[i], xend = skmi0$time[i] + 0.1, yend = skmi0$upper[i], colour = col[1])
-}
-for (i in 1:2) {
-  g <- g + geom_segment(x = skmi1$time[i], y = skmi1$lower[i], xend = skmi1$time[i], yend = skmi1$upper[i], colour = col[2])
-  g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$lower[i], xend = skmi1$time[i] + 0.1, yend = skmi1$lower[i], colour = col[2])
-  g <- g + geom_segment(x = skmi1$time[i] - 0.1, y = skmi1$upper[i], xend = skmi1$time[i] + 0.1, yend = skmi1$upper[i], colour = col[2])
-}
-#risk table
-for (ii in 1:nrow(skm0)) {
-  g <- g + annotation_custom(grob = textGrob(skm0$n.risk[ii]), xmin = skm0$time[ii], xmax = skm0$time[ii], ymin= - 1.5 )
-}  
-for (ii in 1:nrow(skm1)) {
-  g <- g + annotation_custom(grob = textGrob(skm1$n.risk[ii]), xmin = skm1$time[ii], xmax = skm1$time[ii], ymin= - 1.7 )
-} 
-#display group text
-g <- g + annotation_custom(grob = textGrob(leg[1]), xmin = -1.7, xmax = -1.7, ymin= - 1.5 )
-g <- g + annotation_custom(grob = textGrob(leg[2]), xmin = -1.7, xmax = -1.7, ymin= - 1.7 )
-
-gt <- ggplotGrob(g)
-gt$layout$clip[gt$layout$name=="panel"] <- "off"
-grid.draw(gt)
-```
-
-
-#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
-
-```{r, echo=FALSE}
-mod <- coxph(Surv(tps, censor) ~ a_recode, data = s)
-```
-```{r, echo=FALSE}
-#résidus de Shoenfeld
-z <- cox.zph(mod, transf="identity")
-plot(z)
-abline(h=0, col="red")
-abline(h=coef(mod), col="blue")
-#non significatif si l'IC contient a tout moment la courbe rouge
-
-#Test de Harrell
-z <- cox.zph(mod, transform = "rank")
-z
-#non signif si p>=0.05
-```
-La courbe est significative, on ajoute une variable dependante du temps.
-
-
-##### Ajout variable dependante du temps
-
-```{r, echo=FALSE}
-ti <- sort(unique(c(0,s$tps[s$censor==1])))
-slat <- s
-slat$start <- 0
-slat$stop <- slat$tps
-slat$evt <- slat$censor
-slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
-
-#○slat$at<-slat$a_recode*log(slat$stop) #courbe moche
-#slat$at<-slat$a_recode*sqrt(slat$stop)#courbe moche
-#slat$at<-slat$a_recode/(slat$stop) #at non significatif
-slat$at<-slat$a_recode*(slat$stop) #courbe moche
-```
-
-##### Verification de la variable dépendante du temps
-
-```{r, echo=FALSE}
-#at significatif?
-coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-summary(coxt)
-```
-si non significatif on test une autre variable at
-si significatif on refait test de harrell et plot des résidus
-
-```{r, echo=FALSE}
-#résidus de Shoenfeld non significatif?
-zt <- cox.zph(coxt, transf="identity")
-for (i in 1:(nrow(zt$table)-1)){
-  iz<-i
-  plot(zt[iz])
-  abline(h=0, col="red")
-}
-#Les 2 courbes doivent être non significatives
-
-#Test de Harrell non significatif?
-zit <- cox.zph(coxt, transform = "rank")
-zit
-#Les 3 p doivent etre >=0.05 
-
-```
-Aucune correction ne convient, je ne peux pas interpreter
-
-
-### SNIP_cmH2O
-
-#### Hypothèse de Loglinéarité
+## CVF_COUCHE_perc_pred
 ```{r}
-check_loglin (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor")
+#check_loglin (var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .censor="censor")
+# check_RP(var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = FALSE)
+# tmp <- lapply(c("log","sqrt","*t","/t","*t^2"),function(x){
+# # tmp <- lapply(c("*t^0.7"),function(x){
+#  add_vart_and_check (var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, .transf=x)
+#  })
+# cat(do.call(rbind, tmp))
+Test_score_HR_IC(var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = FALSE)
 ```
-L'hypothese est rejetee car la courbe n'est pas une droite horizontale (Le risque n'est pas le même pour les scores les plus élevés).
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarité non rejetée car coefficient non significatif.
-Mais comme schéma significatif, on rejette loglinearite
+Loglinearity hypothesis verified.
+Proportionnality not verified, variable cannot be corrected (results without correction)
 
-#### Recodage de la variable quantitative en variable binaire car non respect de loglinearite 
-```{r, echo=FALSE}
-s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-```
-#### courbe de survie car variable recodée en binaire.
-
-```{r, echo=FALSE}
-draw_surv_bin (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
-```
-
-#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
-
-```{r, echo=FALSE}
-check_RP (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
-```
-La courbe est significative, on ajoute une variable dependante du temps.
-
-
-##### Ajout et vérification variable dependante du temps
-
-```{r, echo=FALSE, eval=FALSE}
-#pour verif de add_vart_and_check
-s <- sla
-s$a <- s$SNIP_cmH2O
-s$tps <- (s$time.vni/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-s <- s[!is.na(s$a),]
-cox <- coxph(Surv(tps, censor) ~ a, data = s)
-s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-
-ti <- sort(unique(c(0,s$tps[s$censor==1])))
-slat <- s
-slat$start <- 0
-slat$stop <- slat$tps
-slat$evt <- slat$censor
-slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
-
-slat$at<-slat$a_recode*log(slat$stop) 
-#slat$at<-slat$a_recode*sqrt(slat$stop)
-#slat$at<-slat$a_recode/(slat$stop)
-slat$at<-slat$a_recode*(slat$stop) 
-
-coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-
-summary(coxt)
-zt <- cox.zph(coxt, transf="identity")
-for (i in 1:(nrow(zt$table)-1)){
-  iz<-i
-  plot(zt[iz])
-  abline(h=0, col="red")
-}
-zit <- cox.zph(coxt, transform = "rank")
-zit
-
-```
-
-```{r, echo=FALSE}
-
-tmp <- lapply(c("log","sqrt","*t","/t"),function(x){
-add_vart_and_check (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, .transf=x)  
-})
-cat(do.call(rbind,tmp))
-
-```
-Aucune correction ne convient, je ne peux pas interpreter
-
-### SNIP_perc_pred
-
-#### Hypothèse de Loglinéarité
+## SNIP_cmH2O
 ```{r}
-check_loglin (var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor")
+# check_loglin (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor")
+# check_RP(var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = FALSE)
+# tmp <- lapply(c("log","sqrt","*t","/t","*t^2"),function(x){
+# # tmp <- lapply(c("*t^0.7"),function(x){
+#  add_vart_and_check (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, .transf=x)
+#  })
+# cat(do.call(rbind, tmp))
+Test_score_HR_IC(var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = TRUE, vec_time=12, .transf="*t")
 ```
-L'hypothese est rejetee car la courbe n'est pas une droite horizontale (Le risque n'est pas le même pour les scores autour de 40).
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarité non rejetée car coefficient non significatif.
-Mais comme schéma significatif, on rejette loglinearite. 
+Loglinearity hypothesis verified.
+Proportionnality not verified, variable corrected with t (not perfect)
 
-Je transforme ma variable en binaire (option type=="quanti").
-
-#### courbe de survie car variable recodée en binaire.
-
-```{r, echo=FALSE}
-draw_surv_bin (var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
-```
-
-#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
-
-```{r, echo=FALSE}
-check_RP (var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
-```
-La courbe est non significative, le test est non significatif, je n'ajoute pas de variable dépendante du temps, je peux interpréter.
-
-
-#### Interprêtation du modèle avec variable binaire : HR[95%IC] et significativité (test du score)
+## SNIP_perc_pred
 ```{r}
-
-Test_score_HR_IC(var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, dep_temps = FALSE)
+#check_loglin (var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor")
+# check_RP(var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = FALSE)
+# tmp <- lapply(c("log","sqrt","*t","/t","*t^2"),function(x){
+# # tmp <- lapply(c("*t^0.7"),function(x){
+#  add_vart_and_check (var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, .transf=x)
+#  })
+# cat(do.call(rbind, tmp))
+Test_score_HR_IC(var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = TRUE, vec_time=12, .transf="*t^2")
 ```
-Le test du score n'est pas significatif. Les patients qui ont un snip_perc_pred supérieur à 24% ont un risque de décès multiplié par 0.9 [0.58-1.42] mais ce n'est pas significatif. 
+Loglinearity hypothesis verified.
+Proportionnality not verified, variable corrected with t^2 (not perfect)
 
-
-### PIMAX_cmH2O
-
-#### Hypothèse de Loglinéarité
+## PIMAX_cmH2O
 ```{r}
-check_loglin (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor")
+.var <- "PIMAX_cmH2O"
+.recode <- TRUE
+.dep_temps <- TRUE
+.transf <- "*t"
+# check_loglin (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor")
+# check_RP(var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# tmp <- lapply(c("log","sqrt","*t","/t","*t^2"),function(x){
+# # tmp <- lapply(c("*t^0.7"),function(x){
+#  add_vart_and_check (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+#  })
+# cat(do.call(rbind, tmp))
+
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
 ```
-L'hypothese de loglinearite est rejetee car la courbe n'est pas une droite horizontale.
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite rejetee egalement car coefficient significatif.
-
-
-Je transforme ma variable en binaire (option type=="quanti").
-
-#### courbe de survie car variable recodée en binaire.
-
-```{r, echo=FALSE}
-draw_surv_bin (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
-```
-
-#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
-
-```{r, echo=FALSE}
-check_RP (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
-```
-La courbe est significative, même si le test est non significatif, je dois ajouter variable dépendante du temps.
-
-#### Ajout variable dépendante du temps
+Loglinearity not verified. Variable transformed in binary variable (median).
+Proportionnality not verified, variable corrected with *t (not perfect)
 
 ```{r}
-tmp <- lapply(c("log","sqrt","*t","/t"),function(x){
-add_vart_and_check (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, .transf=x)  
-})
-cat(do.call(rbind,tmp))
+draw_surv_bin(var=.var, data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quanti", surv_only = TRUE) 
 ```
 
-Aucune transformation ne convient, je ne sais pas interprêter.
 
-
-### PIMAX_perc_pred
-
-#### Hypothèse de Loglinéarité
+## PIMAX_perc_pred
 ```{r}
-check_loglin (var="PIMAX_perc_pred", data=sla, .time="time.vni", .censor="censor")
+.var <- var_quanti[7]
+.recode <- FALSE
+.dep_temps <- TRUE
+.transf <- "*t^3"
+
+# check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
+# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
+#   # tmp <- lapply(c("*t^0.7"),function(x){
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+# })
+# cat(do.call(rbind, tmp))
+
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
+
 ```
-L'hypothese de loglinearite est rejetee car la courbe n'est pas une droite horizontale.
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite non rejetee car coefficient non significatif.
 
-
-Courbe prime, je transforme ma variable en binaire (option type="quanti" pour la courbe et recode=TRUE pour les calculs).
-
-#### courbe de survie car variable recodée en binaire.
-
-```{r, echo=FALSE}
-draw_surv_bin (var="PIMAX_perc_pred", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
-```
-
-#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
-
-```{r, echo=FALSE}
-check_RP (var="PIMAX_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
-```
-La courbe est non significative, le test est non significatif, pas besoin d'ajouter de variable dépendante du temps, je peux interpreter.
-
-#### Interprêtation du modèle avec variable binaire : HR[95%IC] et significativité (test du score)
+## perc_time_under_spo2_90
 ```{r}
+.var <- var_quanti[8]
+.recode <- FALSE
+.dep_temps <- FALSE
+.transf <- NULL
 
-Test_score_HR_IC(var="PIMAX_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, dep_temps = FALSE)
-```
-Le test du score n'est pas significatif. Les patients qui ont un pimax_perc_pred supérieur à 38% ont un risque de décès multiplié par 0.9 [0.56-1.31] mais ce n'est pas significatif. 
+# check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
+# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
+#   # tmp <- lapply(c("*t^0.7"),function(x){
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+# })
+# cat(do.call(rbind, tmp))
 
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
 
-
-### perc_time_under_spo2_90
-
-#### Hypothèse de Loglinéarité
-```{r}
-check_loglin (var="perc_time_under_spo2_90", data=sla, .time="time.vni", .censor="censor")
-```
-L'hypothese de loglinearite est respectee car la courbe est une droite horizontale.
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite respectée car coefficient non significatif.
-
-Je ne recode pas ma variable, donc je ne peux pas faire de courbe. (recode=FALSE pour les calculs).
-
-#### Hypothèse des risques proportionnels (avec la variable non recodée)
-
-```{r, echo=FALSE}
-check_RP (var="perc_time_under_spo2_90", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE)
-```
-La courbe est non significative, le test est non significatif, pas besoin d'ajouter de variable dépendante du temps, je peux interpreter.
-
-#### Interprêtation du modèle avec variable binaire : HR[95%IC] et significativité (test du score)
-```{r}
-
-Test_score_HR_IC(var="perc_time_under_spo2_90", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = FALSE)
-```
-Le test du score n'est pas significatif. Pour un point de "perc_time_under_spo2_90" en plus, les patients ont un risque de décès multiplié par 1.00 [0.99-1.01] mais ce n'est pas significatif. 
-
-
-
-### time_under_spo2_90_h
-
-#### Hypothèse de Loglinéarité
-```{r}
-check_loglin (var="time_under_spo2_90_h", data=sla, .time="time.vni", .censor="censor")
-```
-L'hypothese de loglinearite n'est pas respectee car la courbe n'est pas une droite horizontale.
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite respectée car coefficient non significatif (manque de puissance probablement.
-
-Courbe prime, je transforme ma variable en binaire (option type="quanti" pour la courbe et recode=TRUE pour les calculs).
-
-#### courbe de survie car variable recodée en binaire.
-
-```{r, echo=FALSE, eval=FALSE}
-draw_surv_bin (var="time_under_spo2_90_h", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
 ```
 
-Ne marche pas . Mais très peu d'evenement...Peut on vraiment tracer cette courbe? 
 
-
-#### Hypothèse des risques proportionnels (avec la variable recodée)
-
-```{r, echo=FALSE}
-check_RP (var="time_under_spo2_90_h", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
-```
-Ne marche pas car median=0
-
-
-### bicar
-
-#### Hypothèse de Loglinéarité
-```{r}
-check_loglin (var="bicar", data=sla, .time="time.vni", .censor="censor")
-```
-L'hypothese de loglinearite n'est pas rejetée car la courbe est approximativement une droite horizontale.
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite non rejetee car coefficient non significatif.
-
-
-Je ne recode pas ma variable, donc je ne peux pas faire de courbe. (recode=FALSE pour les calculs).
-
-#### Hypothèse des risques proportionnels (avec la variable non recodée)
-
-```{r, echo=FALSE}
-check_RP (var="bicar", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE)
-```
-La courbe est non significative, le test est non significatif, pas besoin d'ajouter de variable dépendante du temps, je peux interpreter.
-
-#### Interprêtation du modèle avec variable binaire : HR[95%IC] et significativité (test du score)
-```{r}
-
-Test_score_HR_IC(var="bicar", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = FALSE)
-```
-Le test du score n'est pas significatif. Pour un point de bicar en plus, les patients ont un risque de décès multiplié par 1.04 [0.99-1.10] mais ce n'est pas significatif. 
-
-
-### ALS_score
-
-#### Hypothèse de Loglinéarité
-```{r}
-check_loglin (var="ALS_score", data=sla, .time="time.vni", .censor="censor")
-```
-L'hypothese de loglinearite est rejetee car la courbe n'est pas une droite horizontale.
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite non rejetee car coefficient significatif.
-
-
-La courbe prime, je transforme ma variable en binaire (option type=="quanti").
-
-#### courbe de survie car variable recodée en binaire.
-
-```{r, echo=FALSE}
-draw_surv_bin (var="ALS_score", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
-```
-
-#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
-
-```{r, echo=FALSE}
-check_RP (var="ALS_score", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
-```
-La courbe est significative, le test est significatif, je dois ajouter variable dépendante du temps.
-
-#### Ajout variable dépendante du temps
-
-```{r, echo=FALSE}
-tmp <- lapply(c("log","sqrt","*t","/t"),function(x){
-add_vart_and_check (var="ALS_score", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, .transf=x)  
-})
-do.call(rbind, tmp)
-```
-
-Aucune transformation ne convient, je ne sais pas interprêter.
-
-
-### bulb_score
-
-#### Hypothèse de Loglinéarité
-```{r}
-check_loglin (var="bulb_score", data=sla, .time="time.vni", .censor="censor")
-```
-L'hypothese de loglinearite est rejetee car la courbe n'est pas une droite horizontale.
-Lecture de la 2e ligne correspondant au degré 2 : hypothèse de Loglinéarite rejetee car coefficient significatif.
-
-
-Je transforme ma variable en binaire (option type=="quanti").
-
-#### courbe de survie car variable recodée en binaire.
-
-```{r, echo=FALSE}
-draw_surv_bin (var="bulb_score", data=sla, .time="time.vni", .censor="censor", vec_time_IC= c(1, 3), type = "quanti")
-```
-
-#### Hypothèse des risques proportionnels (avec la variable recodée le cas échéant)
-
-```{r, echo=FALSE}
-check_RP (var="bulb_score", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE)
-```
-La courbe est significative, meme si le test est non significatif, je dois ajouter variable dépendante du temps.
-
-#### Ajout variable dépendante du temps
+## time_under_spo2_90_h
 
 ```{r}
-tmp <- lapply(c("log","sqrt","*t","/t"),function(x){
-add_vart_and_check (var="bulb_score", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=TRUE, .transf=x)  
-})
-cat(do.call(rbind,tmp))
-```
+.var <- var_quanti[9]
+.recode <- FALSE
+.dep_temps <- FALSE
+.transf <- NULL
 
-Aucune transformation ne convient, je ne sais pas interprêter.
+#  check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
+# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# if (.dep_temps==TRUE) {tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
+#   # tmp <- lapply(c("*t^0.7"),function(x){
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+# })
+# cat(do.call(rbind, tmp))}
 
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
 
-
-
-
-```{r, echo=FALSE, eval=FALSE}
-#### Interprêtation du modèle dépendant du temps : HR[95%IC] et significativité (test du score)
-
-#slat$at<-slat$a_recode*log(slat$stop) 
-#slat$at<-slat$a_recode*sqrt(slat$stop)
-#slat$at<-slat$a_recode/(slat$stop)
-slat$at<-slat$a_recode*(slat$stop) 
-
-coxt <- coxph(Surv(start, stop, censor) ~ a_recode + at, data=slat)
-summary(coxt)
-#Test du score significatif?
 ```
 
 
+## bicar
+```{r}
+.var <- var_quanti[10]
+.recode <- FALSE
+.dep_temps <- FALSE
+.transf <- NULL
 
+#  check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
+# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# if (.dep_temps==TRUE) {tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
+#   # tmp <- lapply(c("*t^0.7"),function(x){
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+# })
+# cat(do.call(rbind, tmp))}
 
-```{r, echo=FALSE, eval=FALSE}
-#### IC : utiliser la matrice de variance covariance pour calculer la variance de l'HR si var dep du temps
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
+```
 
-S <- vcov(coxt)
-b <- coef(coxt)
-t <- 1 #choisir le temps en année
-f <- sqrt
-var <- S[1,1]+S[2,2]*f(t)^2+2*S[1,2]*f(t)
-m <- b[1]+b[2]*f(t) #coef de l'HR
-HR <- round(exp(m),3)
-IC <- round(exp(m + qnorm(0.975)*sqrt(var) * c(-1,1)),3)
+## ALS_score
+```{r}
+.var <- var_quanti[11]
+.recode <- FALSE
+.dep_temps <- TRUE
+.transf <- "*t^3"
 
-paste0("HR[95%IC] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" )
-# HR[95%IC] = 0.916 [0.823-1.018] pour t = 1 an
-# A un an le risque de decès est multiplié par 0.92 pour les patients qui ont une CVF superieur à 49% de la théorique à t0.
+# check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
+# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# if (.dep_temps==TRUE) {tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
+#   # tmp <- lapply(c("*t^0.7"),function(x){
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+# })
+# cat(do.call(rbind, tmp))}
+
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
+```
+t^3 fit approximatively (but not perfect)
+
+## bulb_score
+```{r}
+.var <- var_quanti[12]
+.recode <- TRUE
+.dep_temps <- FALSE
+.transf <- NULL
+
+# check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
+# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# if (.dep_temps==TRUE) {tmp <- lapply(c("log","sqrt","*t","/t",.transf),function(x){
+#   # tmp <- lapply(c("*t^0.7"),function(x){
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+# })
+# cat(do.call(rbind, tmp))}
+
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
+```
+Proportionnality not verified but no correction fit, in consequent, I analyzed it without adding time correction. 
+
+```{r}
+draw_surv_bin(var=.var, data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quanti", surv_only = TRUE, pvalue = TRUE, dep_temps = TRUE, .transf="*t") 
 ```
 
 
+# Plots 
 
+```{r}
+draw_surv_bin(var="familial", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", pvalue = TRUE) 
+```
+```{r}
+draw_surv_bin(var="sex", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type="quali", pvalue=TRUE, dep_temps = TRUE, .transf="*t^0.7")
+```
+```{r}
+draw_surv_bin(var="rilu", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", pvalue = TRUE) 
+```
+```{r}
+draw_surv_bin(var="dysp", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type="quali", pvalue=TRUE, dep_temps = TRUE, .transf="log")
 
+```
+```{r}
+draw_surv_bin(var="orthop", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", pvalue = TRUE)
 
+```
+```{r, fig.width=8, fig.height=8}
+surv_lieudeb (surv_only=FALSE, pvalue=TRUE)
+```
+
+```{r, fig.width=8, fig.height=8}
+draw_surv_bin(var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quanti", surv_only = FALSE, pvalue = TRUE, dep_temps = TRUE, .transf="*t") 
+```
+```{r, fig.width=8, fig.height=8}
+draw_surv_bin(var="bulb_score", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quanti", surv_only = FALSE, pvalue = TRUE)
+```

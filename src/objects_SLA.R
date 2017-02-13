@@ -55,7 +55,7 @@ str(bdd1$PATIENT)
 #       month_bef_vni <- ifelse(str_sub(month_bef_vni,-3,-3)=="M", as.numeric(str_sub(month_bef_vni,-2,-1)),as.numeric(str_sub(month_bef_vni,-1,-1))) #ne marche que jusqu'à M99
 #     }
 #   } else {
-#     month_bef_vni <- NA
+#     month_bef_vni <- NA #j'ai NA si la premiere visite est postérieure à la VNI
 #   }
 # 
 #   return (month_bef_vni)
