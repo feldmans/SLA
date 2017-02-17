@@ -1390,8 +1390,8 @@ assign(names_dataset,ALLpick)
 
 #BMI à l'inclusion
 #c("BMI","BMI_CL1")] #même info mais BMI est plus précise
-#c("WEIGHT_REF","WEIGHT_WB")] #même info mais WEIGHT_WB renseigné plus souvent
-#c("WEIGHT_NUTRI","WEIGHT")] #WEIGHT_NUTRI plus souvent renseigné #même info
+#c("WEIGHT_REF","WEIGHT_WB")] #même info mais WEIGHT_WB renseigné plus souvent : poids de forme
+#c("WEIGHT_NUTRI","WEIGHT")] #WEIGHT_NUTRI plus souvent renseigné #même info 
 #Donc je prend BMI, WEIGHT WB, WEIGHT_NUTRI et DATE_NUTRI (et DATE_EXAM car DATE_NUTRI mal renseignée mais probablement meme date)
 
 NEURO_NUTRI <- bdd6[,c("PATIENT","DATE_NUTRI", "DATEXAM","WEIGHT_NUTRI","BMI","WEIGHT_WB","ALS","E_BULBAIRE")]
@@ -1429,12 +1429,23 @@ saveRDS(all_SLA_bl, "data/all_SLA_bl.rds")
 #-----------------------------
 #Yann recup VNI 
 
+listes_brut <- lapply(bdds, which_col,string1="DATE", string2="VNI",string3="STOP",type="merge")
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  #browser()
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+bdd_debVNI <- get_min_max(data = res, fun = "min")
+bdd_debVNI$DATEVNI <- manage_date_ND(bdd_debVNI$min)
+
+bdd_debVNI <- unique(bdd_debVNI[,c("PATIENT","DATEVNI")])#seul les vrais doublons nom et date sont éliminés
+#bdd_debVNI <- na.omit(bdd_debVNI)
+
+
 #recup de la date de vni a partir des MEO etc...independamment du suivi
 
-summary(vr)
-
-
-v<-c("VNI_ON_PP", "DAT_DECIS_VENT_PP", "DELAI_VENT_PP", "DAT_MISOVR_VENT_PP")
+v<-c("VNI_ON_PP", "DAT_DECIS_VENT_PP", "DELAI_VENT_PP", "DAT_MISOVR_VENT_PP", "ECHEC_MEO_VENT_PP")
 w<-gsub("PP", "PV", v)
 v<-c(v, "DATE_RESP_PP", w, "DATE_PREVENT_PP")
 r<-c("", paste("_F", 1:100, sep=""))
@@ -1444,12 +1455,14 @@ vr$f[is.na(vr$f)]<-0
 vr$vr<-paste(vr$v, vr$r, sep="")
 vr<-vr[vr$vr%in%names(bdd7),]
 dim(vr)
-w<-c("vni", "datedec", "delai", "datemeo", "dateex")
+w<-c("vni", "datedec", "delai", "datemeo", "echec", "dateex")
 
 vrs<-split(vr, vr$f)
-vrs$"2"
+vrs$"1"
+#sapply(vrs, dim)
 
 for (iv in 1:length(vrs)) {
+# iv<-1  
   y<-bdd7[, c("PATIENT", vrs[[iv]]$vr)]
   names(y)[-1]<-w
   y$f<-vrs[[iv]]$f[1]
@@ -1462,27 +1475,20 @@ for (iv in 1:length(vrs)) {
 
 Y<-Y[order(Y$PATIENT, Y$f),]
 head(Y)
-y<-Y[is.na(Y$vni),]
-summary(y)
+
 
 dim(Y)
 Y<-Y[!is.na(Y$vni),]
+Y<-Y[Y$vni==1,]
 dim(Y)
 Y$datedec<-as.Date(as.character(Y$datedec), "%d/%m/%Y")
 Y$datemeo<-as.Date(as.character(Y$datemeo), "%d/%m/%Y")
 Y$dateex<-as.Date(as.character(Y$dateex), "%d/%m/%Y")
 summary(Y)
 
-tab<-table(as.character(Y$PATIENT))
-tab<-data.frame(PATIENT=names(tab), n=as.numeric(tab))
-Y<-merge(Y, tab, by="PATIENT", all=T)
-head(Y[is.na(Y$datedec),])
+Y$echec[is.na(Y$echec)]<-0
 
-x<-tapply(Y$vni, Y$PATIENT, sum)
-x<-data.frame(PATIENT=names(x), nvni=as.numeric(x))
-Y<-merge(Y, x, by="PATIENT", all=T)
-head(Y[is.na(Y$datedec),])
-
+head(Y[Y$echec==1,])
 
 Y$del<-ifelse(Y$delai==1 & !is.na(Y$delai), 0, 0)
 Y$del<-ifelse(Y$delai==2 & !is.na(Y$delai), 7, Y$del)
@@ -1490,21 +1496,19 @@ Y$del<-ifelse(Y$delai==3 & !is.na(Y$delai), 30, Y$del)
 Y$date<-Y$datemeo
 Y$date<-ifelse(is.na(Y$date), Y$datedec+Y$del, Y$date)
 Y$date<-ifelse(is.na(Y$date), Y$dateex+Y$del, Y$date)
-Y$date[Y$vni==0]<-NA
+class(Y$date)<-"Date"
 
-s<-BASE_TOT[, c("PATIENT", "diag")]
-Y<-merge(Y, s, by="PATIENT", all.x=T, all.y=F)
+y<-bdd_debVNI
+head(y)
+Y<-merge(y, Y, by="PATIENT", all=T)
+dim(Y)
+length(unique((Y$PATIENT)))
+
+length((Y$PATIENT))
 
 
-Y[is.na(Y$date) & Y$vni==1,]
-
-y<-Y[!is.na(Y$date) & Y$vni==1,]
-length(unique(y$PATIENT))
-
-y<-y[y$diag==1 & !is.na(y$diag),]
-length(unique(y$PATIENT))
-vnisla<-y
-
+vni<-Y
+head(vni)
 #---------
 #pour garder ceux qui ont un suivi et qu'on garde dans la base (repechage)
 
@@ -1554,44 +1558,190 @@ Ysv[Ysv$s==0 & !is.na(Ysv$datesv),]
 
 Ysv<-Ysv[Ysv$s==1,]
 dim(Ysv)
+
+d<-tapply(Ysv$datesv, Ysv$PATIENT, min)
+d<-data.frame(PATIENT=names(d), datesv1=as.numeric(d))
+class(d$datesv1)<-"Date"
+head(d)
+
+
 sv<-tapply(Ysv$s, Ysv$PATIENT, sum)
 sv<-data.frame(PATIENT=names(sv), sv=as.numeric(sv))
+sv<-merge(sv, d, by="PATIENT", all=T)
+head(sv)
 dim(sv)
+
+z<-merge(vni, sv, by="PATIENT", all=T)
+
+dim(z)
+length(unique(z$PATIENT))
+summary(z)
+
+
 s<-BASE_TOT[, c("PATIENT", "diag")]
-sv<-merge(sv, s, by="PATIENT", all.x=T, all.y=F)
-sv<-sv[sv$diag==1 & !is.na(sv$diag),]
-dim(sv)
+s <- unique(s) #j'ai des doublons dans cette base alors que 2 fois meme info
+tab <- table(s$PATIENT)
+s <- s[! s$PATIENT %in% names(tab)[tab>1], ] #j'élimine doublons avec info discordante
 
-vnisla<-merge(vnisla, sv, by="PATIENT", all=T)
+i<-match(z$PATIENT, s$PATIENT);summary(i)
+z[is.na(i), ]
+z<-z[!is.na(i),]
+
+i<-match(z$PATIENT, s$PATIENT);summary(i)
+z$diag<-s$diag[i]
+table(z$diag, exclude=NULL)
+
+z$diag[is.na(z$diag)]<-0
+
+z$sv1<-pmin(z$sv, 1);z$sv1[is.na(z$sv1)]<-0
+table(z$diag, z$sv1)
+
+z$vni2<-ifelse(!is.na(z$DATEVNI), 1, 0)
+z$vni2<-z$vni2+2*ifelse(!is.na(z$date), 1, 0)
+z$vni2<-z$vni2+4*z$sv1
+addmargins(table(z$diag, z$vni2))
+
+
+z$vni<-ifelse(!is.na(z$DATEVNI) | !is.na(z$date), 1, 0)
+z$sla<-ifelse(z$diag==1, 1, 0)
+addmargins(table(vni=z$vni, suivi=z$sv1, z$sla))
+
+z$datevni<-ifelse(!is.na(z$date), z$date, z$DATEVNI) #datevni rassemble la date obtenue par algorythme et par datamining (si algo absent, alors on prend datamining)
+summary(z)
+class(z$datevni)<-"Date"
+
+
+head(z)
+
+#---------------------------------------------------------------------------------
+#vnisla<-z[z$sla==1 & z$vni==1,]
+vnisla<-z[z$vni==1,]
 head(vnisla)
-vnisla$vni[is.na(vnisla$vni)]<-0
-vnisla$sv[is.na(vnisla$sv)]<-0
-addmargins(table(vnisla$sv, vnisla$vni))
+vnisla$n<-NULL
+vnisla$nechec<-NULL
+vnisla$nvni<-NULL
 
+#d<-tapply(vnisla$datevni, vnisla$PATIENT, min) #date min de vni pour chaque patient: ATTENTION si la min est un echec, ça prend cette date quand meme!
+d<-tapply(vnisla$datevni[vnisla$echec==0 | is.na(vnisla$echec)], vnisla$PATIENT[vnisla$echec==0 | is.na(vnisla$echec)], min) #ne prend pas en compte les echecs
+d<-data.frame(PATIENT=names(d), datevni1=as.numeric(d))
+vnisla<-merge(vnisla, d, by="PATIENT", all=T)
+class(vnisla$datevni1)<-"Date"
 head(vnisla)
 
-class(vnisla$date)<-"Date"
+x<-tapply(vnisla$vni, vnisla$PATIENT, sum) #nb de ligne permettant de definir une date de vni par patient
+x<-data.frame(PATIENT=names(x), nvni=as.numeric(x))
+vnisla<-merge(vnisla, x, by="PATIENT", all=T)
+
+vnisla$echec[is.na(vnisla$echec)]<-0 #nb d'échec de vni
+x<-tapply(vnisla$echec, vnisla$PATIENT, sum)
+x<-data.frame(PATIENT=names(x), nechec=as.numeric(x))
+vnisla<-merge(vnisla, x, by="PATIENT", all=T)
+
+n<-table(vnisla$PATIENT) #nb de lignes avec une info sur la vni 
+n<-data.frame(PATIENT=names(n), n=as.numeric(n))
+vnisla<-merge(vnisla, n, by="PATIENT", all=T)
+addmargins(table(vnisla$n))
+
+
+
+#délai entre VNI et suivi?
+
+
+vnisla$cle<-paste(vnisla$nvni, vnisla$nechec, vnisla$sv1, sep="|") #donne le nombre de lignes étant dans ce cas (attention doublons)
+#pour explorer la base:
+cbind(table(vnisla$cle))
+vnisla[vnisla$cle %in% c("2|0|1") ,]
+
+# 1|0|0 et 1|0|1 : 1 tentative, pas déchec : on garde la ligne (qui est unique pour ces patients)
+#cas 1|1|0 : 1 info de vni, 1 échec, pas de suivi (aucune variable sous_vent) : on supprime la ligne
+vnisla<-vnisla[vnisla$cle!="1|1|0",]
+# cas 1|1|1 : on garde toutes les lignes
+#cas 2|0|0 on prend datevni correspondant à la date min (n'ont pas toutes date de meo)
+vnisla[vnisla$cle %in% c("2|0|0") ,]
+vnisla<-vnisla[!(vnisla$cle=="2|0|0" & vnisla$datevni!=vnisla$datevni1 ),]
+vnisla<-vnisla[!(vnisla$cle=="2|0|0" & vnisla$f<1),]
+# cas 2|0|1: on garde la ligne qui a une date de meo ou une date de decision enfin on prend datevni correspondant à la date min
+vnisla[vnisla$cle %in% c("2|0|1") ,]
+vnisla<-vnisla[!(vnisla$cle=="2|0|1" & vnisla$datevni!=vnisla$datevni1 ), ]
+vnisla<-vnisla[!(vnisla$cle=="2|0|1" & duplicated(vnisla$PATIENT)), ]
+#cas "2|1|0" et "2|1|1" : 2 tentatives de vni, 1 est un échec=> on supprime l'échec
+vnisla[vnisla$cle %in% c("2|1|0") ,]
+vnisla<-vnisla[!(vnisla$cle=="2|1|0" & vnisla$echec==1),]
+vnisla<-vnisla[!(vnisla$cle=="2|1|1" & vnisla$echec==1),]
+#cas 2|2|0 : 2vni 2 echec pas de suivi : je suprrime
+vnisla<-vnisla[vnisla$cle!="2|2|0",]
+#cas "3|1|1" : 3 tentative 1 échec, suivi => on ne garde pas l'échec et on prend la plus petite des dates
+vnisla[vnisla$cle %in% c("3|1|1") ,]
+vnisla<-vnisla[!(vnisla$cle=="3|1|1" & vnisla$echec==1),]
+vnisla<-vnisla[!(vnisla$cle=="3|1|1" & vnisla$datevni!=vnisla$datevni1),]
+# cas 4|0|0 et 4|0|1 : je prend plus petite date de vni et j'enleve le doublon lié à la double date VNI
+vnisla[vnisla$cle %in% c("4|0|1") ,]
+vnisla<-vnisla[!(vnisla$cle=="4|0|0" & vnisla$datevni!=vnisla$datevni1),]
+vnisla<-vnisla[!(vnisla$cle=="4|0|0" & vnisla$DATEVNI!=vnisla$datevni1),] #pour enlever le doublon lié à la double date VNI
+vnisla<-vnisla[!(vnisla$cle=="4|0|1" & vnisla$datevni!=vnisla$datevni1),]
+vnisla<-vnisla[!(vnisla$cle=="4|0|1" & vnisla$DATEVNI!=vnisla$datevni1),] #pour enlever le doublon lié à la double date VNI
+#cas 4|2|0 : j'enlève l'échec et je supprime le doublon lié à fausse DATEVNI
+vnisla[vnisla$cle %in% c("4|2|0") ,]
+vnisla<-vnisla[!(vnisla$cle=="4|2|0" & vnisla$echec==1),]
+vnisla<-vnisla[!(vnisla$cle=="4|2|0" & vnisla$DATEVNI!=vnisla$datevni1),] #pour enlever le doublon lié à la double date VNI
+#cas 4|2|1 : j'enleve le doublon lié à la double date VNI et j'enleve l'echec
+vnisla[vnisla$cle %in% c("4|2|1") ,]
+vnisla<-vnisla[!(vnisla$cle=="4|2|1" & vnisla$echec==1), ]
+vnisla<-vnisla[!(vnisla$cle=="4|2|1" & vnisla$DATEVNI!=vnisla$datevni1), ]
+#cas 4|4|0 : que des échec sans suivi, je supprime
+vnisla<-vnisla[!(vnisla$cle=="4|4|0"),]
+# cas 6|2|1 : j'eneleve les echecs, j'enleve les doublons DATEVNI, je garde la plus petite des dates
+vnisla[vnisla$cle %in% c("6|2|1") ,]
+vnisla<-vnisla[!(vnisla$cle=="6|2|1" & vnisla$echec==1),]
+vnisla<-vnisla[!(vnisla$cle=="6|2|1" & vnisla$DATEVNI!=vnisla$datevni1),]
+vnisla<-vnisla[!(vnisla$cle=="6|2|1" & vnisla$datevni!=vnisla$datevni1),]
+
+
+#plus de doublon datevni!
+table(tab <- table(vnisla$PATIENT))
+
+vnisla[vnisla$PATIENT%in%names(tab)[tab>1], ]
+#792 patients avec une datevni (qui sont donc SLA quoi qu'en dise la base)
+
 saveRDS(vnisla, "data/vnisla.rds")
+
+names_vnisla <- names(table(unique(vnisla$PATIENT)))
+#---------------
 #--------------
-#merger avec datevni qd date=NA
-vnisla <- merge(vnisla, bdd_debVNI, by="PATIENT", all.x=T, all.y=F)
-vnisla$date <- ifelse(is.na(vnisla$date), vnisla$DATEVNI, vnisla$date)
-vnisla$date <- as_date(vnisla$date)
-vnisla <- vnisla[, !names(vnisla)%in%"DATEVNI"]
-saveRDS(vnisla, "data/vnisla.rds")
-#------------------
-#pour recuperer toutes les valeurs
+#essai reshape
+#doublons de bdd9
 
-vs<-c("DATE_RESP", "DATE_PREVENT", "DATE_SOUSVENT")
-extvs<-c("PP", "PP", "SV")
-Ws<-c("PAO2", "PAO2", "PAO2") #a changer 
-Ws<-c("PACO2", "PACO2", "PACO2") #a changer 
-extws<-c("PP", "PV", "SV")
+tmp <- bdd9[bdd9$PATIENT%in%names_vnisla, ]
+tmp <- merge(tmp, vnisla[,c("PATIENT", "datevni")])
+for (i in colnames(tmp)[grep("DAT", colnames(tmp))]) tmp[,i] <- manage_date_ND(tmp[,i])
+tab <- table(tmp$PATIENT)
+db <- names(tab) [tab>1]
+bdd9[bdd9$PATIENT%in%db, 1:100] #doublons foireux dans la base bdd9 
+tmp <- tmp[!tmp$PATIENT %in% db, ]
+
+n1 <- names(tmp)[ grep("WEIGHT_V_M", names(tmp))][1:10]
+n2 <- names(tmp)[ grep("DATEXAM_V_M", names(tmp))][1:10]
+#variables qui varient :
+names_nomonth <- unique(ifelse(str_sub(names(tmp)[ grep("_M", names(tmp))],-3,-3)=="M", str_sub(names(tmp)[grep("_M", names(tmp))],1,-3), str_sub(names(tmp)[grep("_M", names(tmp))],1,-2)))
+tmp2 <- tmp[1:10, c("PATIENT",n1,n2)]
+
+tmp3 <- reshape (data=tmp2, direction="long", varying = c(n1,n2), sep="")
+tmp3 <- reshape (data=tmp2, direction="long", varying = split(names(tmp)[ grep("_M", names(tmp))]), sep="")
+tmp3[order(tmp3$PATIENT, tmp3$DATEXAM_V_M),]
+c("WEIGHT_WB", "WEIGHT_NUTRI_V")
+#------------------
+#pour recuperer toutes les valeurs pneumo
+
+# vs<-c("DATE_RESP", "DATE_PREVENT", "DATE_SOUSVENT")
+# extvs<-c("PP", "PP", "SV")
+# Ws<-c("PAO2", "PAO2", "PAO2") #a changer 
+# Ws<-c("PACO2", "PACO2", "PACO2") #a changer 
+# extws<-c("PP", "PV", "SV")
 vnisla <- readRDS("data/vnisla.rds")
 
 
 get_var_blf0_suivif1 <- function(Ws){
-  
+  print(Ws)
   vs<-c("DATE_RESP", "DATE_PREVENT", "DATE_SOUSVENT")
   extvs<-c("PP", "PP", "SV")
   extws<-c("PP", "PV", "SV")
@@ -1613,11 +1763,12 @@ get_var_blf0_suivif1 <- function(Ws){
     names(vrs)
     vrs$"0"
     vrs$"2"
-    for (iv in 1:length(vrs)) { #comment vrs peut avoir length>1?
+    for (iv in 1:length(vrs)) { 
       #browser()
       y<-bdd7[, c("PATIENT", vrs[[iv]]$vr)]
       names(y)[-1]<-w
-      y$ext<-ext
+      #y$ext<-ext #erreur
+      y$ext<-extws[ie]
       #y$qui<-W #erreur
       y$qui<-Ws[1]
       y$f<-vrs[[iv]]$f[1]
@@ -1638,39 +1789,232 @@ get_var_blf0_suivif1 <- function(Ws){
       YYv<-rbind(YYv, Yv)
     }
   }
-  y<-merge(YYv, vnisla[, c("PATIENT", "date")], by="PATIENT", all=F, suff=c("", ".vni"))
-  y$del<-as.numeric(y$date-y$date.vni)
+  #y<-merge(YYv, vnisla[, c("PATIENT", "date")], by="PATIENT", all=F, suff=c("", ".vni"))
+  y<-merge(YYv, vnisla[, c("PATIENT", "datevni")], by="PATIENT", all=F)
+  
+  #colonne delai(del) entre la date d'exam et la date de vni
+  #y$del<-as.numeric(y$date-y$date.vni)
+  y$del<-as.numeric(y$date-y$datevni)
   y<-y[!is.na(y$del),]
+  
   y<-y[order(y$PATIENT, y$date),]
   head(y)
-  yn<-y[y$del<=0,]
-  head(yn)
-  yp<-y[y$del>0,]
+  
+  #selection des variables de suivi : toutes
+  yp<-y[y$del>0,] 
   head(yp)
   summary(yp)
-  yp$f<-1
+  yp$f<-1 #1 pour suivi (en opposition à baseline)
   
-  
-  yn<-yn[order(yn$PATIENT, -yn$del),]
+  #selection valeur de baseline
+  yn<-y[y$del<=0,]
+  head(yn)
+  yn<-yn[order(yn$PATIENT, -yn$del),] #delai le plus petit en première ligne 
   head(yn)
   id<-unique(yn$PATIENT);id
   dim(yn)
-  yn<-yn[match(id, yn$PATIENT),]
+  yn<-yn[match(id, yn$PATIENT),] #prend la première ligne de yn qui matche avec id (donc prend ligne correspondant au délai le plus petit pour chaque patient)
   dim(yn)
   head(yn)
   summary(yn)
-  yn$f<-0
+  yn$f<-0 #0 pour baseline
   
+  #je rassemble les tableaux baseline(yn) et suivi(yp)
   y<-rbind(yp, yn)
   y<-y[order(y$PATIENT, y$del),]
   head(y)
   return(y)
 }
 
+#selectionner tous les couples de variables pneumo existant
+v <- names(bdd7)          
+v1 <- v[grep("_PP", v)] #existe car vient de names(bdd7)
+v1 <- v1[- grep("DATE_PREVENT", v1)]
+v1 <- v1[- grep("DATE_RESP", v1)]
+v1 <- v1[str_sub(v1, -2, -1)=="PP"] 
+v1 <- str_sub(v1, 1, -4)
+
+vbis <- v[grep("_PV_F1", v)] #existe car vient de names(bdd7)
+vbis <- vbis[str_sub(vbis, -3, -3)=="_"]
+vbis <- str_sub(vbis, 1, -7)
+
+vter <- v[grep("_SV_F1", v)] #existe car vient de names(bdd7)
+vter <- vter[str_sub(vter, -3, -3)=="_"]
+vter <- str_sub(vter, 1, -7)
+
+v <- data.frame(v = unique(c(v1, vbis, vter)))
+v$v1 <- paste(v$v, "PP", sep="_")
+v$exist_v <- v$v1%in%names(bdd7)
+v$v1 <- ifelse (v$exist_v==FALSE, NA, v$v1)
+v$v2 <- paste(v$v, "PV", "F1", sep="_")
+v$exist_v <- v$v2%in%names(bdd7)
+v$v2 <- ifelse (v$exist_v==FALSE, NA, v$v2)
+v$v3 <- paste(v$v, "SV", "F1", sep="_")
+v$exist_v <- v$v3%in%names(bdd7)
+v$v3 <- ifelse (v$exist_v==FALSE, NA, v$v3)
+v$exist_v <- NULL
+#en resume :
+#les variables existant uniquement en v1 sont les variables à baseline independantes de la VNI
+#les variables existant en v1 et v2 sont les variables à baseline dependant de la date de vni
+#les variables existant en v3 +/- v2 et v1 sont les variables repetees
+
+saveRDS (v, "data/variables_neuro.rds")
+
+write.table(print(v), file="clipboard", sep="\t", row.names=F )
+
 PaO2 <- get_var_blf0_suivif1(c("PAO2", "PAO2", "PAO2"))
 PaCO2 <- get_var_blf0_suivif1(c("PACO2", "PACO2", "PACO2"))
-.l <- lapply(list(c("PAO2", "PAO2", "PAO2"), c("PACO2", "PACO2", "PACO2")),get_var_blf0_suivif1)
-var_rep_pneumo <- do.call(rbind, .l)
+listv <- list(c("DYSP_DECUBI","DYSP_DECUBI","ORTHOPN"), c("PACO2","PACO2","PACO2"), c("PAO2","PAO2","PAO2"), 
+              c("HCO3", "HCO3", "HCO3"), c("PH", "PH", "PH"), c("CEPHAL", "CEPHAL", "CEPHAL"))
+
+.l <- lapply(listv,get_var_blf0_suivif1)
+tab_rep_pneumo <- do.call(rbind, .l)
+saveRDS(tab_rep_pneumo, "data/tab_rep_pneumo.rds")
+
+
+#---------------
+#var neuro répétées
+#invariable à merger par patient : "WEIGHT_WB"
+
+Ws <- c("WEIGHT_NUTRI", "WEIGHT_NUTRI_V")
+Ws <- c("DATE_NUTRI", "DATE_NUTRI_V")
+get_var_blf0_suivif1_neuro(c("DATE_NUTRI", "DATE_NUTRI_V"))
+
+get_var_blf0_suivif1_neuro <- function(Ws1, Ws2){
+
+  Ws <- c(Ws1, Ws2)
+  print(Ws)
+  vs <- c("DATEXAM", "DATEXAM_V")
+  extws <- c("base", "suivi")
+  
+  #base
+  v <- c(vs[1], Ws[1])
+  w<-c("date", "x")
+  y<-bdd6[, c("PATIENT", v)]
+  names(y)[-1]<-w
+  y$ext <- extws[1]
+  y$qui <- Ws[1]
+  y$f<- 0 #f0 car base
+  Yv<-y
+  # Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+  Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+  
+  #option var non date
+  Yv$x<-as.numeric(as.character(Yv$x))
+  # #option verif_date :Ws <- c("DATE_NUTRI", "DATE_NUTRI_V") #pour verifier que la date nutri est la meême que la date exam
+  # Yv$x<-as.Date(as.character(Yv$x), "%d/%m/%Y")
+  
+  # Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+  YYv<-Yv
+  
+  #suivi
+  v <- c(vs[2], Ws[2])
+  r<-c("", paste("_M", 1:100, sep=""))
+  vr<-expand.grid(list(v=v, r=r))
+  vr$f<-as.numeric(gsub("_M", "", vr$r, fix=T))
+  vr$f[is.na(vr$f)]<-0
+  vr$vr<-paste(vr$v, vr$r, sep="")
+  vr<-vr[vr$vr%in%names(bdd9),]
+  w<-c("date", "x")
+  vrs<-split(vr, vr$f)
+  
+  for (iv in 1:length(vrs)) { 
+    #browser()
+    y<-bdd9[, c("PATIENT", vrs[[iv]]$vr)]
+    names(y)[-1]<-w
+    y$ext<-extws[ie]
+    #y$qui<-W #erreur
+    y$qui<-Ws[1]
+    y$f<-vrs[[iv]]$f[1]
+    if (iv==1) {
+      Yv<-y
+    } else {
+      Yv<-rbind(Yv, y)
+    }
+  }
+  #browser()
+  # Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+  Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+  
+  #option var non date
+  Yv$x<-as.numeric(as.character(Yv$x))
+  # #option verif_date :Ws <- c("DATE_NUTRI", "DATE_NUTRI_V") 
+  # Yv$x<-as.Date(as.character(Yv$x), "%d/%m/%Y")
+  
+  # Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+  head(Yv)
+  YYv<-rbind(YYv, Yv)
+  YYv<-YYv[order(YYv$PATIENT, YYv$f),]
+  YYv<-YYv[!is.na(YYv$x) & !is.na(YYv$date),]
+  if (nrow(YYv)==0) return(NULL)
+  #y<-merge(YYv, vnisla[, c("PATIENT", "date")], by="PATIENT", all=F, suff=c("", ".vni"))
+  y<-merge(YYv, vnisla[, c("PATIENT", "datevni")], by="PATIENT", all=F)
+  #y$del<-as.numeric(y$date-y$date.vni)
+  y$del<-as.numeric(y$date-y$datevni)
+  y<-y[!is.na(y$del),]
+  y<-y[order(y$PATIENT, y$date),]
+  
+  #selection des variables de suivi : toutes
+  yp<-y[y$del>0,] 
+  head(yp)
+  summary(yp)
+  if(nrow(yp)!=0) yp$f<-1 #1 pour suivi (en opposition à baseline)
+  
+  #selection valeur de baseline
+  yn<-y[y$del<=0,]
+  head(yn)
+  yn<-yn[order(yn$PATIENT, -yn$del),] #delai le plus petit en première ligne 
+  head(yn)
+  id<-unique(yn$PATIENT);id
+  dim(yn)
+  yn<-yn[match(id, yn$PATIENT),] #prend la première ligne de yn qui matche avec id (donc prend ligne correspondant au délai le plus petit pour chaque patient)
+  dim(yn)
+  head(yn)
+  summary(yn)
+  if(nrow(yn)!=0)yn$f<-0 #0 pour baseline
+  
+  #je rassemble les tableaux baseline(yn) et suivi(yp)
+  y<-rbind(yp, yn)
+  y<-y[order(y$PATIENT, y$del),]
+  head(y)
+  return(y)
+}
+
+
+#selectionner tous les couples de variables existant
+v1 <- names(bdd6)          
+v2 <- paste0(v1, "_V")
+r<-c(paste("_M", 1, sep=""))
+vr<-expand.grid(list(v=v2, r=r))
+vr$vr<-paste(vr$v, vr$r, sep="")
+vr<-vr[vr$vr%in%names(bdd9),]
+vr$base <- as.character(str_sub(vr$v, 1,-3))
+vr$suivi <- as.character(vr$v)
+list(vr$base, vr$suivi)
+vr <- vr[! vr$suivi %in% vr$suivi[grep("DAT", vr$suivi)], ]
+table(table(vr$base[vr$base %in% names(bdd6)]))
+
+#appliquer la fonction à tous les couples de variables
+.l <- mapply(get_var_blf0_suivif1_neuro, Ws1 = vr$base, Ws2 = vr$suivi)
+tab_rep_neuro <- do.call(rbind, .l)
+
+#ancienne version : version get_var_blf0_suivif1_neuro <- function(Ws){ (n'existe plus mais facile à refaire en suprrimant la ligne Ws <- c(Ws1, Ws2))
+#listvn <- list(c("WEIGHT_NUTRI", "WEIGHT_NUTRI_V"), c("BMI","BMI_V"), c("ALS", "ALS_V"))
+#.l <- lapply(listvn,get_var_blf0_suivif1_neuro) 
+#tab_rep_neuro <- do.call(rbind, .l)
+
+
+var_poids <- tab_rep_neuro %>% filter(qui=="WEIGHT_NUTRI") 
+var_poids <- merge(var_poids, bdd6[, c("PATIENT", "WEIGHT_WB", "WEIGHT_REF")], by="PATIENT", all=F)
+var_poids <- var_poids[!(is.na(var_poids$WEIGHT_WB) & is.na(var_poids$WEIGHT_REF)), ]
+var_poids$WEIGHT_WB <- as.numeric(as.character(var_poids$WEIGHT_WB))
+var_poids$WEIGHT_REF <- as.numeric(as.character(var_poids$WEIGHT_REF))
+var_poids$x <- ifelse (!is.na(var_poids$WEIGHT_WB), var_poids$x - var_poids$WEIGHT_WB, var_poids$x - var_poids$WEIGHT_REF)
+var_poids$qui <- "DELTA_WEIGHT_REF"
+var_poids <- var_poids[ , names(var_poids) %in% colnames(tab_rep_neuro)]
+
+tab_rep_neuro <- rbind(tab_rep_neuro, var_poids)
+saveRDS(tab_rep_neuro, "data/tab_rep_neuro.rds")
 
 #---------------
 #---------------
