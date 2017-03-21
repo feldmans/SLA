@@ -14,13 +14,32 @@ for (i in .dir_csv) {
 }
 bdds <- paste0("bdd",1:9)
 
+#Pour transformer les noms de patients en charactere
 for (i in bdds){
   #browser()
   data <- get(i)
   data$PATIENT <- as.character(data$PATIENT)
   assign(i,data)
 }
-str(bdd1$PATIENT)
+
+#Pour anonymiser
+# names_pat <- unique(c(bdd1$PATIENT, bdd2$PATIENT, bdd3$PATIENT, bdd4$PATIENT, bdd5$PATIENT, bdd6$PATIENT, bdd7$PATIENT, bdd8$PATIENT, bdd9$PATIENT))
+# anonymes <- data.frame(PATIENT = names_pat, numpat = paste0("ID", 1:length(names_pat)))
+# write.csv2(anonymes, file="C:/Users/4051268/Documents/SLA/sauvegarde data/sla/data/tableau_anonymat.csv")
+anonymes <- read.csv2("C:/Users/4051268/Documents/SLA/sauvegarde data/sla/data/tableau_anonymat.csv")
+anonymes$PATIENT <- as.character(anonymes$PATIENT)
+anonymes$numpat <- as.character(anonymes$numpat)
+for (i in bdds){
+  #browser()
+  data <- get(i)
+  data <- merge(data, anonymes, by="PATIENT", all=F)
+  data$PATIENT <- data$numpat
+  data$numpat <- NULL
+  data$PATIENT <- as.character(data$PATIENT)
+  assign(i,data)
+}
+
+
 
 
 #A commenter qd datamanagement refait depuis le début
