@@ -80,8 +80,8 @@ s[s$PATIENT=="OUARY_ROGER",]
 
 #si date de visite superieure à systeme date, on supprime la visite
 s <- s[s$date<Sys.Date(), ]
-
-
+u<-tapply(s_i$x, s_i$qui, unique)
+nu<-sapply(u, length);nu
 #quasiment pas renseigné... je laisse tomber ces variables
 # s_dur <- merge(s[s$qui %in% "DUREE_ENREG_H_PP", ], s[s$qui %in% "DUREE_ENREG_MIN_PP", c("PATIENT", "date", "x")], by=c("PATIENT", "date"), suffixes = c(".h",".min"), ALL=T)
 # s_dur$x.h <- s_dur$x.h*60
@@ -115,6 +115,18 @@ quali_pneumo <- c("DYSPN_SOUSVENT_SV", "DYSPN_SVENT_SV", "EVOL_SOMM_VNI_SV", "QU
 
 sort(unique(s$qui)[! unique(s$qui) %in% c(nokeep, quanti_neuro, quanti_pneumo, bin_pneumo,quali_pneumo) ])
 
+c<-tapply(s_i$x, s_i$qui, c)
+nc<-lapply(c, length)
+cu<-lapply(c, unique)
+ncu<-lapply(cu, length)
+
+ncu<-data.frame(var=names(c), nbval=as.numeric(nc), nbvalu=as.numeric(ncu))
+i<-pmin(match(ncu$var, quanti_pneumo, nomatch=0), 1);i
+ncu$type<-c("", "quanti_pneumo")[i+1]
+ncu
+
+ncu$type[ncu$nbval<50 | ncu$nbvalu<=3 & ncu$type=="quanti_pneumo"]<-"-"
+
 #=================================================================
 #2/ génération du tableau dépendant du temps pour une variable donnée
 
@@ -127,11 +139,11 @@ vec <- "quanti_pneumo"
 
 pdf(paste0("writing/RP_", vec, ".pdf"))
 par(mfrow=c(1,1))
-vec <- get(vec)
+#vec <- get(vec)
   
-  
+vec<-as.character(ncu$var)[ncu$type==vec];vec  
 for (var in vec) {#ce sera le debut de la boucle
-
+#var<-vec[18]
   print(var)
   #var="BREF"
   s <- s_i[s_i$qui==var, ]
