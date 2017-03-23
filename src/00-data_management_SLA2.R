@@ -1233,8 +1233,8 @@ var_poids$x <- var_poids$poids_pv - var_poids$x
 var_poids$qui <- "DELTA_WEIGHT_DEBVNI"
 var_poids_debvni <- var_poids[ , names(var_poids) %in% colnames(tab_rep_neuro)]
 
-tab_rep_neuro2 <- rbind(tab_rep_neuro, var_poids_ref, var_poids_debvni)
-saveRDS(tab_rep_neuro2, "data/df_rep_neuro.rds")
+df_rep_neuro <- rbind(tab_rep_neuro, var_poids_ref, var_poids_debvni)
+saveRDS(df_rep_neuro, "data/df_rep_neuro.rds")
 
 #-----------
 #-----------
@@ -1245,15 +1245,18 @@ vrbis <- read.csv2("data/variables_suivi_neuro_clean.csv")
 vrbis$var_bdd6 <- as.character(vrbis$var_bdd6)
 vrbis$var_bdd9 <- as.character(vrbis$var_bdd9)
 vrbis$var_possibles <- as.character(vrbis$var_possibles)
-sample_n(vrbis, 10)
-str(vrbis)
+#sample_n(vrbis, 10)
+#str(vrbis)
+
 #je transforme pour que ça ressemble aux variables de vr
 vrbis$var_bdd9 <- str_sub(vrbis$var_bdd9, 1, -4)
-table(vr$base %in% vrbis$var_bdd6) #ok, les mêmes noms 
-table(vr$suivi %in% vrbis$var_bdd9)#ok, les mêmes noms
+# table(vr$base %in% vrbis$var_bdd6) #ok, les mêmes noms 
+# table(vr$suivi %in% vrbis$var_bdd9)#ok, les mêmes noms
+
 #je selectionne les couples dispo dans la colonne base uniquement(var_bdd6)
 vnr <- vrbis[is.na(vrbis$var_bdd9) & !is.na(vrbis$var_bdd6), ]
-# #je supprime les variables dates (sinon fait bugger la fonction)
+
+# #je supprime les variables dates (sinon fait bugger la fonction) #deja supprimees manuellement
 # vnr <- rbind(vnr[! vnr$var_bdd6 %in% vnr$var_bdd6[grep("DAT", vnr$var_bdd6)], ], vnr[vnr$var_bdd6=="TREPIDATION_PIED_CHOICE_1" |vnr$var_bdd6=="TREPIDATION_PIED_CHOICE_2", ])
 
 for (i in vrbis[!is.na(vrbis$var_bdd9) & is.na(vrbis$var_bdd6), "var_bdd9"]) {
@@ -1262,14 +1265,33 @@ for (i in vrbis[!is.na(vrbis$var_bdd9) & is.na(vrbis$var_bdd6), "var_bdd9"]) {
 }
 
 df_bl_neuro <- bdd6[ ,c("PATIENT", vnr$var_bdd6)]
-df_bl_neuro <- merge(df_bl_neuro, bdd_dates, by="PATIENT", all.x=T, all.y=T)
+df_bl_neuro <- merge(df_bl_neuro, bdd_dates, by="PATIENT", all.x=F, all.y=T)
 #df_bl_neuro <- df_bl_neuro[df_bl_neuro$PATIENT %in% vnisla$PATIENT, ]
+
+#au moins SLA => sla
+#tous pas sla => pas sla
+# NA et les autres pas SLA => NA
+
+# y<-df_bl_neuro[, c("DCD_PERE_NEURO", "DCD_MERE_NEURO"," ...")]
+# yna<-ifelse(is.na(y), 0, 1)
+# y[is.na(y)]<-""
+# y<-ifelse(y=="SLA", 1,0)
+# sy<-rowSums(y)
+# syna<-rowSums(yna)
+# 
+# sy>1 => SLA
+# sy=0 & syna=nombre de variable => pas sla
+# sy=0 & syna<nombre de variable => expertise sarah
+
+
 
 df_bl_neuro$sla_familiale <- ifelse(df_bl_neuro$DCD_PERE_NEURO=="SLA" | df_bl_neuro$DCD_MERE_NEURO=="SLA" | 
                                     df_bl_neuro$ATCD_FAMIL_L1 == "SLA" |  df_bl_neuro$ATCD_FAMIL_L2 == "SLA" |
                                       df_bl_neuro$ATCD_FAMIL_L3 == "SLA" |  df_bl_neuro$ATCD_FAMIL_L4 == "SLA" |
                                       df_bl_neuro$ATCD_FAMIL_L5 == "SLA" |  df_bl_neuro$ATCD_FAMIL_L6 == "SLA" |
                                       df_bl_neuro$SOD1==1, 1, 0)
+
+
 
 #--------
 # a l'occasion, refaire rilu oui non à partir de bdd8
@@ -1351,11 +1373,14 @@ df_bl_neuro$agevni <-  round(as.numeric(df_bl_neuro$datevni - df_bl_neuro$DOB)/3
 df_bl_neuro$SLAtillvni <- round(as.numeric(df_bl_neuro$datevni - df_bl_neuro$FIRSTSYMPTOM)/365.25*12, 0)#en mois
 
 #date de premier symptome ultérieur à la date de vni
-df_bl_neuro[df_bl_neuro$SLAtillvni<0 & !is.na(df_bl_neuro$SLAtillvni), ]
+pb<-df_bl_neuro[df_bl_neuro$SLAtillvni<0 & !is.na(df_bl_neuro$SLAtillvni), ]
+dim(pb)
+pb[, c("datevni", "FIRSTSYMPTOM", "dfin")]
 
 apply(apply(df_bl_neuro,2,is.na),2,sum)
 table(apply(apply(df_bl_neuro,2,is.na),2,sum))
 saveRDS(df_bl_neuro, "data/df_bl_neuro.rds")
+#df_bl_neuro<-readRDS("data/df_bl_neuro.rds")
 
 #-------
 #Merge bl neuro et pneumo
@@ -1394,21 +1419,28 @@ dr <- readRDS("data/df_rep.rds")
 
 #doublons
 table(tab <- table(bl$PATIENT))
-names(tab)[tab>1] #3 doublons
+names(tab)[tab>1] #7 doublons
 names_doublons <- names(tab)[tab>1]
 
-#Je supprime ces 3 doublons de la base repetee
+table(d<-duplicated(dr))#345 duplicats...
+dim(dr)
+head(dr[d,])
+#dr<-dr[!d,]
+dr[dr$PATIENT=="ID8992" & dr$qui=="ALS",]
+
+#Je supprime ces 3 doublons de la base repetee et de la base baseline
 dr <- dr[! dr$PATIENT %in% names_doublons, ]
+bl <- bl[! bl$PATIENT %in% names_doublons, ]
 
 #verif dates
-table(dr$date>as_date("2016-01-01"))#85
+table(dr$date>as_date("2016-01-01"))#149
 #Je supprime les dates incohérentes
 dr <- dr[dr$date<as_date("2016-01-01"), ]
 
 #si date de visite après décès, ce n'est pas un décès et time.vni(follow up time à partir de la vni) = max date de visite 
-dr[dr$date>dr$date_dc & !is.na(dr$date_dc), "date_dc"] <- NA
-dr[dr$date>dr$date_dc, "evt"] <- 0
+dr[dr$date>dr$date_dc& !is.na(dr$date_dc), "evt"] <- 0
 dr[ , "time.vni"] <- as.numeric(max(dr[dr$date>dr$date_dc, "date"]) - dr[dr$date>dr$date_dc, "datevni"][1])
+dr[dr$date>dr$date_dc & !is.na(dr$date_dc), "date_dc"] <- NA
 
 saveRDS(dr, "data/df_rep.rds")
 
@@ -1453,6 +1485,7 @@ get_lab <- function(num){
   lab_bdd <-merge(sl, si1, by="var", all=T)
   return(lab_bdd)
 }
+
 for (i in c(6,7,9)){
   lab_bdd <- get_lab(i)
   assign(paste0("lab_bdd",i), lab_bdd)
@@ -1466,6 +1499,26 @@ lab_bdd7[lab_bdd7$var=="PAO2_SV_F1", ]
 lab_bdd7[grep("SATISF_VENTIL_SV",lab_bdd7$var),]
 
 table(bdd7$GAZOM_AIR_SV_F1)
+
+
+# vb<-names(bdd7)
+# j<-grep("DATE_SOUSVENT", vb, fix=T);j
+# vd<-vb[j];vd
+# i<-grep("MODIF_PARAM_ITEMS_SV_C", vb, fix=T);i
+# v<-vb[i]
+# v
+# 
+# k<-findInterval(i,j);k
+# tabk<-table(k);nk<-unique(tabk);nk
+# w<-expand.grid(list(k=1:nk, j=1:length(j)))
+# w$w<-paste("MODIF_PARAM_SV_", w$k, "_F", w$j, sep="")
+# w$old<-v
+# w
+# 
+# i<-match(w$old, vb);summary(i)
+# names(bdd7)[i]
+# names(bdd7)[i]<-as.character(w$w)
+names(bdd7)[i]
 
 
 
