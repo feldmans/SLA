@@ -30,7 +30,7 @@ sla$keep <- ifelse (sla$DATEVNI<=sla$ddn,1,0)
 sla <- sla[sla$keep==1, ]
 sla$time.vni <- as.numeric(sla$ddn - sla$DATEVNI)
 sla$time.sym <- as.numeric(sla$ddn - sla$FIRSTSYMPTOM)
-sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
+sla$evt <- ifelse (!is.na(sla$date_dc),1, 0)
 # sex : 1 = 'Masculin' 2 = 'Feminin' => 0 = 'Masculin' 1 = 'Feminin'
 sla$sex <- ifelse(sla$sex_def==1,0,sla$sex_def) #0 = 'Masculin' 1 = 'Feminin'
 sla$sex <- ifelse(sla$sex_def==2,1,sla$sex) #0 = 'Masculin' 1 = 'Feminin'
@@ -63,7 +63,7 @@ all_SLA <- all_SLA[all_SLA$keep==1, ]
 all_SLA$ddn <- as_date(all_SLA$ddn)
 all_SLA$time.vni <- as.numeric(all_SLA$ddn - all_SLA$DATEVNI)
 all_SLA$time.sym <- as.numeric(all_SLA$ddn - all_SLA$FIRSTSYMPTOM)
-all_SLA$censor <- ifelse (!is.na(all_SLA$date_dc),1, 0)
+all_SLA$evt <- ifelse (!is.na(all_SLA$date_dc),1, 0)
 # sex : 1 = 'Masculin' 2 = 'Feminin' => 0 = 'Masculin' 1 = 'Feminin'
 all_SLA$sex <- ifelse(all_SLA$sex_def==1,0,all_SLA$sex_def) #0 = 'Masculin' 1 = 'Feminin'
 all_SLA$sex <- ifelse(all_SLA$sex_def==2,1,all_SLA$sex) #0 = 'Masculin' 1 = 'Feminin'
@@ -129,7 +129,7 @@ median follow-up (year):
 ```{r, echo=FALSE, message=FALSE}
 #suivi
 s<-sla[!is.na(sla$time.vni),]
-sym.suiv <- survfit(Surv(time.vni,1-censor)~1,data=s)
+sym.suiv <- survfit(Surv(time.vni,1-evt)~1,data=s)
 an <- paste0 (round(summary(sym.suiv)$table['median']/365.25,2)," [", round(summary(sym.suiv)$table['0.95LCL']/365.25,2),"-",round(summary(sym.suiv)$table['0.95UCL']/365.25,2),"]")
 an
 ```
@@ -138,7 +138,7 @@ median follow-up (months):
 
 ```{r, echo=FALSE, message=FALSE}
 #suivi
-sym.suiv2 <- survfit(Surv((time.vni*12/365.25),1-censor)~1,data=s)
+sym.suiv2 <- survfit(Surv((time.vni*12/365.25),1-evt)~1,data=s)
 m <- paste0 (round(summary(sym.suiv2)$table['median'],2)," [", round(summary(sym.suiv2)$table['0.95LCL'],2),"-",round(summary(sym.suiv2)$table['0.95UCL'],2),"]")
 m
 ```
@@ -147,10 +147,10 @@ m
 
 ```{r}
 s<-sla[!is.na(sla$time.sym),]
-sym.surv <- survfit(Surv(time.sym,censor)~1, data=s, conf.int=.95)
+sym.surv <- survfit(Surv(time.sym,evt)~1, data=s, conf.int=.95)
 
 
-# sym.surv2 <- survfit(Surv(time.sym*12/365.25,censor)~1, data=s, conf.int=.95)
+# sym.surv2 <- survfit(Surv(time.sym*12/365.25,evt)~1, data=s, conf.int=.95)
 # ggsurv(sym.surv2) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
 #   #scale_x_continuous(breaks=seq(0,max(s$time.sym),1), labels=0:(length(seq(0,max(s$time.sym),1))-1)) +
 #   scale_y_continuous(labels=percent) +
@@ -178,7 +178,7 @@ median survival (year):
 ```{r, echo=FALSE, message=FALSE}
 #suivi
 s<-sla[!is.na(sla$time.sym),]
-sym.surv <- survfit(Surv(time.sym,censor)~1, data=s, conf.int=.95)
+sym.surv <- survfit(Surv(time.sym,evt)~1, data=s, conf.int=.95)
 an <- paste0 (round(summary(sym.surv)$table['median']/365.25,2)," [", round(summary(sym.surv)$table['0.95LCL']/365.25,2),"-",round(summary(sym.surv)$table['0.95UCL']/365.25,2),"]")
 an
 ```
@@ -188,7 +188,7 @@ median follow-up (month):
 ```{r, echo=FALSE, message=FALSE}
 #suivi
 s<-sla[!is.na(sla$time.sym),]
-sym.surv2 <- survfit(Surv(time.sym*12/365.25,censor)~1, data=s, conf.int=.95)
+sym.surv2 <- survfit(Surv(time.sym*12/365.25,evt)~1, data=s, conf.int=.95)
 m <- paste0 (round(summary(sym.surv2)$table['median'],2)," [", round(summary(sym.surv2)$table['0.95LCL'],2),"-",round(summary(sym.surv2)$table['0.95UCL'],2),"]")
 m
 ```
@@ -197,10 +197,10 @@ m
 
 ```{r}
 s<-sla[!is.na(sla$time.vni),]
-vni.surv <- survfit(Surv(time.vni,censor)~1, data=s, conf.int=.95)
+vni.surv <- survfit(Surv(time.vni,evt)~1, data=s, conf.int=.95)
 
 
-# vni.surv2 <- survfit(Surv(time.vni*12/365.25,censor)~1, data=s, conf.int=.95)
+# vni.surv2 <- survfit(Surv(time.vni*12/365.25,evt)~1, data=s, conf.int=.95)
 # ggsurv(vni.surv2) +#https://www.r-bloggers.com/survival-plots-have-never-been-so-informative/
 #   #scale_x_continuous(breaks=seq(0,max(s$time.vni),1), labels=0:(length(seq(0,max(s$time.vni),1))-1)) +
 #   scale_y_continuous(labels=percent) +
@@ -228,7 +228,7 @@ median survival (year):
 ```{r, echo=FALSE, message=FALSE}
 #suivi
 s<-sla[!is.na(sla$time.vni),]
-vni.surv <- survfit(Surv(time.vni,censor)~1, data=s, conf.int=.95)
+vni.surv <- survfit(Surv(time.vni,evt)~1, data=s, conf.int=.95)
 an <- paste0 (round(summary(vni.surv)$table['median']/365.25,2)," [", round(summary(vni.surv)$table['0.95LCL']/365.25,2),"-",round(summary(vni.surv)$table['0.95UCL']/365.25,2),"]")
 an
 ```
@@ -238,7 +238,7 @@ median survival (month):
 ```{r, echo=FALSE, message=FALSE}
 #suivi
 s<-sla[!is.na(sla$time.vni),]
-vni.surv2 <- survfit(Surv(time.vni*12/365.25,censor)~1, data=s, conf.int=.95)
+vni.surv2 <- survfit(Surv(time.vni*12/365.25,evt)~1, data=s, conf.int=.95)
 m <- paste0 (round(summary(vni.surv2)$table['median'],2)," [", round(summary(vni.surv2)$table['0.95LCL'],2),"-",round(summary(vni.surv2)$table['0.95UCL'],2),"]")
 m
 ```
@@ -249,9 +249,9 @@ For all the following analysis, beginning = NIV
 
 ## Familial
 ```{r}
-#check_RP (var="familial", data=sla, .time="time.vni", .censor="censor", type="quali")
-draw_surv_bin(var="familial", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
-Test_score_HR_IC(var="familial", data=sla, .time="time.vni", .censor="censor", type="quali", dep_temps = FALSE)
+#check_RP (var="familial", data=sla, .time="time.vni", .evt="evt", type="quali")
+draw_surv_bin(var="familial", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
+Test_score_HR_IC(var="familial", data=sla, .time="time.vni", .evt="evt", type="quali", dep_temps = FALSE)
 ```
 
 Proportionnal hazard hypothesis verified.
@@ -259,55 +259,55 @@ Proportionnal hazard hypothesis verified.
 
 ## Sex
 ```{r, eval=FALSE}
-check_RP (var="sex", data=sla, .time="time.vni", .censor="censor", type="quali")
+check_RP (var="sex", data=sla, .time="time.vni", .evt="evt", type="quali")
 #tmp <- lapply(c("log","sqrt","*t","/t","2sqrt"),function(x){
 tmp <- lapply("*t^0.7",function(x){
-add_vart_and_check (var="sex", data=sla, .time="time.vni", .censor="censor", type="quali", recode=FALSE, .transf=x)  
+add_vart_and_check (var="sex", data=sla, .time="time.vni", .evt="evt", type="quali", recode=FALSE, .transf=x)  
 })
 cat(do.call(rbind,tmp))
 ```
 Proportionnal hazard hypothesis not verified, time dependant variable added (var*t^0.7)
 
 ```{r}
-draw_surv_bin(var="sex", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
+draw_surv_bin(var="sex", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
 ```
 0: male 1: female
 
 ```{r}
-Test_score_HR_IC(var="sex", data=sla, .time="time.vni", .censor="censor", type="quali", recode=FALSE, dep_temps = TRUE, .transf="*t^0.7", vec_time=12)
+Test_score_HR_IC(var="sex", data=sla, .time="time.vni", .evt="evt", type="quali", recode=FALSE, dep_temps = TRUE, .transf="*t^0.7", vec_time=12)
 ```
 
 ## Riluzole
 ```{r, eval=FALSE}
-check_RP (var="rilu", data=sla, .time="time.vni", .censor="censor", type="quali")
+check_RP (var="rilu", data=sla, .time="time.vni", .evt="evt", type="quali")
 ```
 
 Proportionnal HR hypothesis verified
 ```{r}
-draw_surv_bin(var="rilu", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
+draw_surv_bin(var="rilu", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
 ```
 
 
 ```{r}
-Test_score_HR_IC(var="rilu", data=sla, .time="time.vni", .censor="censor", type="quali", dep_temps = FALSE)
+Test_score_HR_IC(var="rilu", data=sla, .time="time.vni", .evt="evt", type="quali", dep_temps = FALSE)
 ```
 
 ## Rest dyspnoea
 
 ```{r, eval=FALSE}
-check_RP (var="dysp", data=sla, .time="time.vni", .censor="censor", type="quali")
+check_RP (var="dysp", data=sla, .time="time.vni", .evt="evt", type="quali")
 tmp <- lapply(c("log"),function(x){
-add_vart_and_check (var="dysp", data=sla, .time="time.vni", .censor="censor", type="quali", recode=FALSE, .transf=x)  
+add_vart_and_check (var="dysp", data=sla, .time="time.vni", .evt="evt", type="quali", recode=FALSE, .transf=x)  
 })
 cat(do.call(rbind,tmp))
 ```
 
 Proportionnal hazard hypothesis not verified, time dependant variable added (var*var(t), transf=log). Log don't suit completely (curve not perfect).
 ```{r}
-draw_surv_bin(var="dysp", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
+draw_surv_bin(var="dysp", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quali", surv_only = TRUE) 
 ```
 ```{r}
-Test_score_HR_IC(var="dysp", data=sla, .time="time.vni", .censor="censor", type="quali", recode=FALSE, dep_temps = TRUE, .transf="log", vec_time=24)
+Test_score_HR_IC(var="dysp", data=sla, .time="time.vni", .evt="evt", type="quali", recode=FALSE, dep_temps = TRUE, .transf="log", vec_time=24)
 ```
 
 Score test significant but HR include 1...
@@ -315,11 +315,11 @@ Score test significant but HR include 1...
 ## Orthopnea
 
 ```{r, eval=FALSE}
-check_RP (var="orthop", data=sla, .time="time.vni", .censor="censor", type="quali")
-Test_score_HR_IC(var="orthop", data=sla, .time="time.vni", .censor="censor", type="quali", recode=FALSE, dep_temps = FALSE)
+check_RP (var="orthop", data=sla, .time="time.vni", .evt="evt", type="quali")
+Test_score_HR_IC(var="orthop", data=sla, .time="time.vni", .evt="evt", type="quali", recode=FALSE, dep_temps = FALSE)
 ```
 ```{r}
-draw_surv_bin(var="orthop", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", surv_only = TRUE)
+draw_surv_bin(var="orthop", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quali", surv_only = TRUE)
 ```
 
 Proportionnal hazard hypothesis verified.
@@ -337,7 +337,7 @@ s$llimb <- ifelse(s$LIEUDEB_recode=="lower limb onset", 1, 0)
 s$resp <- ifelse(s$LIEUDEB_recode=="respiratory", 1, 0)
 s$ulimb <- ifelse(s$LIEUDEB_recode=="upper limb onset", 1, 0)
 
-cox <- coxph(Surv(tps, censor) ~ cerv + llimb + resp + ulimb, data = s)
+cox <- coxph(Surv(tps, evt) ~ cerv + llimb + resp + ulimb, data = s)
 ```
 ```{r, eval=FALSE}
 #résidus de Shoenfeld non significatif?
@@ -353,15 +353,15 @@ zit <- cox.zph(cox, transform = "rank")
 zit
 
 tmp <- lapply(c("log","sqrt","*t","/t","*t^2"),function(x){
-add_vart_and_check (var="llimb", data=s, .time="time.vni", .censor="censor", type="quali", recode=FALSE, .transf=x)
+add_vart_and_check (var="llimb", data=s, .time="time.vni", .evt="evt", type="quali", recode=FALSE, .transf=x)
 })
 cat(do.call(rbind,tmp))
 
-ti <- sort(unique(c(0,s$tps[s$censor==1])))
+ti <- sort(unique(c(0,s$tps[s$evt==1])))
 slat <- s
 slat$start <- 0
 slat$stop <- slat$tps
-slat$evt <- slat$censor
+slat$evt <- slat$evt
 #slat <- survSplit(slat, end="stop", event="evt", start="start",cut=ti) #Yann
 slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)           #Sarah
 
@@ -376,19 +376,19 @@ PHH not verified, couldn't correct variable
 
 ```{r}
 surv_lieudeb (surv_only=TRUE)
-Test_score_HR_IC(var="LIEUDEB_recode", data=sla, .time="time.vni", .censor="censor", type="quali2", recode=FALSE, dep_temps = FALSE)
+Test_score_HR_IC(var="LIEUDEB_recode", data=sla, .time="time.vni", .evt="evt", type="quali2", recode=FALSE, dep_temps = FALSE)
 ```
 
 ## agevni
 
 ```{r}
-# check_loglin (var="agevni", data=sla, .time="time.vni", .censor="censor")
-# check_RP(var="agevni", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = FALSE)
+# check_loglin (var="agevni", data=sla, .time="time.vni", .evt="evt")
+# check_RP(var="agevni", data=sla, .time="time.vni", .evt="evt", type="quanti", recode = FALSE)
 # tmp <- lapply(c("log","sqrt","*t","/t","*t^0.7"),function(x){
-# add_vart_and_check (var="agevni", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, .transf=x)
+# add_vart_and_check (var="agevni", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=FALSE, .transf=x)
 # })
 # cat(do.call(rbind, tmp))
-Test_score_HR_IC(var="agevni", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = FALSE)
+Test_score_HR_IC(var="agevni", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=FALSE, dep_temps = FALSE)
 
 ```
 Loglinearity hypothesis verified.
@@ -397,55 +397,55 @@ Proportionnality not verified, variable cannot be corrected.
 ## CVF_ASSIS_perc_pred
 
 ```{r}
-#check_loglin (var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .censor="censor")
-# check_RP(var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = FALSE)
+#check_loglin (var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .evt="evt")
+# check_RP(var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode = FALSE)
 # tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
-# add_vart_and_check (var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, .transf=x)
+# add_vart_and_check (var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=FALSE, .transf=x)
 # })
 # cat(do.call(rbind, tmp))
-Test_score_HR_IC(var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = TRUE, vec_time=12, .transf="*t^3")
+Test_score_HR_IC(var="CVF_ASSIS_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=FALSE, dep_temps = TRUE, vec_time=12, .transf="*t^3")
 ```
 Loglinearity hypothesis verified.
 Proportionnality not verified, variable corrected with t^3 (not perfect)
 
 ## CVF_COUCHE_perc_pred
 ```{r}
-#check_loglin (var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .censor="censor")
-# check_RP(var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = FALSE)
+#check_loglin (var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .evt="evt")
+# check_RP(var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode = FALSE)
 # tmp <- lapply(c("log","sqrt","*t","/t","*t^2"),function(x){
 # # tmp <- lapply(c("*t^0.7"),function(x){
-#  add_vart_and_check (var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, .transf=x)
+#  add_vart_and_check (var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=FALSE, .transf=x)
 #  })
 # cat(do.call(rbind, tmp))
-Test_score_HR_IC(var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = FALSE)
+Test_score_HR_IC(var="CVF_COUCHE_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=FALSE, dep_temps = FALSE)
 ```
 Loglinearity hypothesis verified.
 Proportionnality not verified, variable cannot be corrected (results without correction)
 
 ## SNIP_cmH2O
 ```{r}
-# check_loglin (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor")
-# check_RP(var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = FALSE)
+# check_loglin (var="SNIP_cmH2O", data=sla, .time="time.vni", .evt="evt")
+# check_RP(var="SNIP_cmH2O", data=sla, .time="time.vni", .evt="evt", type="quanti", recode = FALSE)
 # tmp <- lapply(c("log","sqrt","*t","/t","*t^2"),function(x){
 # # tmp <- lapply(c("*t^0.7"),function(x){
-#  add_vart_and_check (var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, .transf=x)
+#  add_vart_and_check (var="SNIP_cmH2O", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=FALSE, .transf=x)
 #  })
 # cat(do.call(rbind, tmp))
-Test_score_HR_IC(var="SNIP_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = TRUE, vec_time=12, .transf="*t")
+Test_score_HR_IC(var="SNIP_cmH2O", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=FALSE, dep_temps = TRUE, vec_time=12, .transf="*t")
 ```
 Loglinearity hypothesis verified.
 Proportionnality not verified, variable corrected with t (not perfect)
 
 ## SNIP_perc_pred
 ```{r}
-#check_loglin (var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor")
-# check_RP(var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = FALSE)
+#check_loglin (var="SNIP_perc_pred", data=sla, .time="time.vni", .evt="evt")
+# check_RP(var="SNIP_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode = FALSE)
 # tmp <- lapply(c("log","sqrt","*t","/t","*t^2"),function(x){
 # # tmp <- lapply(c("*t^0.7"),function(x){
-#  add_vart_and_check (var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, .transf=x)
+#  add_vart_and_check (var="SNIP_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=FALSE, .transf=x)
 #  })
 # cat(do.call(rbind, tmp))
-Test_score_HR_IC(var="SNIP_perc_pred", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=FALSE, dep_temps = TRUE, vec_time=12, .transf="*t^2")
+Test_score_HR_IC(var="SNIP_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=FALSE, dep_temps = TRUE, vec_time=12, .transf="*t^2")
 ```
 Loglinearity hypothesis verified.
 Proportionnality not verified, variable corrected with t^2 (not perfect)
@@ -456,21 +456,21 @@ Proportionnality not verified, variable corrected with t^2 (not perfect)
 .recode <- TRUE
 .dep_temps <- TRUE
 .transf <- "*t"
-# check_loglin (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor")
-# check_RP(var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# check_loglin (var="PIMAX_cmH2O", data=sla, .time="time.vni", .evt="evt")
+# check_RP(var="PIMAX_cmH2O", data=sla, .time="time.vni", .evt="evt", type="quanti", recode = .recode)
 # tmp <- lapply(c("log","sqrt","*t","/t","*t^2"),function(x){
 # # tmp <- lapply(c("*t^0.7"),function(x){
-#  add_vart_and_check (var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+#  add_vart_and_check (var="PIMAX_cmH2O", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, .transf=x)
 #  })
 # cat(do.call(rbind, tmp))
 
-Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
 ```
 Loglinearity not verified. Variable transformed in binary variable (median).
 Proportionnality not verified, variable corrected with *t (not perfect)
 
 ```{r}
-draw_surv_bin(var=.var, data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quanti", surv_only = TRUE) 
+draw_surv_bin(var=.var, data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quanti", surv_only = TRUE) 
 ```
 
 
@@ -481,15 +481,15 @@ draw_surv_bin(var=.var, data=sla, .time="time.vni", .censor="censor", vec_time_I
 .dep_temps <- TRUE
 .transf <- "*t^3"
 
-# check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
-# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# check_loglin (var=.var, data=sla, .time="time.vni", .evt="evt")
+# check_RP(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode = .recode)
 # tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
 #   # tmp <- lapply(c("*t^0.7"),function(x){
-#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, .transf=x)
 # })
 # cat(do.call(rbind, tmp))
 
-Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
 
 ```
 
@@ -500,15 +500,15 @@ Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="q
 .dep_temps <- FALSE
 .transf <- NULL
 
-# check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
-# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# check_loglin (var=.var, data=sla, .time="time.vni", .evt="evt")
+# check_RP(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode = .recode)
 # tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
 #   # tmp <- lapply(c("*t^0.7"),function(x){
-#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, .transf=x)
 # })
 # cat(do.call(rbind, tmp))
 
-Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
 
 ```
 
@@ -521,15 +521,15 @@ Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="q
 .dep_temps <- FALSE
 .transf <- NULL
 
-#  check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
-# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+#  check_loglin (var=.var, data=sla, .time="time.vni", .evt="evt")
+# check_RP(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode = .recode)
 # if (.dep_temps==TRUE) {tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
 #   # tmp <- lapply(c("*t^0.7"),function(x){
-#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, .transf=x)
 # })
 # cat(do.call(rbind, tmp))}
 
-Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
 
 ```
 
@@ -541,15 +541,15 @@ Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="q
 .dep_temps <- FALSE
 .transf <- NULL
 
-#  check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
-# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+#  check_loglin (var=.var, data=sla, .time="time.vni", .evt="evt")
+# check_RP(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode = .recode)
 # if (.dep_temps==TRUE) {tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
 #   # tmp <- lapply(c("*t^0.7"),function(x){
-#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, .transf=x)
 # })
 # cat(do.call(rbind, tmp))}
 
-Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
 ```
 
 ## ALS_score
@@ -559,15 +559,15 @@ Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="q
 .dep_temps <- TRUE
 .transf <- "*t^3"
 
-# check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
-# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# check_loglin (var=.var, data=sla, .time="time.vni", .evt="evt")
+# check_RP(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode = .recode)
 # if (.dep_temps==TRUE) {tmp <- lapply(c("log","sqrt","*t","/t","*t^3"),function(x){
 #   # tmp <- lapply(c("*t^0.7"),function(x){
-#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, .transf=x)
 # })
 # cat(do.call(rbind, tmp))}
 
-Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
 ```
 t^3 fit approximatively (but not perfect)
 
@@ -578,40 +578,40 @@ t^3 fit approximatively (but not perfect)
 .dep_temps <- FALSE
 .transf <- NULL
 
-# check_loglin (var=.var, data=sla, .time="time.vni", .censor="censor")
-# check_RP(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode = .recode)
+# check_loglin (var=.var, data=sla, .time="time.vni", .evt="evt")
+# check_RP(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode = .recode)
 # if (.dep_temps==TRUE) {tmp <- lapply(c("log","sqrt","*t","/t",.transf),function(x){
 #   # tmp <- lapply(c("*t^0.7"),function(x){
-#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, .transf=x)
+#   add_vart_and_check (var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, .transf=x)
 # })
 # cat(do.call(rbind, tmp))}
 
-Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .censor="censor", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
+Test_score_HR_IC(var=.var, data=sla, .time="time.vni", .evt="evt", type="quanti", recode=.recode, dep_temps = .dep_temps, vec_time=12, .transf=.transf)
 ```
 Proportionnality not verified but no correction fit, in consequent, I analyzed it without adding time correction. 
 
 ```{r}
-draw_surv_bin(var=.var, data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quanti", surv_only = TRUE, pvalue = TRUE, dep_temps = TRUE, .transf="*t") 
+draw_surv_bin(var=.var, data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quanti", surv_only = TRUE, pvalue = TRUE, dep_temps = TRUE, .transf="*t") 
 ```
 
 
 # Plots 
 
 ```{r}
-draw_surv_bin(var="familial", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", pvalue = TRUE) 
+draw_surv_bin(var="familial", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quali", pvalue = TRUE) 
 ```
 ```{r}
-draw_surv_bin(var="sex", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type="quali", pvalue=TRUE, dep_temps = TRUE, .transf="*t^0.7")
+draw_surv_bin(var="sex", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type="quali", pvalue=TRUE, dep_temps = TRUE, .transf="*t^0.7")
 ```
 ```{r}
-draw_surv_bin(var="rilu", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", pvalue = TRUE) 
+draw_surv_bin(var="rilu", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quali", pvalue = TRUE) 
 ```
 ```{r}
-draw_surv_bin(var="dysp", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type="quali", pvalue=TRUE, dep_temps = TRUE, .transf="log")
+draw_surv_bin(var="dysp", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type="quali", pvalue=TRUE, dep_temps = TRUE, .transf="log")
 
 ```
 ```{r}
-draw_surv_bin(var="orthop", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quali", pvalue = TRUE)
+draw_surv_bin(var="orthop", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quali", pvalue = TRUE)
 
 ```
 ```{r, fig.width=8, fig.height=8}
@@ -619,8 +619,8 @@ surv_lieudeb (surv_only=FALSE, pvalue=TRUE)
 ```
 
 ```{r, fig.width=8, fig.height=8}
-draw_surv_bin(var="PIMAX_cmH2O", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quanti", surv_only = FALSE, pvalue = TRUE, dep_temps = TRUE, .transf="*t") 
+draw_surv_bin(var="PIMAX_cmH2O", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quanti", surv_only = FALSE, pvalue = TRUE, dep_temps = TRUE, .transf="*t") 
 ```
 ```{r, fig.width=8, fig.height=8}
-draw_surv_bin(var="bulb_score", data=sla, .time="time.vni", .censor="censor", vec_time_IC= 1, type = "quanti", surv_only = FALSE, pvalue = TRUE)
+draw_surv_bin(var="bulb_score", data=sla, .time="time.vni", .evt="evt", vec_time_IC= 1, type = "quanti", surv_only = FALSE, pvalue = TRUE)
 ```

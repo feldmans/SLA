@@ -5,81 +5,13 @@ who <- "Sarah"
 source(paste0(.dir,"/src/libraries_SLA.R"))
 source(paste0(.dir,"/src/fonctions_SLA.R"))
 
- sla <- readRDS(paste0(.dir,"/data/BASE_SLA_allbl_withnames.rds"))
-# sla$keep <- ifelse (sla$DATEVNI<=sla$ddn,1,0)
-# sla <- sla[sla$keep==1, ]
-# sla$time.vni <- as.numeric(sla$ddn - sla$DATEVNI)
-# sla$time.sym <- as.numeric(sla$ddn - sla$FIRSTSYMPTOM)
-# sla$censor <- ifelse (!is.na(sla$date_dc),1, 0)
-# #sla$ddn <- ifelse(sla$ddn>as_date("2015-08-27"), as_date("2015-08-27"), sla$ddn) #voir avec Yann
-# sla1 <- sla
-# sla1$PATIENT <- sla1$PATIENT1
-# sla1 <- sla1[ ,c("PATIENT","censor","time.vni")]
-# 
-# bdd_rep <- readRDS("data/essairep.rds")
-# 
-# s <- merge(sla1,bdd_rep, by="PATIENT", all.x=F, all.y=T)
 
-bd <- readRDS("data/bdd_dates.rds")
-#j'élimines les 9 patients mort avant la vni
-bd <- bd[bd$datevni<=bd$fin_vni, ]
-#bd$dfin <- as_date(ifelse(bd$dfin>as_date("2015-08-27"), as_date("2015-08-27"), bd$dfin)) #pb : 2 patients ont vni après 08 2015 
-bd$time.vni <- as.numeric(bd$dfin - bd$datevni)
-bd$censor <- ifelse (!is.na(bd$date_dc), 1, 0)
-
-#--------
-#--------
-#--------
 #=================================================================
-#0/ Merge des tables et data management
-#Yann 02/03/2017
-bd <- readRDS("data/bdd_dates.rds")
-#j'élimines les 9 patients mort avant la vni
-bd <- bd[bd$datevni<=bd$fin_vni, ]
-#bd$dfin <- as_date(ifelse(bd$dfin>as_date("2015-08-27"), as_date("2015-08-27"), bd$dfin)) #pb : 2 patients ont vni après 08 2015 
-bd$time.vni <- as.numeric(bd$dfin - bd$datevni)
-bd$evt <- ifelse (!is.na(bd$date_dc), 1, 0)
+#0/ chargement des tables
 
-bdd_rep <- readRDS("data/df_rep_neuro.rds")
-bdd_rep <- subset(bdd_rep, select =- datevni)
-s_a <- merge(bd, bdd_rep, by="PATIENT", all.x=F, all.y=F)
-
-bdd_rep <- readRDS("data/df_rep_nobl_pneumo_imput.rds")
-bdd_rep <- subset(bdd_rep, select =- datevni)
-s_b <- merge(bd, bdd_rep, by="PATIENT", all.x=F, all.y=F)
-
-bdd_rep <- readRDS("data/df_rep_pneumo.rds")
-bdd_rep <- subset(bdd_rep, select =- datevni)
-s_c <- merge(bd, bdd_rep, by="PATIENT", all.x=F, all.y=F)
-
-s <- rbind(s_a, s_b, s_c)
-#s[s$PATIENT=="ATTIAN_ALAIN",]
-#bd[bd$PATIENT=="ATTIAN_ALAIN",]
-#bdd_rep[bdd_rep$PATIENT=="ATTIAN_ALAIN",]
-
-#si décès avant vni, on supprime la ligne
-s<-s[s$time.vni>0,]
-
-#si date de visite après décès(et date inférieure à systeme date), ce n'est pas un décès et time.vni(follow up time à partir de la vni)=max date de visite 
-s[s$PATIENT=="QUERE_PATRICK",]
-s$date_dc[s$PATIENT=="QUERE_PATRICK"]<-NA
-s$evt[s$PATIENT=="QUERE_PATRICK"]<-0
-M<-max(s$date[s$PATIENT=="QUERE_PATRICK"]);M
-m<-(s$datevni[s$PATIENT=="QUERE_PATRICK"][1]);m
-s$time.vni[s$PATIENT=="QUERE_PATRICK"]<-as.numeric(M-m)
-s[s$PATIENT=="QUERE_PATRICK",]
-
-s[s$PATIENT=="OUARY_ROGER",]
-s$date_dc[s$PATIENT=="OUARY_ROGER"]<-NA
-s$evt[s$PATIENT=="OUARY_ROGER"]<-0
-M<-max(s$date[s$PATIENT=="OUARY_ROGER"]);M
-m<-(s$datevni[s$PATIENT=="OUARY_ROGER"][1]);m
-s$time.vni[s$PATIENT=="OUARY_ROGER"]<-as.numeric(M-m)
-s[s$PATIENT=="OUARY_ROGER",]
+s_i <- readRDS("data/df_rep.rds")
 
 
-#si date de visite superieure à systeme date, on supprime la visite
-s <- s[s$date<Sys.Date(), ]
 u<-tapply(s_i$x, s_i$qui, unique)
 nu<-sapply(u, length);nu
 #quasiment pas renseigné... je laisse tomber ces variables

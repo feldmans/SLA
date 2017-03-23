@@ -5,6 +5,19 @@
 .dir_csv <- .dir[str_sub(.dir, -3, -1)=="csv"]
 .dir_sas <- .dir[str_sub(.dir, -3, -1)=="sas"]
 
+#=====================
+#anonymat
+#A creer une fois puis ne plus toucher
+# names_pat <- unique(c(bdd1$PATIENT, bdd2$PATIENT, bdd3$PATIENT, bdd4$PATIENT, bdd5$PATIENT, bdd6$PATIENT, bdd7$PATIENT, bdd8$PATIENT, bdd9$PATIENT))
+# anonymes <- data.frame(PATIENT = names_pat, numpat = paste0("ID", 1:length(names_pat)))
+# write.csv2(anonymes, file="C:/Users/4051268/Documents/SLA/sauvegarde data/sla/data/tableau_anonymat.csv")
+
+anonymes <- read.csv2("C:/Users/4051268/Documents/SLA/sauvegarde data/sla/anonymisation sarah/tableau_anonymat.csv")
+anonymes$PATIENT <- as.character(anonymes$PATIENT)
+anonymes$numpat <- as.character(anonymes$numpat)
+
+
+#==================================
 #Pour charger toutes les bases de données disponibles (se nommeront bdd 1 à 9)
 for (i in .dir_csv) {
   print(i)
@@ -22,13 +35,7 @@ for (i in bdds){
   assign(i,data)
 }
 
-#Pour anonymiser
-# names_pat <- unique(c(bdd1$PATIENT, bdd2$PATIENT, bdd3$PATIENT, bdd4$PATIENT, bdd5$PATIENT, bdd6$PATIENT, bdd7$PATIENT, bdd8$PATIENT, bdd9$PATIENT))
-# anonymes <- data.frame(PATIENT = names_pat, numpat = paste0("ID", 1:length(names_pat)))
-# write.csv2(anonymes, file="C:/Users/4051268/Documents/SLA/sauvegarde data/sla/data/tableau_anonymat.csv")
-anonymes <- read.csv2("C:/Users/4051268/Documents/SLA/sauvegarde data/sla/data/tableau_anonymat.csv")
-anonymes$PATIENT <- as.character(anonymes$PATIENT)
-anonymes$numpat <- as.character(anonymes$numpat)
+#Pour anonymiser bdd
 for (i in bdds){
   #browser()
   data <- get(i)
@@ -38,6 +45,46 @@ for (i in bdds){
   data$PATIENT <- as.character(data$PATIENT)
   assign(i,data)
 }
+
+#============================
+#BASE  DE DONNEES DDN
+
+# #1/Boucle en commentaire car longue à faire tourner et résultat de la boucle déjà enregistrée dans data/ddn
+# #Pour chercher la ddn de chaque base de donnée:
+# for (i in .dir_csv) {
+#   num <- which(.dir==i)
+#   print(i)
+#   a <- get_ddn(i,"DAT")
+#   saveRDS(a,paste0("data/ddn/ddn",num,".rds"))
+#   assign(paste0("ddn",num),a)
+# }
+
+#2/Pour charger les ddn obtenues ()
+for (i in .dir_csv[-2]) {
+  num <- which(.dir_csv==i)
+  print(num)
+  a <- readRDS(paste0("data/ddn/ddn",num,".rds")) #NB : supprimer ddn2.Rds du dossier data/ddn car le fichier est vide
+  a <- a[[1]]
+  a <- aggregate(a,by=list(a$PATIENT),max,na.rm=T) #qd des noms sont rassemblé et que toutes leurs dates valent NA, alors le tableau vaut NA
+  assign(paste0("ddn",num),a)
+}
+ddns <- paste0("ddn", c(1, 3:9))
+
+# #3/anonymiser ddn_tot (à faire une fois puis ddn est déjà sauvegardée anonymisée, on n'a plus à faire cette étape)
+# for (i in ddns){
+#   data <- get(i)
+#   data <- merge(data, anonymes, by="PATIENT", all=F)
+#   data$PATIENT <- data$numpat
+#   data$PATIENT <- as.character(data$PATIENT)
+#   data <- data[ , c("PATIENT", "max")]
+#   saveRDS(data,paste0("data/ddn/",i,".rds"))
+#   assign(i,data)
+# }
+
+#NB: En absence de base de données crées (avec juste les 9 bases de départ et aucun objet), on lance 1 puis 2  puis 3 (l'étape 3 écrase les ddn non anonymisé et les remplace par des ddn anonymisé)
+#puis on ne lance plus que l'étape 2
+#===================================
+
 
 
 

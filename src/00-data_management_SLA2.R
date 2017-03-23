@@ -1,3 +1,4 @@
+source("src/libraries_SLA.R")
 source("src/fonctions_SLA.R")
 source("src/objects_SLA.R")
 
@@ -9,7 +10,6 @@ source("src/objects_SLA.R")
 listes_brut <- lapply(bdds, which_col,string1="DATE", string2="VNI",string3="STOP",type="merge")
 listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
 for (i in 1:length(listes_net)) {
-  #browser()
   data <- listes_net[[i]]
   res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
 }
@@ -31,11 +31,10 @@ vr$f<-as.numeric(gsub("_F", "", vr$r, fix=T))
 vr$f[is.na(vr$f)]<-0
 vr$vr<-paste(vr$v, vr$r, sep="")
 vr<-vr[vr$vr%in%names(bdd7),]
-dim(vr)
 w<-c("vni", "datedec", "delai", "datemeo", "echec", "dateex")
 
 vrs<-split(vr, vr$f)
-vrs$"1"
+#vrs$"1"
 #sapply(vrs, dim)
 
 for (iv in 1:length(vrs)) {
@@ -51,22 +50,17 @@ for (iv in 1:length(vrs)) {
 }
 
 Y<-Y[order(Y$PATIENT, Y$f),]
-head(Y)
 
-
-dim(Y)
 Y<-Y[!is.na(Y$vni),]
 Y<-Y[Y$vni==1,]
-dim(Y)
+
 Y$datedec<-as.Date(as.character(Y$datedec), "%d/%m/%Y")
 Y$datemeo<-as.Date(as.character(Y$datemeo), "%d/%m/%Y")
 Y$dateex<-as.Date(as.character(Y$dateex), "%d/%m/%Y")
-summary(Y)
 
 Y$echec[is.na(Y$echec)]<-0
 
-head(Y[Y$echec==1,])
-
+#head(Y[Y$echec==1,])
 Y$del<-ifelse(Y$delai==1 & !is.na(Y$delai), 0, 0)
 Y$del<-ifelse(Y$delai==2 & !is.na(Y$delai), 7, Y$del)
 Y$del<-ifelse(Y$delai==3 & !is.na(Y$delai), 30, Y$del)
@@ -76,14 +70,11 @@ Y$date<-ifelse(is.na(Y$date), Y$dateex+Y$del, Y$date)
 class(Y$date)<-"Date"
 
 y<-bdd_debVNI
-head(y)
+#head(y)
 Y<-merge(y, Y, by="PATIENT", all=T)
-dim(Y)
-length(unique((Y$PATIENT)))
-
-length((Y$PATIENT))
-
-
+#dim(Y)
+#length(unique((Y$PATIENT)))
+#length((Y$PATIENT))
 vni<-Y
 head(vni)
 
@@ -129,67 +120,66 @@ x<-array(as.numeric(x), dim=dim(x))
 sx<-rowSums(x)
 Ysv$s<-pmin(1, sx)
 
-table(Ysv$s)
-summary(Ysv)
-
-Ysv[Ysv$s==0 & !is.na(Ysv$datesv),]
+# table(Ysv$s)
+# summary(Ysv)
+# Ysv[Ysv$s==0 & !is.na(Ysv$datesv),]
 
 Ysv<-Ysv[Ysv$s==1,]
-dim(Ysv)
+#dim(Ysv)
 
 d<-tapply(Ysv$datesv, Ysv$PATIENT, min)
 d<-data.frame(PATIENT=names(d), datesv1=as.numeric(d))
 class(d$datesv1)<-"Date"
-head(d)
+#head(d)
 
 
 sv<-tapply(Ysv$s, Ysv$PATIENT, sum)
 sv<-data.frame(PATIENT=names(sv), sv=as.numeric(sv))
 sv<-merge(sv, d, by="PATIENT", all=T)
-head(sv)
-dim(sv)
+# head(sv)
+# dim(sv)
 
 z<-merge(vni, sv, by="PATIENT", all=T)
 
-dim(z)
-length(unique(z$PATIENT))
-summary(z)
+#dim(z)
+#length(unique(z$PATIENT))
+#summary(z)
 
-
-s<-BASE_TOT[, c("PATIENT", "diag")]
-s <- unique(s) #j'ai des doublons dans cette base alors que 2 fois meme info
-tab <- table(s$PATIENT)
-s <- s[! s$PATIENT %in% names(tab)[tab>1], ] #j'élimine doublons avec info discordante
-
-i<-match(z$PATIENT, s$PATIENT);summary(i)
-z[is.na(i), ]
-z<-z[!is.na(i),]
-
-i<-match(z$PATIENT, s$PATIENT);summary(i)
-z$diag<-s$diag[i]
-table(z$diag, exclude=NULL)
-
-z$diag[is.na(z$diag)]<-0
+#PARTIE QUI BUG A CAUSE DE BASE_TOT qui a des noms de patients
+# s<-BASE_TOT[, c("PATIENT", "diag")]
+# s <- unique(s) #j'ai des doublons dans cette base alors que 2 fois meme info
+# tab <- table(s$PATIENT)
+# s <- s[! s$PATIENT %in% names(tab)[tab>1], ] #j'élimine doublons avec info discordante
+# 
+# i<-match(z$PATIENT, s$PATIENT);summary(i)
+# z[is.na(i), ]
+# z<-z[!is.na(i),]
+# 
+# i<-match(z$PATIENT, s$PATIENT);summary(i)
+# z$diag<-s$diag[i]
+# table(z$diag, exclude=NULL)
+# 
+# z$diag[is.na(z$diag)]<-0
 
 z$sv1<-pmin(z$sv, 1);z$sv1[is.na(z$sv1)]<-0
-table(z$diag, z$sv1)
+#table(z$diag, z$sv1)
 
 z$vni2<-ifelse(!is.na(z$DATEVNI), 1, 0)
 z$vni2<-z$vni2+2*ifelse(!is.na(z$date), 1, 0)
 z$vni2<-z$vni2+4*z$sv1
-addmargins(table(z$diag, z$vni2))
+#addmargins(table(z$diag, z$vni2))
 
 
 z$vni<-ifelse(!is.na(z$DATEVNI) | !is.na(z$date), 1, 0)
-z$sla<-ifelse(z$diag==1, 1, 0)
-addmargins(table(vni=z$vni, suivi=z$sv1, z$sla))
+#z$sla<-ifelse(z$diag==1, 1, 0)
+#addmargins(table(vni=z$vni, suivi=z$sv1, z$sla))
 
 z$datevni<-ifelse(!is.na(z$date), z$date, z$DATEVNI) #datevni rassemble la date obtenue par algorythme et par datamining (si algo absent, alors on prend datamining)
 summary(z)
 class(z$datevni)<-"Date"
 
 
-head(z)
+#head(z)
 
 #---------------------------------------------------------------------------------
 #pour ne garder que les lignes vni==1 (qui sont tous des patients SLA)
@@ -197,9 +187,9 @@ head(z)
 #vnisla<-z[z$sla==1 & z$vni==1,]
 vnisla<-z[z$vni==1,]
 head(vnisla)
-vnisla$n<-NULL
-vnisla$nechec<-NULL
-vnisla$nvni<-NULL
+# vnisla$n<-NULL
+# vnisla$nechec<-NULL
+# vnisla$nvni<-NULL
 
 #Pour ne garder qu'une seule date de vni (si info concernant la vni a été renseignée plusieurs mois)
 
@@ -284,21 +274,286 @@ vnisla<-vnisla[!(vnisla$cle=="6|2|1" & vnisla$datevni!=vnisla$datevni1),]
 #plus de doublon datevni!
 table(tab <- table(vnisla$PATIENT))
 
-vnisla[vnisla$PATIENT%in%names(tab)[tab>1], ]
-#792 patients avec une datevni (qui sont donc SLA quoi qu'en dise la base neuro)
+#796 patients avec une datevni (qui sont donc SLA quoi qu'en dise la base neuro)
 
 saveRDS(vnisla, "data/vnisla.rds")
 
 names_vnisla <- names(table(unique(vnisla$PATIENT)))
 
 
+#---------------------
+#---------------------
+#AJOUT D'INFO A LA BASE DE DONNEE vnisla (ddn, deces, fin de vni): creation bdd_dates
+
+#---------------
+#BASE  DE DONNEES DDN
+
+#nom des dataframe ddn
+dfddn <- str_sub(dir("data/ddn"),1,-5)[sapply(dir("data/ddn"),function(x)is.data.frame(get(str_sub(x,1,-5))))]
+
+#merge des ddn
+for (i in dfddn){
+  num <- which(dfddn==i)
+  .bd <- get(i)
+  ddn_tot <- if(num==1) .bd[,c("PATIENT","max")] else merge(ddn_tot, .bd[,c("PATIENT","max")], by="PATIENT", suffixes= c(num-1,num),all=TRUE)
+}
+
+#transformation des colonnes en date si pas déjà fait
+for (i in colnames(ddn_tot)[-1]){
+  ddn_tot[,i] <- as_date(ddn_tot[,i])
+  ddn_tot[,i] <- ifelse (ddn_tot[,i]>as_date("2016-01-01"), NA, ddn_tot[,i])
+  ddn_tot[,i] <- as_date(ddn_tot[,i])
+}
+
+#je prend le maximum des ddn 
+ddn_tot$ddn <- apply(ddn_tot[,grep("max", colnames(ddn_tot))],1,max,na.rm=T)
+#je supprime les autres colonnes
+ddn_tot <- unique(ddn_tot[ ,c("PATIENT","ddn")]) #pas de duplicatat
+ddn_tot$ddn <- as_date(ddn_tot$ddn)
+
+dim(ddn_tot)
+
+saveRDS(ddn_tot, "data/bdd_to_merge/ddn_tot.rds")
+
+ddn_tot <- readRDS("data/bdd_to_merge/ddn_tot.rds")
+
+#-------------
+#BASE DE DONNEES DECES
+
+lapply(bdds, which_col,"DAT","DCD",type="explo")
+listes_brut <- lapply(bdds, which_col,"DAT","DCD",type="merge")
+
+#tous les décès : res
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+
+bdd_dcd <- get_min_max(data = res, fun = "min")
+bdd_dcd$date_dc <- manage_date_ND(bdd_dcd$min)
+
+bdd_dcd <- unique(bdd_dcd[ , c("PATIENT","date_dc")]) #seul les vrais doublons nom et date sont éliminés
+
+saveRDS(bdd_dcd, "data/bdd_to_merge/bdd_dcd.rds")
+
+bdd_dcd <- readRDS("data/bdd_to_merge/bdd_dcd.rds")
+
+
+
+#Recupération à partir de la base de données répétées (Préférer la version data mining après concertation avec Yan)
+
+# get_var_blf0_suivif1_neuro_date <- function(Ws1, Ws2){
+#   #browser()
+#   Ws <- c(Ws1, Ws2)
+#   print(Ws)
+#   vs <- c("DATEXAM", "DATEXAM_V")
+#   extws <- c("base", "suivi")
+#   
+#   #base
+#   v <- c(vs[1], Ws[1])
+#   w<-c("date", "x")
+#   y<-bdd6[, c("PATIENT", v)]
+#   names(y)[-1]<-w
+#   y$ext <- extws[1]
+#   y$qui <- Ws[1]
+#   y$f<- 0 #f0 car base
+#   Yv<-y
+#   # Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+#   Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+#   
+#   
+#   #option verif_date :Ws <- c("DATE_NUTRI", "DATE_NUTRI_V") #pour verifier que la date nutri est la même que la date exam
+#   Yv$x<-as.Date(as.character(Yv$x), "%d/%m/%Y")
+# 
+#   # Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+#   YYv<-Yv
+#   
+#   #suivi
+#   v <- c(vs[2], Ws[2])
+#   r<-c("", paste("_M", 1:100, sep=""))
+#   vr<-expand.grid(list(v=v, r=r))
+#   vr$f<-as.numeric(gsub("_M", "", vr$r, fix=T))
+#   vr$f[is.na(vr$f)]<-0
+#   vr$vr<-paste(vr$v, vr$r, sep="")
+#   vr<-vr[vr$vr%in%names(bdd9),]
+#   w<-c("date", "x")
+#   vrs<-split(vr, vr$f)
+#   
+#   for (iv in 1:length(vrs)) { 
+#     #browser()
+#     #print(iv)
+#     y<-bdd9[, c("PATIENT", vrs[[iv]]$vr)]
+#     names(y)[-1]<-w
+#     if (ncol(y)<3) next 
+#     y$ext<-extws[ie]
+#     #y$qui<-W #erreur
+#     y$qui<-Ws[1]
+#     y$f<-vrs[[iv]]$f[1]
+#     if (iv==1) {
+#       Yv<-y
+#     } else {
+#       Yv<-rbind(Yv, y)
+#     }
+#   }
+#   #browser()
+#   # Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+#   Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+#   
+#   
+#   #option verif_date :Ws <- c("DATE_NUTRI", "DATE_NUTRI_V")
+#   Yv$x<-as.Date(as.character(Yv$x), "%d/%m/%Y")
+#   
+#   # Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+#   head(Yv)
+#   YYv<-rbind(YYv, Yv)
+#   YYv<-YYv[order(YYv$PATIENT, YYv$f),]
+#   YYv<-YYv[!is.na(YYv$x) & !is.na(YYv$date),]
+#   if (nrow(YYv)==0) return(NULL)
+#   #y<-merge(YYv, vnisla[, c("PATIENT", "date")], by="PATIENT", all=F, suff=c("", ".vni"))
+#   y<-merge(YYv, vnisla[, c("PATIENT", "datevni")], by="PATIENT", all=F)
+#   #y$del<-as.numeric(y$date-y$date.vni)
+#   y$del<-as.numeric(y$date-y$datevni)
+#   y<-y[!is.na(y$del),]
+#   y<-y[order(y$PATIENT, y$date),]
+#   
+#   #selection des variables de suivi : toutes
+#   yp<-y[y$del>0,] 
+#   head(yp)
+#   summary(yp)
+#   if(nrow(yp)!=0) yp$f<-1 #1 pour suivi (en opposition à baseline)
+#   
+#   #selection valeur de baseline
+#   yn<-y[y$del<=0,]
+#   head(yn)
+#   yn<-yn[order(yn$PATIENT, -yn$del),] #delai le plus petit en première ligne 
+#   head(yn)
+#   id<-unique(yn$PATIENT);id
+#   dim(yn)
+#   yn<-yn[match(id, yn$PATIENT),] #prend la première ligne de yn qui matche avec id (donc prend ligne correspondant au délai le plus petit pour chaque patient)
+#   dim(yn)
+#   head(yn)
+#   summary(yn)
+#   if(nrow(yn)!=0)yn$f<-0 #0 pour baseline
+#   
+#   #je rassemble les tableaux baseline(yn) et suivi(yp)
+#   y<-rbind(yp, yn)
+#   y<-y[order(y$PATIENT, y$del),]
+#   head(y)
+#   return(y)
+# }
+# 
+# date_dc <- get_var_blf0_suivif1_neuro_date("DATEDCD", "DATEDCD_V")
+
+#-----------
+#BASE DE DONNEE fin_vni
+get_var_suivi_nobl_pneumo <- function(vec){
+  vs<-c("DATE_SOUSVENT_SV")
+  Ws <- vec
+  extvs<-c("SV")
+  extws<-c("SV")
+  print(Ws)
+  for (ie in 1:length(extvs)) {
+    v<-c(vs[ie], Ws[ie])
+    r<-c("", paste("_F", 1:100, sep=""))
+    vr<-expand.grid(list(v=v, r=r))
+    vr$f<-as.numeric(gsub("_F", "", vr$r, fix=T))
+    vr$f[is.na(vr$f)]<-0
+    vr$vr<-paste(vr$v, vr$r, sep="")
+    vr<-vr[vr$vr%in%names(bdd7),]
+    dim(vr)
+    w<-c("date", "x")
+    vrs<-split(vr, vr$f)
+    #names(vrs)
+    #vrs$"0"
+    #vrs$"2"
+    for (iv in 1:length(vrs)) { 
+      y<-bdd7[, c("PATIENT", vrs[[iv]]$vr)]
+      names(y)[-1]<-w
+      y$ext<-extws[ie]
+      y$qui<-Ws[1]
+      y$f<-vrs[[iv]]$f[1]
+      if (iv==1) {
+        Yv<-y
+      } else {
+        Yv<-rbind(Yv, y)
+      }
+    }
+    Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+    Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+    Yv$x<-as.numeric(as.character(Yv$x))
+    Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+    head(Yv)
+    if (ie==1) {
+      YYv<-Yv
+    } else {
+      YYv<-rbind(YYv, Yv)
+    }
+  }
+  y<-merge(YYv, vnisla[, c("PATIENT", "datevni")], by="PATIENT", all=F)
+  
+  #colonne delai(del) entre la date d'exam et la date de vni
+  y$del<-as.numeric(y$date-y$datevni)
+  y<-y[!is.na(y$del),]
+  
+  y<-y[order(y$PATIENT, y$date),]
+  
+  #selection des variables de suivi mais je ne selection pas les valeurs de baseline (yn<-y[y$del<=0,])
+  yp<-y[y$del>0,] 
+  if(nrow(yp)!=0) yp$f<-1 #1 pour suivi (en opposition à baseline)
+
+  y <- yp
+  y<-y[order(y$PATIENT, y$del),]
+  head(y)
+  
+  return(y)
+}
+
+
+poursuite <- get_var_suivi_nobl_pneumo("POURSUITE_VENT_SV")
+poursuite[poursuite$x==0, "PATIENT"]
+poursuite %>% filter(PATIENT %in% poursuite[poursuite$x==0, "PATIENT"]) #Attention le 0 n'est pas toujours la derniere info dispo!
+fin_vni <- poursuite %>% group_by(PATIENT) %>% arrange(desc(date)) %>% top_n(1) %>% filter(x==0) %>% select(fin_vni=date)#Je sélectionne la date la plus récente puis je sélectionne poursuite =0
+#message : Adding missing grouping variables: `PATIENT`
+
+#-----------
+#CREATION bdd_dates : regroupe vnisla, ddn_tot, bdd_dcd, fin_vni 
+#table avec infos essentielles : date de vni, ddn, date décès, date de fin, date de fin de vni
+
+#date de fin 
+bdd_dates <- merge(ddn_tot, bdd_dcd, by="PATIENT", all=T)
+bdd_dates$censor <- ifelse (!is.na(bdd_dates$date_dc), 1, 0)
+bdd_dates$dfin <- ifelse (!is.na(bdd_dates$date_dc), bdd_dates$date_dc, bdd_dates$ddn)
+
+bdd_dates <- merge(bdd_dates, fin_vni, by="PATIENT", all=T)
+bdd_dates$fin_vni <- ifelse(!is.na(bdd_dates$fin_vni), bdd_dates$fin_vni, bdd_dates$dfin)
+
+#ne sélectionner que les patients vni et rajouter leur date de vni:
+bdd_dates <- merge(vnisla[ , c("PATIENT", "datevni")], bdd_dates, by="PATIENT", all.x=T, all.y=F)
+bdd_dates$dfin <- as_date(bdd_dates$dfin) #date de fin de suivi (ddn ou décès)
+bdd_dates$fin_vni <- as_date(bdd_dates$fin_vni)
+
+#creation variable time.vni et evt
+bdd_dates$time.vni <- as.numeric(bdd_dates$dfin - bdd_dates$datevni)
+bdd_dates$evt <- ifelse (!is.na(bdd_dates$date_dc), 1, 0)
+
+#supprimer les patients avec une date de fin de vni ou date de décès antérieure à la date de debut de vni 
+bdd_dates <- bdd_dates[bdd_dates$datevni<=bdd_dates$fin_vni, ]
+bdd_dates<-bdd_dates[bdd_dates$time.vni>0,]
+
+
+saveRDS(bdd_dates, "data/bdd_dates.rds")
+
+
+
+
+
 #-----------------------------
 #-----------------------------
-#CREATION DES TABLES:
+#CREATION DES TABLES bl et rep: bl neuro, bl pneumo, rep neuro, rep pneumo
 
 #----
 #VARIABLES PNEUMO
-
 
 #selectionner tous les couples de variables pneumo existant
 #attention certaines variables ne sont pas selectionnees a cause des CL1, voir var neuro p-e (rajoutees à la main dans tableau csv en attendant)
@@ -345,15 +600,17 @@ table(bdd7$SAO2_SV_F2>bdd7$SAO2_SV_F2_CL1)
 table(bdd7$PIMAX_PP_CL1)#bcp moins renseingée que PIMAX_PP, j'elimine
 #je ne garde donc que les SV_Fx_CL1, pas les PP_CL1 qui sont des copies d'info
 
-saveRDS (v, "data/variables_pneumobis.rds")#non utilisé
+#saveRDS (v, "data/variables_pneumobis.rds")#non utilisé 
 
-write.table(print(v), file="clipboard", sep="\t", row.names=F )
+#ce print a permis de creer le tableau clean par la suite
+#write.table(print(v), file="clipboard", sep="\t", row.names=F )
+
 #---
 #var pneumo repetees avec les 3 types de variables renseignées (PP PV SV)
 
 #fonction
 vnisla <- readRDS("data/vnisla.rds")
-#get_var_bl_suivi_pneumo <- function(varPP, varPV, varSV){ #mapply ne marche pas
+
 get_var_bl_suivi_pneumo <- function(vec){
   vs<-c("DATE_RESP_PP", "DATE_PREVENT_PP", "DATE_SOUSVENT_SV")
   #Ws <- c(varPP, varPV, varSV)
@@ -449,8 +706,9 @@ vpr <- data.frame(lapply(vpr, as.character), stringsAsFactors=FALSE)
 vpr <- vpr[!is.na(vpr$variables_PP) & !is.na(vpr$variables_PV) & !is.na(vpr$variables_SV), ]
 vpr$variables_PV <- str_sub(vpr$variables_PV, 1, -4)
 vpr$variables_SV <- str_sub(vpr$variables_SV, 1, -4)
-
-lvar <- lapply(1:nrow(vpr), function(i) dput(as.character(vpr[i ,c("variables_PP", "variables_PV", "variables_SV")])))
+vpr <- vpr[vpr$variables_PP != "", ] #MODIF_PARAM sera à réintégrer
+vpr1 <- vpr[! vpr$variables %in% vpr$variables[grep("CL1",vpr$variables)], ]
+lvar <- lapply(1:nrow(vpr1), function(i) dput(as.character(vpr1[i ,c("variables_PP", "variables_PV", "variables_SV")])))
 
 # #je supprime les variables dates (sinon fait bugger la fonction)
 # vnr <- rbind(vnr[! vnr$var_bdd6 %in% vnr$var_bdd6[grep("DAT", vnr$var_bdd6)], ], vnr[vnr$var_bdd6=="TREPIDATION_PIED_CHOICE_1" |vnr$var_bdd6=="TREPIDATION_PIED_CHOICE_2", ])
@@ -458,52 +716,62 @@ lvar <- lapply(1:nrow(vpr), function(i) dput(as.character(vpr[i ,c("variables_PP
 #je génère le tableau répété
 #.l <- mapply(get_var_bl_suivi_pneumo, vpr$variables_PP[1], vpr$variables_PV[1], vpr$variables_SV[1])#ne marche pas
 .l <- lapply(lvar, get_var_bl_suivi_pneumo)
+df_rep_pneumo1 <- do.call(rbind, .l)
 
-df_rep_pneumo <- do.call(rbind, .l)
+#pb à régler
+#1: In `[<-.factor`(`*tmp*`, ri, value = c(NA, NA, NA, NA, NA, NA, NA,  :
+#niveau de facteur incorrect, NAs générés
 
-#Pour rajouter une variable sans tout refaire tourner:
-# df_rep_pneumo <- rbind(df_rep_pneumo, get_var_bl_suivi_pneumo(c("NYCTURIE_PP", "NYCTURIE_PV",	"NYCTUR_SV")))
 
-saveRDS(df_rep_pneumo, "data/df_rep_pneumo.rds")
-
-#----------------
-#var pneumo rep sans bl
-
-#fonction
-vnisla <- readRDS("data/vnisla.rds")
-#get_var_bl_suivi_pneumo <- function(varPP, varPV, varSV){ #mapply ne marche pas
-get_var_suivi_nobl_pneumo <- function(vec){
-  vs<-c("DATE_SOUSVENT_SV")
-  #Ws <- c(varPP, varPV, varSV)
+#PAO2/SAO2/PACO2/HCO3/PH_SV_Fx_CL1 doivent être analysées à part à cause de leur pattern particulier
+#la différence avec PAO2_SV par exemple est que pour cette dernière est sans ventilation alors que PAO2_SV_CL1 est mesurée sous ventilation mais je prend les meme baseline que pour PAO2_SV 
+vpr2 <- vpr[vpr$variables %in% vpr$variables[grep("CL1",vpr$variables)], ]
+vpr2$variables_SV <- str_sub(vpr2$variables_SV, 1, -5)
+lvar2 <- lapply(1:nrow(vpr2), function(i) dput(as.character(vpr2[i ,c("variables_PP", "variables_PV", "variables_SV")])))
+get_var_bl_suivi_pneumo2 <- function(vec){
+  #browser()
+  vs<-c("DATE_RESP_PP", "DATE_PREVENT_PP", "DATE_SOUSVENT_SV") 
   Ws <- vec
-  extvs<-c("SV")
-  extws<-c("SV")
+  extvs<-c("PP", "PP", "SV")
+  extws<-c("PP", "PV", "SV")
   print(Ws)
   for (ie in 1:length(extvs)) {
     #browser()
-    # ie<-ie+1  
     v<-c(vs[ie], Ws[ie])
-    #v<-paste(v, c(extvs[ie], extws[ie]), sep="_")
-    r<-c("", paste("_F", 1:100, sep=""))
-    vr<-expand.grid(list(v=v, r=r))
-    vr$f<-as.numeric(gsub("_F", "", vr$r, fix=T))
+    if(ie==3){
+      #recuperer date prevent
+      r<-c("", paste("_F", 1:100, sep=""))
+      vr1 <- expand.grid(list(v=v[1], r=r))
+      vr1$f<-as.numeric(gsub("_F", "", vr1$r, fix=T))
+      #recuperer SV_Fx_CL1
+      r<-c("", paste("_F", 1:100, "_CL1", sep=""))
+      vr2 <-expand.grid(list(v=v[2], r=r))
+      vr2$f<-gsub("_F", "", vr2$r, fix=T)
+      vr2$f<-as.numeric(gsub("_CL1", "", vr2$f, fix=T))
+      #rassembler    
+      vr <- rbind(vr1, vr2)
+    } else {
+      r<-c("", paste("_F", 1:100, sep=""))
+      vr<-expand.grid(list(v=v, r=r))
+      vr$f<-as.numeric(gsub("_F", "", vr$r, fix=T))
+    }
     vr$f[is.na(vr$f)]<-0
     vr$vr<-paste(vr$v, vr$r, sep="")
     vr<-vr[vr$vr%in%names(bdd7),]
+    vr <- vr[order(vr$f),]
+    
     dim(vr)
     w<-c("date", "x")
     vrs<-split(vr, vr$f)
     names(vrs)
     vrs$"0"
     vrs$"2"
+    
     for (iv in 1:length(vrs)) { 
-      #browser()
       y<-bdd7[, c("PATIENT", vrs[[iv]]$vr)]
       names(y)[-1]<-w
-      #y$ext<-ext #erreur
       y$ext<-extws[ie]
-      #y$qui<-W #erreur
-      y$qui<-Ws[1]
+      y$qui<-paste0(Ws[1],"_CL1")
       y$f<-vrs[[iv]]$f[1]
       if (iv==1) {
         Yv<-y
@@ -523,7 +791,6 @@ get_var_suivi_nobl_pneumo <- function(vec){
       YYv<-rbind(YYv, Yv)
     }
   }
-  #browser()
   #y<-merge(YYv, vnisla[, c("PATIENT", "date")], by="PATIENT", all=F, suff=c("", ".vni"))
   y<-merge(YYv, vnisla[, c("PATIENT", "datevni")], by="PATIENT", all=F)
   
@@ -541,30 +808,43 @@ get_var_suivi_nobl_pneumo <- function(vec){
   summary(yp)
   if(nrow(yp)!=0) yp$f<-1 #1 pour suivi (en opposition à baseline)
   
-  # #selection valeur de baseline
-  # yn<-y[y$del<=0,]
-  # head(yn)
-  # yn<-yn[order(yn$PATIENT, -yn$del),] #delai le plus petit en première ligne 
-  # head(yn)
-  # id<-unique(yn$PATIENT);id
-  # dim(yn)
-  # yn<-yn[match(id, yn$PATIENT),] #prend la première ligne de yn qui matche avec id (donc prend ligne correspondant au délai le plus petit pour chaque patient)
-  # dim(yn)
-  # head(yn)
-  # summary(yn)
-  # if(nrow(yn)!=0) yn$f<-0 #0 pour baseline
+  #selection valeur de baseline
+  yn<-y[y$del<=0,]
+  head(yn)
+  yn<-yn[order(yn$PATIENT, -yn$del),] #delai le plus petit en première ligne 
+  head(yn)
+  id<-unique(yn$PATIENT);id
+  dim(yn)
+  yn<-yn[match(id, yn$PATIENT),] #prend la première ligne de yn qui matche avec id (donc prend ligne correspondant au délai le plus petit pour chaque patient)
+  dim(yn)
+  head(yn)
+  summary(yn)
+  if(nrow(yn)!=0) yn$f<-0 #0 pour baseline
   
   #je rassemble les tableaux baseline(yn) et suivi(yp)
-  #y<-rbind(yp, yn)
-  y <- yp
+  y<-rbind(yp, yn)
   y<-y[order(y$PATIENT, y$del),]
   head(y)
   #browser()
   return(y)
 }
+.l <- lapply(lvar2, get_var_bl_suivi_pneumo2)
+df_rep_pneumo2 <- do.call(rbind, .l)
 
+#Pour rajouter une variable sans tout refaire tourner:
+# df_rep_pneumo <- rbind(df_rep_pneumo, get_var_bl_suivi_pneumo(c("NYCTURIE_PP", "NYCTURIE_PV",	"NYCTUR_SV")))
 
-#J'utilise le tableau de toutes les var pneumo (après nettoyage) pour obtenir le tableau repete  
+#Je merge les 2 df_rep_pneumo
+df_rep_pneumo <- rbind(df_rep_pneumo1, df_rep_pneumo2)
+saveRDS(df_rep_pneumo, "data/df_rep_pneumo.rds")
+
+#----------------
+#var pneumo rep sans bl
+
+#fonction
+vnisla <- readRDS("data/vnisla.rds")
+
+#J'utilise le tableau de toutes les var pneumo (après nettoyage) pour obtenir le tableau repete
 vpr <- read.csv2("data/variables_suivi_pneumo_clean.csv")
 vpr <- data.frame(lapply(vpr, as.character), stringsAsFactors=FALSE)
 vpr <- vpr[is.na(vpr$variables_PV) & !is.na(vpr$variables_SV), ]
@@ -578,7 +858,7 @@ lvar <- lapply(1:nrow(vpr), function(i) dput(as.character(vpr[i ,c("variables_SV
 
 df_rep_nobl_pneumo <- do.call(rbind, .l)
 
-saveRDS(df_rep_nobl_pneumo, "data/df_rep_nobl_pneumo.rds")
+saveRDS(df_rep_nobl_pneumo, "data/df_rep_nobl_pneumo.rds") #non utilise ensuite mais bck up
 
 
 #imputer bl
@@ -631,7 +911,10 @@ tmp2 <- df_rep_nobl_pneumo %>%
               mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>% #0 non
   bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_SV") %>% #modif param VNI 1 oui 0 non
               group_by(PATIENT) %>% filter(row_number()== 1) %>% 
-              mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) #0 non
+              mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>% #0 non
+  bind_rows(df_rep_nobl_pneumo %>% filter(qui =="POURSUITE_VENT_SV") %>% #poursuite VNI 1 oui 0 non
+              group_by(PATIENT) %>% filter(row_number()== 1) %>%
+              mutate(date = datevni, x = 1, ext = "PV", f = 0, del = 0)) #1 oui
 
 df_rep_nobl_pneumo_imput <- tmp2
 saveRDS(tmp2, "data/df_rep_nobl_pneumo_imput.rds")
@@ -754,16 +1037,18 @@ vpr <- read.csv2("data/variables_suivi_pneumo_clean.csv")
 vpr <- data.frame(lapply(vpr, as.character), stringsAsFactors=FALSE)
 vpr$variables_PV <- str_sub(vpr$variables_PV, 1, -4)
 vpr$variables_SV <- str_sub(vpr$variables_SV, 1, -4)
-vpr <- vpr[!is.na(vpr$variables_PP) & !is.na(vpr$variables_PV) & is.na(vpr$variables_SV), ]
-
+#je selectionne les variables sans suivi :
+vpr <- vpr[!is.na(vpr$variables_PP) & !is.na(vpr$variables_PV) & is.na(vpr$variables_SV), ] 
 lvar <- lapply(1:nrow(vpr), function(i) dput(as.character(vpr[i ,c("variables_PP", "variables_PV")])))
 
+#je cree le tableau repete
 .l <- lapply(lvar, get_var_bl_depvni_pneumo)
 df_bl_depvni_pneumo <- do.call(rbind, .l)
-#df_bl_depvni_pneumo <- df_bl_depvni_pneumo[df_bl_depvni_pneumo$qui!="NYCTURIE",]
+
+#je le transforme en wide
 tmp <- df_bl_depvni_pneumo
 tmp <- reshape(tmp[ , c("PATIENT", "x", "qui", "datevni")], timevar = "qui", idvar=c("PATIENT", "datevni"), direction ="wide")
-
+names(tmp)[grep("x.", names(tmp))] <- str_sub(names(tmp)[grep("x.", names(tmp))], 3,-1) #retirer les .x des noms de colonne
 df_bl_depvni_pneumo_wide <- tmp 
 
 saveRDS(df_bl_depvni_pneumo, "data/df_bl_depvni_pneumo.rds")
@@ -772,10 +1057,9 @@ saveRDS(df_bl_depvni_pneumo_wide, "data/df_bl_depvni_pneumo_wide.rds")
 #---------------
 #var neuro répétées
 
-
-Ws <- c("WEIGHT_NUTRI", "WEIGHT_NUTRI_V")
-Ws <- c("DATE_NUTRI", "DATE_NUTRI_V")
-get_var_blf0_suivif1_neuro(c("DATE_NUTRI", "DATE_NUTRI_V"))
+# Ws <- c("WEIGHT_NUTRI", "WEIGHT_NUTRI_V")
+# Ws <- c("DATE_NUTRI", "DATE_NUTRI_V")
+# get_var_blf0_suivif1_neuro("DATE_NUTRI", "DATE_NUTRI_V")#ne va pas il faut prendre celle pour les dates
 
 get_var_blf0_suivif1_neuro <- function(Ws1, Ws2){
   #browser()
@@ -821,7 +1105,8 @@ get_var_blf0_suivif1_neuro <- function(Ws1, Ws2){
     y<-bdd9[, c("PATIENT", vrs[[iv]]$vr)]
     names(y)[-1]<-w
     if (ncol(y)<3) next 
-    y$ext<-extws[ie]
+    #y$ext<-extws[ie]#pas de ie car plus de boucle
+    y$ext<-NA
     #y$qui<-W #erreur
     y$qui<-Ws[1]
     y$f<-vrs[[iv]]$f[1]
@@ -915,14 +1200,14 @@ sample_n(vrbis, 10)
 str(vrbis)
 #je transforme pour que ça ressemble aux variables de vr
 vrbis$var_bdd9 <- str_sub(vrbis$var_bdd9, 1, -4)
-table(vr$base %in% vrbis$var_bdd6) #ok, les mêmes noms 
-table(vr$suivi %in% vrbis$var_bdd9)#ok, les mêmes noms
+# table(vr$base %in% vrbis$var_bdd6) #ok, les mêmes noms 
+# table(vr$suivi %in% vrbis$var_bdd9)#ok, les mêmes noms
 #je selectionne les couples dispo dans les 2 bases (suivi et )
 vnr <- vrbis[!is.na(vrbis$var_bdd9) & !is.na(vrbis$var_bdd6), ]
 #je supprime les variables dates (sinon fait bugger la fonction)
 vnr <- rbind(vnr[! vnr$var_bdd6 %in% vnr$var_bdd6[grep("DAT", vnr$var_bdd6)], ], vnr[vnr$var_bdd6=="TREPIDATION_PIED_CHOICE_1" |vnr$var_bdd6=="TREPIDATION_PIED_CHOICE_2", ])
 #je génère le tableau répété
-.l <- mapply(get_var_blf0_suivif1_neuro, Ws1 = vnr$var_bdd6, Ws2 = vnr$var_bdd9)
+.l <- mapply(get_var_blf0_suivif1_neuro, Ws1 = vnr$var_bdd6, Ws2 = vnr$var_bdd9) #50 more warnings :  In as.POSIXlt.Date(x) : NAs introduced by coercion
 tab_rep_neuro <- do.call(rbind, .l)
 # #REGLER ERREUR:
 # # #"TREPIDATION_PIED_CHOICE_1"   "TREPIDATION_PIED_V_CHOICE_1"
@@ -948,8 +1233,8 @@ var_poids$x <- var_poids$poids_pv - var_poids$x
 var_poids$qui <- "DELTA_WEIGHT_DEBVNI"
 var_poids_debvni <- var_poids[ , names(var_poids) %in% colnames(tab_rep_neuro)]
 
-tab_rep_neuro <- rbind(tab_rep_neuro, var_poids_ref, var_poids_debvni)
-saveRDS(tab_rep_neuro, "data/df_rep_neuro.rds")
+tab_rep_neuro2 <- rbind(tab_rep_neuro, var_poids_ref, var_poids_debvni)
+saveRDS(tab_rep_neuro2, "data/df_rep_neuro.rds")
 
 #-----------
 #-----------
@@ -977,157 +1262,162 @@ for (i in vrbis[!is.na(vrbis$var_bdd9) & is.na(vrbis$var_bdd6), "var_bdd9"]) {
 }
 
 df_bl_neuro <- bdd6[ ,c("PATIENT", vnr$var_bdd6)]
-df_bl_neuro$DOB <- manage_date_ND(df_bl_neuro$DOB)
-df_bl_neuro <- df_bl_neuro[df_bl_neuro$PATIENT %in% vnisla$PATIENT, ]
-apply(apply(df_bl_neuro,2,is.na),2,sum)
-table(apply(apply(df_bl_neuro,2,is.na),2,sum))
-saveRDS(df_bl_neuro, "data/df_bl_neuro.rds")
+df_bl_neuro <- merge(df_bl_neuro, bdd_dates, by="PATIENT", all.x=T, all.y=T)
+#df_bl_neuro <- df_bl_neuro[df_bl_neuro$PATIENT %in% vnisla$PATIENT, ]
 
+df_bl_neuro$sla_familiale <- ifelse(df_bl_neuro$DCD_PERE_NEURO=="SLA" | df_bl_neuro$DCD_MERE_NEURO=="SLA" | 
+                                    df_bl_neuro$ATCD_FAMIL_L1 == "SLA" |  df_bl_neuro$ATCD_FAMIL_L2 == "SLA" |
+                                      df_bl_neuro$ATCD_FAMIL_L3 == "SLA" |  df_bl_neuro$ATCD_FAMIL_L4 == "SLA" |
+                                      df_bl_neuro$ATCD_FAMIL_L5 == "SLA" |  df_bl_neuro$ATCD_FAMIL_L6 == "SLA" |
+                                      df_bl_neuro$SOD1==1, 1, 0)
 
+#--------
+# a l'occasion, refaire rilu oui non à partir de bdd8
 
-#---------------
-#---------------
-#RESUME DES TABLEAUX CREES
-
-#Base neuro répétée (format long):
-df_rep_neuro <- readRDS("data/df_rep_neuro.rds")
-#Base pneumo répétée avec bl imputée :
-df_rep_nobl_pneumo_imput <- readRDS("data/df_rep_nobl_pneumo_imput.rds")
-#Base pneumo répétée :
-df_rep_pneumo <- readRDS("data/df_rep_pneumo.rds")
-#Baseline neuro :
-df_bl_neuro <- readRDS("data/df_bl_neuro.rds")
-#Baseline pneumo :
-df_bldep_pneumo <- readRDS("data/df_bl_depvni_pneumo_wide.rds")
-df_bl_pneumo <- readRDS("data/df_bl_pneumo.rds")
-
-#doublons
-table(tab <- table(df_bl_neuro$PATIENT))
-names(tab)[tab>1] #3 doublons
-df_bl_neuro %>% filter (PATIENT%in% names(tab)[tab>1])
-table(tab <- table(df_bldep_pneumo$PATIENT)) #les patients avec que des NA on été éliminé
-table(tab <- table(df_bl_pneumo$PATIENT))
-names(tab)[tab>1]#memes doublons
-names_doublons <- names(tab)[tab>1]
-
-#Je supprime ces 3 doublons des bases ci dessus
-df_rep_neuro <- df_rep_neuro[! df_rep_neuro$PATIENT %in% names_doublons, ]
-df_rep_nobl_pneumo_imput <- df_rep_nobl_pneumo_imput[!df_rep_nobl_pneumo_imput$PATIENT %in% names_doublons, ]
-df_rep_pneumo <- df_rep_pneumo[!df_rep_pneumo$PATIENT %in% names_doublons, ]
-df_bl_neuro <- df_bl_neuro[!df_bl_neuro$PATIENT %in% names_doublons, ]
-df_bldep_pneumo <- df_bldep_pneumo[!df_bldep_pneumo$PATIENT %in% names_doublons, ]
-df_bl_pneumo <- df_bl_pneumo[!df_bl_pneumo$PATIENT %in% names_doublons, ]
-
-#verif dates
-table(df_rep_neuro$date>Sys.Date())#0
-table(df_rep_nobl_pneumo_imput$date>Sys.Date())#22
-table(df_rep_pneumo$date>Sys.Date())#31
-#Je supprime les dates incohérentes
-df_rep_nobl_pneumo_imput <- df_rep_nobl_pneumo_imput[df_rep_nobl_pneumo_imput$date<Sys.Date(), ]
-df_rep_pneumo <- df_rep_pneumo[df_rep_pneumo$date<Sys.Date(), ]
-
-
-# #ddn
-# sup_bdd <- rbind(df_rep_neuro, df_rep_nobl_pneumo_imput, df_rep_pneumo) 
-# ddn <- sup_bdd %>% group_by(PATIENT) %>% arrange(desc(date)) %>% summarise(max(date))
-# dim(sup_bdd %>% group_by(PATIENT) %>% arrange(desc(date)) %>% summarise(max(date))) #meme dimension que vnisla
-
-#---------------------
-#BASE  DE DONNEES DDN
-
-#Boucle en commentaire car longue à faire tourner et résultat de la boucle déjà enregistrée dans data/ddn
-# #Pour chercher la ddn de chaque base de donnée:
-# for (i in .dir) {
-#   num <- which(.dir==i)
-#   print(i)
-#   a <- get_ddn(i,"DAT")
-#   saveRDS(a,paste0("data/ddn/ddn",num,".rds"))
-#   assign(paste0("ddn",num),a)
-# }
-
-#Pour charger les ddn obtenues (pour éviter de relancer la boucle du dessus qui prend bcp de temps...)
-for (i in .dir_csv[-2]) {
-  num <- which(.dir_csv==i)
-  a <- readRDS(paste0("data/ddn/ddn",num,".rds")) #NB : supprimer ddn2.Rds du dossier data/ddn car le fichier est vide
-  a <- a[[1]]
-  a <- aggregate(a,by=list(a$PATIENT),max,na.rm=T) #qd des noms sont rassemblé et que toutes leurs dates valent NA, alors le tableau vaut NA
-  assign(paste0("ddn",num),a)
-}
-
-
-#Pour merger les ddn
-#nom des dataframe ddn
-dfddn <- str_sub(dir("data/ddn"),1,-5)[sapply(dir("data/ddn"),function(x)is.data.frame(get(str_sub(x,1,-5))))]
-#merge
-for (i in dfddn){
-  num <- which(dfddn==i)
-  .bd <- get(i)
-  ddn_tot <- if(num==1) .bd[,c("PATIENT","max")] else merge(ddn_tot, .bd[,c("PATIENT","max")], by="PATIENT", suffixes= c(num-1,num),all=TRUE)
-}
-#transformation des colonnes en date si pas déjà fait
-
-for (i in colnames(ddn_tot)[-1]){
-  ddn_tot[,i] <- as_date(ddn_tot[,i])
-  ddn_tot[,i] <- ifelse (ddn_tot[,i]>Sys.Date(), NA, ddn_tot[,i])
-  ddn_tot[,i] <- as_date(ddn_tot[,i])
-}
-
-ddn_tot$ddn <- apply(ddn_tot[,grep("max", colnames(ddn_tot))],1,max,na.rm=T)
-
-ddn_tot <- unique(ddn_tot[ ,c("PATIENT","ddn")]) #pas de duplicatat
-ddn_tot$ddn <- as_date(ddn_tot$ddn)
-
-dim(ddn_tot)
-
-saveRDS(ddn_tot, "data/bdd_to_merge/ddn_tot.rds")
-
-ddn_tot <- readRDS("data/bdd_to_merge/ddn_tot.rds")
-
-#-------------
-#BASE DE DONNEES DECES
-
-lapply(bdds, which_col,"DAT","DCD",type="explo")
-listes_brut <- lapply(bdds, which_col,"DAT","DCD",type="merge")
-
-#tous les décès : res
+#DATE DEBUT RILU
+#listes_brut <- lapply(bdds, which_col,string1="DATDRILU_V_M", type="merge")
+listes_brut <- lapply(bdds, which_col,string1="RILU", string2="DATD", type="merge") #permet de récupérer 1500 dates!
 listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
 for (i in 1:length(listes_net)) {
   data <- listes_net[[i]]
   res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
 }
 
-bdd_dcd <- get_min_max(data = res, fun = "min")
-bdd_dcd$date_dc <- manage_date_ND(bdd_dcd$min)
+for (i in colnames(res)[grep("DAT", colnames(res))]) res[,i] <- manage_date_ND(res[,i])
+RILU <- res[ ,!colnames(res)%in%"PATIENT"]
+pick_atcd <- lapply(1: nrow(RILU),function(.x){
+  .l <- RILU[.x,]
+  .l <- .l[!is.na(.l)]
+  if (length(.l)!=0){
+    if(length(.l)==1) data <- .l
+    else data <- min(.l)
+    #else data <- "several" #2 personnes avec plusieurs dates, je prends la min
+  } else {
+    data <- NA
+  }
+  return (data)
+})
 
-bdd_dcd <- unique(bdd_dcd[ , c("PATIENT","date_dc")]) #seul les vrais doublons nom et date sont éliminés
+RILU$DEBRILU <- as.vector(do.call(rbind,pick_atcd))
+RILU$PATIENT <- as.character(res$PATIENT)
+RILU1 <- unique(RILU[ , c("PATIENT","DEBRILU")])
 
-saveRDS(bdd_dcd, "data/bdd_to_merge/bdd_dcd.rds")
+#DATE FIN RILU
+#listes_brut <- lapply(bdds, which_col,string1="DATFRILU_V_M", type="merge")
+listes_brut <- lapply(bdds, which_col, string1="RILU", string2="DATF", type="merge")
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
 
-bdd_dcd <- readRDS("data/bdd_to_merge/bdd_dcd.rds")
+for (i in colnames(res)[grep("DAT", colnames(res))]) res[,i] <- manage_date_ND(res[,i])
+RILU <- res[ ,!colnames(res)%in%"PATIENT"]
+pick_atcd <- lapply(1: nrow(RILU),function(.x){
+  .l <- RILU[.x,]
+  .l <- .l[!is.na(.l)]
+  if (length(.l)!=0){
+    if(length(.l)==1) data <- .l
+    else data <- min(.l)
+    #else data <- "several" #no sevearl date
+  } else {
+    data <- NA
+  }
+  return (data)
+})
 
-#-----------
-#table avec infos essentielles : date de vni, ddn, date décès, date de fin, date de fin de vni
+RILU$FINRILU <- as.vector(do.call(rbind,pick_atcd))
+RILU$PATIENT <- as.character(res$PATIENT)
+RILU2 <- unique(RILU[ , c("PATIENT","FINRILU")])
+RILU <- merge(RILU1,RILU2,by="PATIENT",all=T)
 
-#date de fin 
-bdd_dates <- merge(ddn_tot, bdd_dcd, by="PATIENT", all=T)
-bdd_dates$censor <- ifelse (!is.na(bdd_dates$date_dc), 1, 0)
-bdd_dates$dfin <- ifelse (!is.na(bdd_dates$date_dc), bdd_dates$date_dc, bdd_dates$ddn)
+df_bl_neuro <- merge(df_bl_neuro, RILU, by="PATIENT", all.x=T, all.y=F)
+df_bl_neuro$rilu <- ifelse(df_bl_neuro$datevni>df_bl_neuro$DEBRILU & !is.na(df_bl_neuro$DEBRILU), 1, 0)
+df_bl_neuro$rilu <- ifelse(df_bl_neuro$datevni>df_bl_neuro$FINRILU & !is.na(df_bl_neuro$FINRILU), 0,df_bl_neuro$rilu)
+#-----
 
-#date de fin de vni
-poursuite <- get_var_suivi_nobl_pneumo("POURSUITE_VENT_SV")
-poursuite[poursuite$x==0, "PATIENT"]
-poursuite %>% filter(PATIENT %in% poursuite[poursuite$x==0, "PATIENT"]) #Attention le 0 n'est pas toujours la derniere info dispo!
-fin_vni <- poursuite %>% group_by(PATIENT) %>% arrange(desc(date)) %>% top_n(1) %>% filter(x==0) %>% select(fin_vni=date)#Je sélectionne la date la plus récente puis je sélectionne poursuite =0
+df_bl_neuro$FIRSTSYMPTOM <- manage_date_ND(df_bl_neuro$FIRSTSYMPTOM)
+df_bl_neuro$DOB <- manage_date_ND(df_bl_neuro$DOB)
+#pb : une date naissance manquante => je merge avec bdd2
+df_bl_neuro <- merge(df_bl_neuro, bdd2[ ,c("PATIENT", "DOB")], by="PATIENT", all.x=T, all.y=F)
+df_bl_neuro$DOB.y <- manage_date_ND(df_bl_neuro$DOB.y)
+df_bl_neuro$DOB <- as_date(ifelse(is.na(df_bl_neuro$DOB.x), df_bl_neuro$DOB.y, df_bl_neuro$DOB.x))
+df_bl_neuro <- df_bl_neuro[ ,colnames(df_bl_neuro)[!colnames(df_bl_neuro)%in%c("AT_FAMIL", "ATCD_FAMIL_L1", "ATCD_FAMIL_L2", "ATCD_FAMIL_L3",
+                                                                               "ATCD_FAMIL_L4", "ATCD_FAMIL_L5", "ATCD_FAMIL_L6", "SOD1", "TYPESOD1",
+                                                                               "CAUSDCDPERE", "DCD_PERE_NEURO", "CAUSDCDMERE", "DCD_MERE_NEURO","DOB.y",
+                                                                               "DOB.x", "DEBRILU", "FINRILU")]]
 
-bdd_dates <- merge(bdd_dates, fin_vni, by="PATIENT", all=T)
-bdd_dates$fin_vni <- ifelse(!is.na(bdd_dates$fin_vni), bdd_dates$fin_vni, bdd_dates$dfin)
+df_bl_neuro$agevni <-  round(as.numeric(df_bl_neuro$datevni - df_bl_neuro$DOB)/365.25,0) #en annee
+df_bl_neuro$SLAtillvni <- round(as.numeric(df_bl_neuro$datevni - df_bl_neuro$FIRSTSYMPTOM)/365.25*12, 0)#en mois
 
-#ne sélectionner que les patients vni et rajouter leur date de vni:
-bdd_dates <- merge(vnisla[ , c("PATIENT", "datevni")], bdd_dates, by="PATIENT", all.x=T, all.y=F)
-bdd_dates$dfin <- as_date(bdd_dates$dfin) #date de fin de suivi (ddn ou décès)
-bdd_dates$fin_vni <- as_date(bdd_dates$fin_vni)
+#date de premier symptome ultérieur à la date de vni
+df_bl_neuro[df_bl_neuro$SLAtillvni<0 & !is.na(df_bl_neuro$SLAtillvni), ]
 
-saveRDS(bdd_dates, "data/bdd_dates.rds")
+apply(apply(df_bl_neuro,2,is.na),2,sum)
+table(apply(apply(df_bl_neuro,2,is.na),2,sum))
+saveRDS(df_bl_neuro, "data/df_bl_neuro.rds")
+
+#-------
+#Merge bl neuro et pneumo
+bl <- merge(df_bl_neuro, df_bl_pneumo, by="PATIENT", all=T)
+bl <- merge(bl, df_bl_depvni_pneumo_wide[ ,-2], by="PATIENT", all=T)
+saveRDS(bl, "data/bl.rds")
+
+#merge des bases répétées
+dr <- rbind(df_rep_neuro, df_rep_nobl_pneumo_imput, df_rep_pneumo)
+bd_dat <- subset(bdd_dates, select =- datevni)
+dr <- merge(dr, bd_dat, by="PATIENT", all=F)
+dr <- dr[order(dr$qui, dr$PATIENT, dr$date), ]
+saveRDS(dr,"data/df_rep.rds")
+#---------------
+#---------------
+#RESUME DES TABLEAUX CREES
+
+#toutes les dates (vni, dc etc..)
+bdd_dates <- readRDS("data/bdd_dates.rds")
+#toutes les baseline :
+bl <- readRDS("data/bl.rds")
+# #Baseline neuro :
+# df_bl_neuro <- readRDS("data/df_bl_neuro.rds")
+# #Baseline pneumo :
+# df_bldep_pneumo <- readRDS("data/df_bl_depvni_pneumo_wide.rds")
+# df_bl_pneumo <- readRDS("data/df_bl_pneumo.rds")
+
+#toutes les données répétées
+dr <- readRDS("data/df_rep.rds")
+# #Base neuro répétée (format long):
+# df_rep_neuro <- readRDS("data/df_rep_neuro.rds")
+# #Base pneumo répétée avec bl imputée :
+# df_rep_nobl_pneumo_imput <- readRDS("data/df_rep_nobl_pneumo_imput.rds")
+# #Base pneumo répétée :
+# df_rep_pneumo <- readRDS("data/df_rep_pneumo.rds")
+
+#doublons
+table(tab <- table(bl$PATIENT))
+names(tab)[tab>1] #3 doublons
+names_doublons <- names(tab)[tab>1]
+
+#Je supprime ces 3 doublons de la base repetee
+dr <- dr[! dr$PATIENT %in% names_doublons, ]
+
+#verif dates
+table(dr$date>as_date("2016-01-01"))#85
+#Je supprime les dates incohérentes
+dr <- dr[dr$date<as_date("2016-01-01"), ]
+
+#si date de visite après décès, ce n'est pas un décès et time.vni(follow up time à partir de la vni) = max date de visite 
+dr[dr$date>dr$date_dc & !is.na(dr$date_dc), "date_dc"] <- NA
+dr[dr$date>dr$date_dc, "evt"] <- 0
+dr[ , "time.vni"] <- as.numeric(max(dr[dr$date>dr$date_dc, "date"]) - dr[dr$date>dr$date_dc, "datevni"][1])
+
+saveRDS(dr, "data/df_rep.rds")
+
+# #ddn
+# sup_bdd <- rbind(df_rep_neuro, df_rep_nobl_pneumo_imput, df_rep_pneumo) 
+# ddn <- sup_bdd %>% group_by(PATIENT) %>% arrange(desc(date)) %>% summarise(max(date))
+# dim(sup_bdd %>% group_by(PATIENT) %>% arrange(desc(date)) %>% summarise(max(date))) #meme dimension que vnisla
+
+
 
 
 
