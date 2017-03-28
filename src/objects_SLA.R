@@ -47,6 +47,44 @@ for (i in bdds){
 }
 
 #============================
+#pour modifier le nom d'une variable de bdd7 (pour pouvoir la récupérer lors des analyses répétées)
+#Modifier le nom de la variable "MODIF_PARAM_ITEMS_SV_CHOICE_1_"/"MODIF_PARAM_ITEMS_SV_CHOIC_CL1"/"MODIF_PARAM_ITEMS_SV_CHOI_CL10"/"MODIF_PARAM_ITEMS_SV_CHO_CL100"
+#en SV_1_F1 SV_2_F1...SV_5_F1
+vb<-names(bdd7)
+j<-grep("DATE_SOUSVENT", vb, fix=T);j
+vd<-vb[j];vd
+i<-grep("MODIF_PARAM_ITEMS_SV_C", vb, fix=T);i
+v<-vb[i]
+v
+
+k<-findInterval(i,j);k
+tabk<-table(k);nk<-unique(tabk);nk
+w<-expand.grid(list(k=1:nk, j=1:length(j)))
+#w$w<-paste("MODIF_PARAM_SV_", w$k, "_F", w$j, sep="")
+w$w<-paste("MODIF_PARAM_ITEMS_",w$k, "_SV_F", w$j, sep="")
+w$old<-v
+w
+
+i<-match(w$old, vb);summary(i)
+names(bdd7)[i]
+names(bdd7)[i]<-as.character(w$w)
+names(bdd7)[i]
+
+#==============
+#Enregistrer les bdd et retirer toutes traces de noms 
+for (i in bdds){
+  data <- get(i)
+  data[ ,grep("NAME",names(data))] <- NULL
+  data[ ,grep("VIL",names(data))] <- NULL
+  data[ ,grep("CODPOST",names(data))] <- NULL
+  data[ ,grep("ADRES",names(data))] <- NULL
+  assign(i,data)
+  saveRDS(data, paste0("data/bdds/", i, ".rds"))
+}
+
+
+
+#============================
 #BASE  DE DONNEES DDN
 
 # #1/Boucle en commentaire car longue à faire tourner et résultat de la boucle déjà enregistrée dans data/ddn
@@ -64,10 +102,11 @@ for (i in .dir_csv[-2]) {
   num <- which(.dir_csv==i)
   print(num)
   a <- readRDS(paste0("data/ddn/ddn",num,".rds")) #NB : supprimer ddn2.Rds du dossier data/ddn car le fichier est vide
-  a <- a[[1]]
-  a <- aggregate(a,by=list(a$PATIENT),max,na.rm=T) #qd des noms sont rassemblé et que toutes leurs dates valent NA, alors le tableau vaut NA
+  #a <- a[[1]]
+  a <- aggregate(a, by=list(a$PATIENT),max,na.rm=T) #qd des noms sont rassemblé et que toutes leurs dates valent NA, alors le tableau vaut NA
+  a <- a[ ,c("PATIENT", "max")]
   assign(paste0("ddn",num),a)
-}
+} #warnings : In FUN(X[[i]], ...) : no non-missing arguments, returning NA : c'est normal
 ddns <- paste0("ddn", c(1, 3:9))
 
 # #3/anonymiser ddn_tot (à faire une fois puis ddn est déjà sauvegardée anonymisée, on n'a plus à faire cette étape)

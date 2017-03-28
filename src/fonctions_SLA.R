@@ -1,14 +1,14 @@
-anonymate_sla <- function(x) {
-  if(is.factor(x)) {
-    y <- ceiling(length(levels(x))/26)
-    levels(x) <- sample(paste0(unlist(lapply(LETTERS,function(x)rep(x,20)[1:y])), 1:y), length(levels(x)),replace=FALSE)
-  } else {
-    x <- as.factor(x)
-    y <- ceiling(length(levels(x))/26)
-    levels(x) <- sample(paste0(unlist(lapply(LETTERS,function(x)rep(x,20)[1:y])), 1:y), length(levels(x)),replace=FALSE)
-  }
-  return(as.character(x))
-}
+# anonymate_sla <- function(x) {
+#   if(is.factor(x)) {
+#     y <- ceiling(length(levels(x))/26)
+#     levels(x) <- sample(paste0(unlist(lapply(LETTERS,function(x)rep(x,20)[1:y])), 1:y), length(levels(x)),replace=FALSE)
+#   } else {
+#     x <- as.factor(x)
+#     y <- ceiling(length(levels(x))/26)
+#     levels(x) <- sample(paste0(unlist(lapply(LETTERS,function(x)rep(x,20)[1:y])), 1:y), length(levels(x)),replace=FALSE)
+#   }
+#   return(as.character(x))
+# }
 
 
 manage_date_ND <- function(vec){ #vec doit être un vecteur avec éléments de la forme 04/04/1989(facteur) ou "04/04/1989"(character)
@@ -447,6 +447,562 @@ scan_notebook <- function(string, onepath_or_pathlist){
 }
 
 #verif graphique des risques proportionnels en ggplot2
+
+
+#RECUPERATION VARIABLES REPETEES
+
+#pour récupere des dates dans la base neuro (bdd9)
+get_var_blf0_suivif1_neuro_date <- function(Ws1, Ws2){
+  #browser()
+  Ws <- c(Ws1, Ws2)
+  print(Ws)
+  vs <- c("DATEXAM", "DATEXAM_V")
+  extws <- c("base", "suivi")
+
+  #base
+  v <- c(vs[1], Ws[1])
+  w<-c("date", "x")
+  y<-bdd6[, c("PATIENT", v)]
+  names(y)[-1]<-w
+  y$ext <- extws[1]
+  y$qui <- Ws[1]
+  y$f<- 0 #f0 car base
+  Yv<-y
+  # Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+  Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+
+
+  #option verif_date :Ws <- c("DATE_NUTRI", "DATE_NUTRI_V") #pour verifier que la date nutri est la même que la date exam
+  Yv$x<-as.Date(as.character(Yv$x), "%d/%m/%Y")
+
+  # Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+  YYv<-Yv
+
+  #suivi
+  v <- c(vs[2], Ws[2])
+  r<-c("", paste("_M", 1:100, sep=""))
+  vr<-expand.grid(list(v=v, r=r))
+  vr$f<-as.numeric(gsub("_M", "", vr$r, fix=T))
+  vr$f[is.na(vr$f)]<-0
+  vr$vr<-paste(vr$v, vr$r, sep="")
+  vr<-vr[vr$vr%in%names(bdd9),]
+  w<-c("date", "x")
+  vrs<-split(vr, vr$f)
+
+  for (iv in 1:length(vrs)) {
+    #browser()
+    #print(iv)
+    y<-bdd9[, c("PATIENT", vrs[[iv]]$vr)]
+    names(y)[-1]<-w
+    if (ncol(y)<3) next
+    y$ext<-extws[ie]
+    #y$qui<-W #erreur
+    y$qui<-Ws[1]
+    y$f<-vrs[[iv]]$f[1]
+    if (iv==1) {
+      Yv<-y
+    } else {
+      Yv<-rbind(Yv, y)
+    }
+  }
+  #browser()
+  # Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+  Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+
+
+  #option verif_date :Ws <- c("DATE_NUTRI", "DATE_NUTRI_V")
+  Yv$x<-as.Date(as.character(Yv$x), "%d/%m/%Y")
+
+  # Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+  head(Yv)
+  YYv<-rbind(YYv, Yv)
+  YYv<-YYv[order(YYv$PATIENT, YYv$f),]
+  YYv<-YYv[!is.na(YYv$x) & !is.na(YYv$date),]
+  if (nrow(YYv)==0) return(NULL)
+  #y<-merge(YYv, vnisla[, c("PATIENT", "date")], by="PATIENT", all=F, suff=c("", ".vni"))
+  y<-merge(YYv, vnisla[, c("PATIENT", "datevni")], by="PATIENT", all=F)
+  #y$del<-as.numeric(y$date-y$date.vni)
+  y$del<-as.numeric(y$date-y$datevni)
+  y<-y[!is.na(y$del),]
+  y<-y[order(y$PATIENT, y$date),]
+
+  #selection des variables de suivi : toutes
+  yp<-y[y$del>0,]
+  head(yp)
+  summary(yp)
+  if(nrow(yp)!=0) yp$f<-1 #1 pour suivi (en opposition à baseline)
+
+  #selection valeur de baseline
+  yn<-y[y$del<=0,]
+  head(yn)
+  yn<-yn[order(yn$PATIENT, -yn$del),] #delai le plus petit en première ligne
+  head(yn)
+  id<-unique(yn$PATIENT);id
+  dim(yn)
+  yn<-yn[match(id, yn$PATIENT),] #prend la première ligne de yn qui matche avec id (donc prend ligne correspondant au délai le plus petit pour chaque patient)
+  dim(yn)
+  head(yn)
+  summary(yn)
+  if(nrow(yn)!=0)yn$f<-0 #0 pour baseline
+
+  #je rassemble les tableaux baseline(yn) et suivi(yp)
+  y<-rbind(yp, yn)
+  y<-y[order(y$PATIENT, y$del),]
+  head(y)
+  return(y)
+}
+
+
+#pour récupérer variables pneumo(bdd7) répétées qui n'ont pas de baseline
+get_var_suivi_nobl_pneumo <- function(vec){
+  vs<-c("DATE_SOUSVENT_SV")
+  Ws <- vec
+  extvs<-c("SV")
+  extws<-c("SV")
+  print(Ws)
+  for (ie in 1:length(extvs)) {
+    v<-c(vs[ie], Ws[ie])
+    r<-c("", paste("_F", 1:100, sep=""))
+    vr<-expand.grid(list(v=v, r=r))
+    vr$f<-as.numeric(gsub("_F", "", vr$r, fix=T))
+    vr$f[is.na(vr$f)]<-0
+    vr$vr<-paste(vr$v, vr$r, sep="")
+    vr<-vr[vr$vr%in%names(bdd7),]
+    dim(vr)
+    w<-c("date", "x")
+    vrs<-split(vr, vr$f)
+    #names(vrs)
+    #vrs$"0"
+    #vrs$"2"
+    for (iv in 1:length(vrs)) { 
+      y<-bdd7[, c("PATIENT", vrs[[iv]]$vr)]
+      names(y)[-1]<-w
+      y$ext<-extws[ie]
+      y$qui<-Ws[1]
+      y$f<-vrs[[iv]]$f[1]
+      if (iv==1) {
+        Yv<-y
+      } else {
+        Yv<-rbind(Yv, y)
+      }
+    }
+    Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+    Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+    Yv$x<-as.numeric(as.character(Yv$x))
+    Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+    head(Yv)
+    if (ie==1) {
+      YYv<-Yv
+    } else {
+      YYv<-rbind(YYv, Yv)
+    }
+  }
+  y<-merge(YYv, vnisla[, c("PATIENT", "datevni")], by="PATIENT", all=F)
+  
+  #colonne delai(del) entre la date d'exam et la date de vni
+  y$del<-as.numeric(y$date-y$datevni)
+  y<-y[!is.na(y$del),]
+  
+  y<-y[order(y$PATIENT, y$date),]
+  
+  #selection des variables de suivi mais je ne selection pas les valeurs de baseline (yn<-y[y$del<=0,])
+  yp<-y[y$del>0,] 
+  if(nrow(yp)!=0) yp$f<-1 #1 pour suivi (en opposition à baseline)
+  
+  y <- yp
+  y<-y[order(y$PATIENT, y$del),]
+  head(y)
+  
+  return(y)
+}
+
+#pour récupérer variables pneumo(bdd7) répétées qui ont une baseline
+get_var_bl_suivi_pneumo <- function(vec){
+  vs<-c("DATE_RESP_PP", "DATE_PREVENT_PP", "DATE_SOUSVENT_SV")
+  #Ws <- c(varPP, varPV, varSV)
+  Ws <- vec
+  extvs<-c("PP", "PP", "SV")
+  extws<-c("PP", "PV", "SV")
+  print(Ws)
+  for (ie in 1:length(extvs)) {
+    #browser()
+    # ie<-ie+1  
+    v<-c(vs[ie], Ws[ie])
+    #v<-paste(v, c(extvs[ie], extws[ie]), sep="_")
+    r<-c("", paste("_F", 1:100, sep=""))
+    vr<-expand.grid(list(v=v, r=r))
+    vr$f<-as.numeric(gsub("_F", "", vr$r, fix=T))
+    vr$f[is.na(vr$f)]<-0
+    vr$vr<-paste(vr$v, vr$r, sep="")
+    vr<-vr[vr$vr%in%names(bdd7),]
+    dim(vr)
+    w<-c("date", "x")
+    vrs<-split(vr, vr$f)
+    names(vrs)
+    vrs$"0"
+    vrs$"2"
+    for (iv in 1:length(vrs)) { 
+      #browser()
+      y<-bdd7[, c("PATIENT", vrs[[iv]]$vr)]
+      names(y)[-1]<-w
+      #y$ext<-ext #erreur
+      y$ext<-extws[ie]
+      #y$qui<-W #erreur
+      y$qui<-Ws[1]
+      y$f<-vrs[[iv]]$f[1]
+      if (iv==1) {
+        Yv<-y
+      } else {
+        Yv<-rbind(Yv, y)
+      }
+    }
+    #browser()
+    Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+    Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+    Yv$x<-as.numeric(as.character(Yv$x))
+    Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+    head(Yv)
+    if (ie==1) {
+      YYv<-Yv
+    } else {
+      YYv<-rbind(YYv, Yv)
+    }
+  }
+  #y<-merge(YYv, vnisla[, c("PATIENT", "date")], by="PATIENT", all=F, suff=c("", ".vni"))
+  y<-merge(YYv, vnisla[, c("PATIENT", "datevni")], by="PATIENT", all=F)
+  
+  #colonne delai(del) entre la date d'exam et la date de vni
+  #y$del<-as.numeric(y$date-y$date.vni)
+  y$del<-as.numeric(y$date-y$datevni)
+  y<-y[!is.na(y$del),]
+  
+  y<-y[order(y$PATIENT, y$date),]
+  head(y)
+  
+  #selection des variables de suivi : toutes
+  yp<-y[y$del>0,] 
+  head(yp)
+  summary(yp)
+  if(nrow(yp)!=0) yp$f<-1 #1 pour suivi (en opposition à baseline)
+  
+  #selection valeur de baseline
+  yn<-y[y$del<=0,]
+  head(yn)
+  yn<-yn[order(yn$PATIENT, -yn$del),] #delai le plus petit en première ligne 
+  head(yn)
+  id<-unique(yn$PATIENT);id
+  dim(yn)
+  yn<-yn[match(id, yn$PATIENT),] #prend la première ligne de yn qui matche avec id (donc prend ligne correspondant au délai le plus petit pour chaque patient)
+  dim(yn)
+  head(yn)
+  summary(yn)
+  if(nrow(yn)!=0) yn$f<-0 #0 pour baseline
+  
+  #je rassemble les tableaux baseline(yn) et suivi(yp)
+  y<-rbind(yp, yn)
+  y<-y[order(y$PATIENT, y$del),]
+  head(y)
+  #browser()
+  return(y)
+}
+
+
+#pour récupérer variables pneumo(bdd7) répétées qui ont une baseline mais avec une fin en CL1
+get_var_bl_suivi_pneumo2 <- function(vec){
+  #browser()
+  vs<-c("DATE_RESP_PP", "DATE_PREVENT_PP", "DATE_SOUSVENT_SV") 
+  Ws <- vec
+  extvs<-c("PP", "PP", "SV")
+  extws<-c("PP", "PV", "SV")
+  print(Ws)
+  for (ie in 1:length(extvs)) {
+    #browser()
+    v<-c(vs[ie], Ws[ie])
+    if(ie==3){
+      #recuperer date prevent
+      r<-c("", paste("_F", 1:100, sep=""))
+      vr1 <- expand.grid(list(v=v[1], r=r))
+      vr1$f<-as.numeric(gsub("_F", "", vr1$r, fix=T))
+      #recuperer SV_Fx_CL1
+      r<-c("", paste("_F", 1:100, "_CL1", sep=""))
+      vr2 <-expand.grid(list(v=v[2], r=r))
+      vr2$f<-gsub("_F", "", vr2$r, fix=T)
+      vr2$f<-as.numeric(gsub("_CL1", "", vr2$f, fix=T))
+      #rassembler    
+      vr <- rbind(vr1, vr2)
+    } else {
+      r<-c("", paste("_F", 1:100, sep=""))
+      vr<-expand.grid(list(v=v, r=r))
+      vr$f<-as.numeric(gsub("_F", "", vr$r, fix=T))
+    }
+    vr$f[is.na(vr$f)]<-0
+    vr$vr<-paste(vr$v, vr$r, sep="")
+    vr<-vr[vr$vr%in%names(bdd7),]
+    vr <- vr[order(vr$f),]
+    
+    dim(vr)
+    w<-c("date", "x")
+    vrs<-split(vr, vr$f)
+    names(vrs)
+    vrs$"0"
+    vrs$"2"
+    
+    for (iv in 1:length(vrs)) { 
+      y<-bdd7[, c("PATIENT", vrs[[iv]]$vr)]
+      names(y)[-1]<-w
+      y$ext<-extws[ie]
+      y$qui<-paste0(Ws[1],"_CL1")
+      y$f<-vrs[[iv]]$f[1]
+      if (iv==1) {
+        Yv<-y
+      } else {
+        Yv<-rbind(Yv, y)
+      }
+    }
+    #browser()
+    Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+    Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+    Yv$x<-as.numeric(as.character(Yv$x))
+    Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+    head(Yv)
+    if (ie==1) {
+      YYv<-Yv
+    } else {
+      YYv<-rbind(YYv, Yv)
+    }
+  }
+  #y<-merge(YYv, vnisla[, c("PATIENT", "date")], by="PATIENT", all=F, suff=c("", ".vni"))
+  y<-merge(YYv, vnisla[, c("PATIENT", "datevni")], by="PATIENT", all=F)
+  
+  #colonne delai(del) entre la date d'exam et la date de vni
+  #y$del<-as.numeric(y$date-y$date.vni)
+  y$del<-as.numeric(y$date-y$datevni)
+  y<-y[!is.na(y$del),]
+  
+  y<-y[order(y$PATIENT, y$date),]
+  head(y)
+  
+  #selection des variables de suivi : toutes
+  yp<-y[y$del>0,] 
+  head(yp)
+  summary(yp)
+  if(nrow(yp)!=0) yp$f<-1 #1 pour suivi (en opposition à baseline)
+  
+  #selection valeur de baseline
+  yn<-y[y$del<=0,]
+  head(yn)
+  yn<-yn[order(yn$PATIENT, -yn$del),] #delai le plus petit en première ligne 
+  head(yn)
+  id<-unique(yn$PATIENT);id
+  dim(yn)
+  yn<-yn[match(id, yn$PATIENT),] #prend la première ligne de yn qui matche avec id (donc prend ligne correspondant au délai le plus petit pour chaque patient)
+  dim(yn)
+  head(yn)
+  summary(yn)
+  if(nrow(yn)!=0) yn$f<-0 #0 pour baseline
+  
+  #je rassemble les tableaux baseline(yn) et suivi(yp)
+  y<-rbind(yp, yn)
+  y<-y[order(y$PATIENT, y$del),]
+  head(y)
+  #browser()
+  return(y)
+}
+
+
+#Récupérer les baseline pneumo qui dépendent de la date de vni
+get_var_bl_depvni_pneumo <- function(vec){
+  vs<-c("DATE_RESP_PP", "DATE_PREVENT_PP")
+  #Ws <- c(varPP, varPV, varSV)
+  Ws <- vec
+  extvs<-c("PP", "PP")
+  extws<-c("PP", "PV")
+  print(Ws)
+  
+  for (ie in 1:length(extvs)) {
+    #browser()
+    # ie<-ie+1  
+    v<-c(vs[ie], Ws[ie])
+    #v<-paste(v, c(extvs[ie], extws[ie]), sep="_")
+    r<-c("", paste("_F", 1:100, sep=""))
+    vr<-expand.grid(list(v=v, r=r))
+    vr$f<-as.numeric(gsub("_F", "", vr$r, fix=T))
+    vr$f[is.na(vr$f)]<-0
+    vr$vr<-paste(vr$v, vr$r, sep="")
+    vr<-vr[vr$vr%in%names(bdd7),]
+    dim(vr)
+    w<-c("date", "x")
+    vrs<-split(vr, vr$f)
+    names(vrs)
+    vrs$"0"
+    vrs$"2"
+    for (iv in 1:length(vrs)) { 
+      #browser()
+      y <- bdd7[, c("PATIENT", vrs[[iv]]$vr)]
+      names(y)[-1] <- w
+      #y$ext<-ext #erreur
+      y$ext <- extws[ie]
+      #y$qui<-W #erreur
+      y$qui <- str_sub(Ws[1], 1, -4)
+      y$f <- vrs[[iv]]$f[1]
+      if (iv==1) {
+        Yv<-y
+      } else {
+        Yv<-rbind(Yv, y)
+      }
+    }
+    #browser()
+    Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+    Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+    Yv$x<-as.numeric(as.character(Yv$x))
+    Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+    head(Yv)
+    if (ie==1) {
+      YYv<-Yv
+    } else {
+      YYv<-rbind(YYv, Yv)
+    }
+  }
+  #browser()
+  #y<-merge(YYv, vnisla[, c("PATIENT", "date")], by="PATIENT", all=F, suff=c("", ".vni"))
+  y<-merge(YYv, vnisla[, c("PATIENT", "datevni")], by="PATIENT", all=F)
+  
+  #colonne delai(del) entre la date d'exam et la date de vni
+  #y$del<-as.numeric(y$date-y$date.vni)
+  y$del<-as.numeric(y$date-y$datevni)
+  y<-y[!is.na(y$del),]
+  
+  y<-y[order(y$PATIENT, y$date),]
+  head(y)
+  
+  # #selection des variables de suivi : toutes
+  # yp<-y[y$del>0,] 
+  # head(yp)
+  # summary(yp)
+  # if(nrow(yp)!=0) yp$f<-1 #1 pour suivi (en opposition à baseline)
+  
+  #selection valeur de baseline
+  yn<-y[y$del<=0,]
+  head(yn)
+  yn<-yn[order(yn$PATIENT, -yn$del),] #delai le plus petit en première ligne 
+  head(yn)
+  id<-unique(yn$PATIENT);id
+  dim(yn)
+  yn<-yn[match(id, yn$PATIENT),] #prend la première ligne de yn qui matche avec id (donc prend ligne correspondant au délai le plus petit pour chaque patient)
+  dim(yn)
+  head(yn)
+  summary(yn)
+  if(nrow(yn)!=0) yn$f<-0 #0 pour baseline
+  y <- yn
+  head(y)
+  #browser()
+  return(y)
+}
+
+#Recuperer les variables neuro répétées
+get_var_blf0_suivif1_neuro <- function(Ws1, Ws2){
+  #browser()
+  Ws <- c(Ws1, Ws2)
+  print(Ws)
+  vs <- c("DATEXAM", "DATEXAM_V")
+  extws <- c("base", "suivi")
+  
+  #base
+  v <- c(vs[1], Ws[1])
+  w<-c("date", "x")
+  y<-bdd6[, c("PATIENT", v)]
+  names(y)[-1]<-w
+  y$ext <- extws[1]
+  y$qui <- Ws[1]
+  y$f<- 0 #f0 car base
+  Yv<-y
+  # Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+  Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+  
+  #option var non date
+  Yv$x<-as.numeric(as.character(Yv$x))
+  # #option verif_date :Ws <- c("DATE_NUTRI", "DATE_NUTRI_V") #pour verifier que la date nutri est la même que la date exam
+  # Yv$x<-as.Date(as.character(Yv$x), "%d/%m/%Y")
+  
+  # Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+  YYv<-Yv
+  
+  #suivi
+  v <- c(vs[2], Ws[2])
+  r<-c("", paste("_M", 1:100, sep=""))
+  vr<-expand.grid(list(v=v, r=r))
+  vr$f<-as.numeric(gsub("_M", "", vr$r, fix=T))
+  vr$f[is.na(vr$f)]<-0
+  vr$vr<-paste(vr$v, vr$r, sep="")
+  vr<-vr[vr$vr%in%names(bdd9),]
+  w<-c("date", "x")
+  vrs<-split(vr, vr$f)
+  
+  for (iv in 1:length(vrs)) { 
+    #browser()
+    #print(iv)
+    y<-bdd9[, c("PATIENT", vrs[[iv]]$vr)]
+    names(y)[-1]<-w
+    if (ncol(y)<3) next 
+    #y$ext<-extws[ie]#pas de ie car plus de boucle
+    y$ext<-NA
+    #y$qui<-W #erreur
+    y$qui<-Ws[1]
+    y$f<-vrs[[iv]]$f[1]
+    if (iv==1) {
+      Yv<-y
+    } else {
+      Yv<-rbind(Yv, y)
+    }
+  }
+  #browser()
+  # Yv<-Yv[order(Yv$PATIENT, Yv$f),]
+  Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
+  
+  #option var non date
+  Yv$x<-as.numeric(as.character(Yv$x))
+  # #option verif_date :Ws <- c("DATE_NUTRI", "DATE_NUTRI_V") 
+  # Yv$x<-as.Date(as.character(Yv$x), "%d/%m/%Y")
+  
+  # Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
+  head(Yv)
+  YYv<-rbind(YYv, Yv)
+  YYv<-YYv[order(YYv$PATIENT, YYv$f),]
+  YYv<-YYv[!is.na(YYv$x) & !is.na(YYv$date),]
+  if (nrow(YYv)==0) return(NULL)
+  #y<-merge(YYv, vnisla[, c("PATIENT", "date")], by="PATIENT", all=F, suff=c("", ".vni"))
+  y<-merge(YYv, vnisla[, c("PATIENT", "datevni")], by="PATIENT", all=F)
+  #y$del<-as.numeric(y$date-y$date.vni)
+  y$del<-as.numeric(y$date-y$datevni)
+  y<-y[!is.na(y$del),]
+  y<-y[order(y$PATIENT, y$date),]
+  
+  #selection des variables de suivi : toutes
+  yp<-y[y$del>0,] 
+  head(yp)
+  summary(yp)
+  if(nrow(yp)!=0) yp$f<-1 #1 pour suivi (en opposition à baseline)
+  
+  #selection valeur de baseline
+  yn<-y[y$del<=0,]
+  head(yn)
+  yn<-yn[order(yn$PATIENT, -yn$del),] #delai le plus petit en première ligne 
+  head(yn)
+  id<-unique(yn$PATIENT);id
+  dim(yn)
+  yn<-yn[match(id, yn$PATIENT),] #prend la première ligne de yn qui matche avec id (donc prend ligne correspondant au délai le plus petit pour chaque patient)
+  dim(yn)
+  head(yn)
+  summary(yn)
+  if(nrow(yn)!=0)yn$f<-0 #0 pour baseline
+  
+  #je rassemble les tableaux baseline(yn) et suivi(yp)
+  y<-rbind(yp, yn)
+  y<-y[order(y$PATIENT, y$del),]
+  head(y)
+  return(y)
+}
+
 
 
 #DESCRIPTION
