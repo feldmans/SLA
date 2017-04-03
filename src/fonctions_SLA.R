@@ -1004,7 +1004,7 @@ get_var_blf0_suivif1_neuro <- function(Ws1, Ws2){
 }
 
 
-
+#=======================================
 #DESCRIPTION
 
 des_quali <- function(var, data){
@@ -1066,6 +1066,113 @@ des_quanti <- function(var, data){
   return(a)
 }
 
+des_all <- function(var, data){
+  print(var)
+  #browser()
+  vec <- data[ ,var]
+  if (any(!is.na(as.numeric(as.character(vec)))) & length(levels(as.factor(vec))) != 2) res <- describe_quantitative(var, data)#génère warning si character
+  else {
+    if (class(vec)=="Date") res <- NULL 
+    else res <- describe_qualitative(var, data)
+  }
+  return(res)
+}
+
+#--
+
+describe_qualitative <- function(vec_var, .data){
+  table_var_quali <- lapply(vec_var, function(i){
+    data <- .data[,i]
+    names_levels <- levels(as.factor(data))
+    a <- lapply(names_levels, function(x) {
+      tmp <- as.numeric(table(data)[x])
+      tmpbis <- round(as.numeric(prop.table(table(data))[x]),3)*100
+      tmptot <- paste0(tmp," (",tmpbis,"%)")
+      
+      nNA <- table(is.na(data))
+      pNA <- round(prop.table(table(is.na(data))),3)
+      if (is.na(nNA[2]))  {
+        if (which(names_levels==x)==2) nNA <- paste0 (0," (0%)") #NA pour ligne 1
+        else nNA <- ""
+      }
+      else {
+        if (which(names_levels==x)==2){   #NA pour ligne 1
+          nNA <- as.numeric (nNA[names(nNA)==TRUE])
+          pNA <- as.numeric (pNA[names(pNA)==TRUE])*100
+          nNA <- paste0(nNA," (",pNA,"%)")  
+        }
+        else nNA <- ""
+      }
+      cbind(tmptot,nNA)
+      
+    })
+    a <- do.call(rbind,a)
+    #a <- cbind (a,nNA)
+    rownames(a) <- paste0(i,"_",names_levels) 
+    colnames(a) <- c("valeur","missing values")
+    # a <- rbind (a,nNA)
+    # rownames(a)[-nrow(a)] <- paste0(i,"_",names_levels) 
+    return(a)
+  })
+  table_var_quali <- do.call(rbind,table_var_quali)
+  table_var_quali <- data.frame(table_var_quali)
+  table_var_quali$range <- NA
+  colnames(table_var_quali) <- c("valeur", "missing values", "range")
+  return (table_var_quali)
+}
+
+describe_quantitative <- function(vec_var, .data){
+  table_var_quanti <- lapply(vec_var, function(i){ #median ou moyenne? (sachant qu'on ne verifie pas normalite des baselines)
+    data <- .data[,i]
+    if (!is.numeric(data)) {
+      a <- data.frame("not num", "", "") 
+      colnames(a) <- c("valeur", "missing values", "range")
+      rownames(a) <- i
+    } else {
+      med <- round(median (data,na.rm=T),2)
+      quant <- round(quantile(data,na.rm=T),2)
+      Q1 <- quant[2]
+      Q3 <- quant[4]
+      a <- paste0(med," (",Q1,"-",Q3,")")
+      #browser()
+      
+      nNA <- table(is.na(data))
+      pNA <- round(prop.table(table(is.na(data))),3)
+      if (is.na(nNA[2]))  nNA <- paste0 (0," (0%)")
+      else {
+        nNA <- as.numeric (nNA[names(nNA)==TRUE])
+        pNA <- as.numeric (pNA[names(pNA)==TRUE])*100
+        nNA <- paste0(nNA," (",pNA,"%)")
+      }
+      
+      myrange <- range(data, na.rm=T)
+      myrange <- paste0(myrange[1]," - ",myrange[2])
+      # a <- rbind (a,nNA)
+      # rownames(a)[-nrow(a)] <- paste0(i,"*") 
+      a <- cbind (a, nNA, myrange)
+      rownames(a) <- paste0(i,"*")
+      colnames(a) <- c("valeur", "missing values", "range")
+    }
+    return(a)
+  })
+  table_var_quanti <- do.call(rbind,table_var_quanti)
+  return (table_var_quanti)
+}
+
+describe_all <- function(var, data){
+  print(var)
+#browser()
+  vec <- data[ ,var]
+  if (any(!is.na(as.numeric(as.character(vec)))) & length(levels(as.factor(vec))) != 2) res <- describe_quantitative(var, data)#génère warning si character
+  else {
+    if (class(vec)=="Date") res <- NULL 
+    else res <- describe_qualitative(var, data)
+  }
+  return(res)
+}
+
+#===========================
+#analyse survie simple
 
 #VERIF LOGLINEARITE
 
@@ -1310,7 +1417,10 @@ Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .
 #COURBE DE SURVIE VARIABLE BINAIRE
 
 #pour courbe , tps en année
+
+#Attention a été modifiée pour être sortie avec marrange Grob. Il faut maintenant faire print de la fonction pour l'afficher(ou marrange grob)
 draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), type = "quanti", surv_only=FALSE, pvalue = TRUE, dep_temps=FALSE, .transf=NULL) {
+
   s <- data
   s$a <- s[ ,var]
   s <- s[!is.na(s$a),]
@@ -1440,8 +1550,10 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), type = "
     gt <- ggplotGrob(g)
     gt$layout$clip[gt$layout$name=="panel"] <- "off"
     grid.draw(gt)
+    gt
   }
 }
+
 # draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), type = "quanti") {
 #   s <- data
 #   s$a <- s[ ,var]
@@ -1627,7 +1739,8 @@ surv_lieudeb <- function(surv_only=FALSE, pvalue=TRUE){
 }
 
 #=======================================================
-#fonctions var répétées
+#fonctions analyse var répétées
+
 check_loglin_dt <- function(modele=NULL, var=NULL, data=NULL, .time=NULL, .evt=NULL){
   browser()
   s <- data
