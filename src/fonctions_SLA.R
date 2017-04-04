@@ -1235,10 +1235,11 @@ check_RP <- function(var, data, .time, .evt, type="quanti", recode = TRUE){
   
   #résidus de Shoenfeld
   z <- cox.zph(mod, transf="identity")
-  plot(z, main=.title, lwd=1)
+  plot(z, main=paste0(.title, "\nHarrell test p = ",pval), resid = FALSE, ylab = paste0("Beta(t) for ", var))
   abline(h=0, col="red")
   abline(h=coef(mod), col="blue")
-  text(x = (max(s$time.vni)*1/3), y = z$table[,1], labels = paste0("Harrell test p = ", pval))
+  #text(x = (max(s$tps)*1/2), y = z$table[,1]+ 2, labels = paste0("Harrell test p = ", pval))
+  return(data.frame(var=var,pval=pval))
   #non significatif si l'IC contient a tout moment la courbe rouge
 }
 
@@ -1466,7 +1467,6 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), type = "
   cat(paste0("At ", df$time, " year, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
   #cat(paste0("At ", df$time, " months, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
   
-  
   if(surv_only==FALSE){
     #pour table de survie
     skm0 <- summary(km0, time=seq(0, 10, by=1))
@@ -1550,7 +1550,21 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), type = "
     gt <- ggplotGrob(g)
     gt$layout$clip[gt$layout$name=="panel"] <- "off"
     grid.draw(gt)
-    gt
+    return(gt)
+    
+  } else {
+    sv <- summary(km0, time=vec_time_IC)
+    df <- data.frame(group = 0, time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+    df[,3:5] <- round(df[,3:5], 0)
+    df0 <- df
+    
+    sv <- summary(km1, time=vec_time_IC)
+    df <- data.frame(group = 1, time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+    df[,3:5] <- round(df[,3:5], 0)
+    df1 <- df
+    df <- rbind(df0, df1)
+    return(df)
+    
   }
 }
 
