@@ -1246,12 +1246,12 @@ check_RP <- function(var, data, .time, .evt, type="quanti", recode = TRUE){
 
 #RECODAGE EN FONCTION DU TEMPS ET VERIF
 add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRUE, .transf="log"){
+  print(var)
   s <- data
   s$a <- s[ ,var]
   s$evt <- s[ ,.evt]
   #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
   s$tps <- (s[ ,.time]/365.25*12) + 0.001
-  
   s <- s[!is.na(s$a),]
   
   if (type=="quanti" & recode==TRUE) {
@@ -1271,7 +1271,6 @@ add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRU
   
   transf <- .transf 
   print(transf)
-  
   if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
   if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
   if (transf=="*t")slat$at<-slat$a_recode*(slat$stop)
@@ -1286,36 +1285,56 @@ add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRU
   test <- summary(coxt)
   pval_at <- test$coefficients["at","Pr(>|z|)"]
   #print(paste0("pval for time dependant coefficient : ", pval_at))
+  
   if (pval_at>0.05){
+    
     #print(paste0("at non significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test"))
-    res <- paste0("\n",transf,": at not significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test")
-    return (res)
+    cat(paste0("\n",transf,": at not significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test"))
+    return (data.frame(variable = var, transf= .transf, pval_at = pval_at, beta_at = FALSE, Harrell = FALSE, curve = NA, AIC = NA))
+    
   } else {
+    
     #print(paste0("at significant (p<0.05), ", transf," may fit, check shoenfeld and Harrell test"))
     res1 <- paste0("\n",transf, ": at significant (p<0.05), ", transf," may fit, check shoenfeld and Harrell test")
     
-    #résidus de Shoenfeld non significatif?
-    zt <- cox.zph(coxt, transf="identity")
-    for (i in 1:(nrow(zt$table)-1)){
-      iz<-i
-      plot(zt[iz], main=paste0("plot shoenfeld for ",rownames(zt[iz]$table), " with ",transf," transformation"))
-      abline(h=0, col="red")
-    }
     
-    zit <- cox.zph(coxt, transform = "rank")
-    zit
+    #résidus de Shoenfeld non significatif?
+    
+    #test de Harrell
     zit <- cox.zph(coxt, transform = "rank")
     pval <- round(zit$table[,3],3)
     #if (all(as.numeric(pval)>0.05)) print(paste0("Harrell test not significant : if curve ok too, ", transf, "fit"))
     #else print(paste0("Harrell test significant : even if curve ok, ", transf, " do not fit"))
     #print("-----------------------")
-    #Les 3 p doivent etre >=0.05 
-    
-    if (all(as.numeric(pval)>0.05)) res2 <- paste0(" => Harrell test not significant : if curve ok too, ", transf, " fit")
-    else res2 <- paste0(" => Harrell test significant : even if curve ok, ", transf, " do not fit")
-    
-    res3 <- paste(res1,res2, sep ="\n" )
-    return(res3)
+    #Les 3 p doivent etre >=0.05
+
+    if (all(as.numeric(pval)>0.05)) {
+      res2 <- paste0(" => Harrell test not significant : if curve ok too, ", transf, " fit")
+      .AIC <- extractAIC(coxt)[2] #le premier paramètre correspond au modèle vide, le deuxième est l'AIC du modèle. Plus l'AIC est petit, plus la vraisemblance est grande comparé au nombre de paramètres et mieux c'est.
+      
+      #plot
+      zt <- cox.zph(coxt, transf="identity")
+      for (i in 1:(nrow(zt$table)-1)){
+        iz<-i
+        plot(zt[iz], resid = FALSE, main = paste0("plot shoenfeld for ", var, rownames(zt[iz]$table), " with ",transf," transformation\nHarrell ok\nAIC = ", .AIC))
+        abline(h=0, col="red")
+      }
+      
+    } else {
+      res2 <- paste0(" => Harrell test significant : even if curve ok, ", transf, " do not fit")
+      .AIC <- NA
+      
+      #plot
+      zt <- cox.zph(coxt, transf="identity")
+      for (i in 1:(nrow(zt$table)-1)){
+        iz<-i
+        plot(zt[iz], resid = FALSE, main = paste0("plot shoenfeld for ", var, rownames(zt[iz]$table), " with ",transf," transformation\nHarrell NOT ok\nAIC = ", .AIC))
+        abline(h=0, col="red")
+      }
+      
+    } 
+    cat(paste(res1,res2, sep ="\n" ))
+    return (data.frame(variable = var, transf = .transf, pval_at = pval_at, beta_at = TRUE, Harrell = all(as.numeric(pval)>0.05), curve = NA,  AIC = .AIC))
   }
 }
 
