@@ -751,12 +751,11 @@ df_bl_neuro <- merge(df_bl_neuro, bdd_dates, by="PATIENT", all.x=F, all.y=T) #j'
 
 y <- df_bl_neuro[, c("DCD_PERE_NEURO", "DCD_MERE_NEURO", "ATCD_FAMIL_L1", "ATCD_FAMIL_L2", "ATCD_FAMIL_L3", "ATCD_FAMIL_L4", "ATCD_FAMIL_L5", "ATCD_FAMIL_L6")]
 y <- data.frame(apply(y, 2, as.character), stringsAsFactors = F)
-apply(y,2,table)
+#apply(y,2,table)
 y1 <- apply(y, 2, function(x) grepl("SLA", x)) #comme grep mais renvoi T/F comme ==
 y1 <- rowSums(y1)
 y2 <- ifelse(df_bl_neuro$SOD1==1, 1, 0)
 y <- rowSums(cbind(y1, y2))
-y<-ifelse(y=="SLA", 1,0)
 df_bl_neuro$sla_familiale <- ifelse(y!=0, 1, 0)
 
 
@@ -840,7 +839,7 @@ df_bl_neuro <- merge(df_bl_neuro, RILU, by="PATIENT", all.x=T, all.y=F)
 df_bl_neuro$rilu <- ifelse(df_bl_neuro$datevni>df_bl_neuro$DEBRILU & !is.na(df_bl_neuro$DEBRILU), 1, 0)
 df_bl_neuro$rilu <- ifelse(df_bl_neuro$datevni>df_bl_neuro$FINRILU & !is.na(df_bl_neuro$FINRILU), 0,df_bl_neuro$rilu)
 #-----
-
+df_bl_neuro$LIEUDEB_recode <- Recode(as.factor(df_bl_neuro$LIEUDEB), "1 = 'bulbar';2 = 'cervical'; 10:15 = 'lower limb onset'; 3 = 'respiratory'; 4:9 = 'upper limb onset'")
 df_bl_neuro$FIRSTSYMPTOM <- manage_date_ND(df_bl_neuro$FIRSTSYMPTOM)
 df_bl_neuro$DOB <- manage_date_ND(df_bl_neuro$DOB)
 #pb : une date naissance manquante => je merge avec bdd2
@@ -857,12 +856,11 @@ df_bl_neuro$SLAtillvni <- round(as.numeric(df_bl_neuro$datevni - df_bl_neuro$FIR
 
 #date de premier symptome ultérieur à la date de vni
 pb<-df_bl_neuro[df_bl_neuro$SLAtillvni<0 & !is.na(df_bl_neuro$SLAtillvni), ]
-dim(pb)
 #pb[, c("PATIENT", "datevni", "FIRSTSYMPTOM", "dfin")]
 df_bl_neuro[df_bl_neuro$SLAtillvni<0 & !is.na(df_bl_neuro$SLAtillvni), "FIRSTSYMPTOM"] <- NA
 
-apply(apply(df_bl_neuro,2,is.na),2,sum)
-table(apply(apply(df_bl_neuro,2,is.na),2,sum))
+# apply(apply(df_bl_neuro,2,is.na),2,sum)
+# table(apply(apply(df_bl_neuro,2,is.na),2,sum))
 saveRDS(df_bl_neuro, "data/df_bl_neuro.rds")
 #df_bl_neuro<-readRDS("data/df_bl_neuro.rds")
 

@@ -18,7 +18,8 @@ nu<-sapply(u, length);nu
 # s_dur <- merge(s[s$qui %in% "DUREE_ENREG_H_PP", ], s[s$qui %in% "DUREE_ENREG_MIN_PP", c("PATIENT", "date", "x")], by=c("PATIENT", "date"), suffixes = c(".h",".min"), ALL=T)
 # s_dur$x.h <- s_dur$x.h*60
 # s_dur$x <- rowSums(s_dur[ ,c("x.h", "x.min")], na.rm=T)
-s_i <- s
+#s_i <- s
+
 #=================================================================
 #1/ selection des variable
 
@@ -53,8 +54,8 @@ cu<-lapply(c, unique)
 ncu<-lapply(cu, length)
 
 ncu<-data.frame(var=names(c), nbval=as.numeric(nc), nbvalu=as.numeric(ncu))
-i<-pmin(match(ncu$var, quanti_pneumo, nomatch=0), 1);i
-ncu$type<-c("", "quanti_pneumo")[i+1]
+i<-pmin(match(ncu$var, quanti_pneumo, nomatch=0), 1);i #match dit si la variable ncu$var se trouve dans le vecteur quanti pneumo. pmin(vecteur,1) retourne 1 si l'élement du vecteur est supérieur à 1
+ncu$type <- c("", "quanti_pneumo")[i+1] #quand l'element vaut 1 alors retourne "", qd vaut 2 retourne "quanti_pneumo"
 ncu
 
 ncu$type[ncu$nbval<50 | ncu$nbvalu<=3 & ncu$type=="quanti_pneumo"]<-"-"
