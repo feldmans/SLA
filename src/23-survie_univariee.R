@@ -37,6 +37,8 @@ bl2 <- bl[bl$extraction - bl$datevni >= 365, ]
 d2 <- d[ ,names(d)[!names(d) %in% names(bdd_dates)]] #base avec les colonnes qui ne sont pas dans bdd_dates
 n_val <- apply(d2, 2, function(x) sum(!is.na(x))) #nb de non NA par variable
 n_length <- apply(d2, 2, function(x) length(names(table(x)))) #nombre de valeurs différentes par variables
+n_length["OXY_THERAP"]
+n_length["FERM_BOUCHE"]
 min_level <-  apply(d2, 2, function(x)min(as.numeric(table(x)))) #nombre minimum de personnes par catégorie 
 ncu <- data.frame(var=names(d2), np_noNA=as.numeric(n_val), nval=as.numeric(n_length), min_level = min_level)
 
@@ -52,6 +54,7 @@ ncu <- ncu[!grepl("ALS", ncu$var), ]
 #pour regarder les différentes valeurs prises
 apply(d2, 2, unique)
 apply(d2, 2, unique)["FERM_BOUCHE"]
+apply(d2, 2, unique)["OXY_THERAP"]
 
 
 binaire <- as.character(ncu[ncu$nval == 2 & ncu$min_level > 1, "var"])
@@ -65,7 +68,7 @@ as.character(ncu[ncu$nval == 1, "var"])
 
 #----
 #courbe de survie 
-.l1 <- lapply(binaire[1:2], function(x)draw_surv_bin(x, data = d, .time = "time.vni", .evt = "evt", vec_time_IC= c(1, 3), type = "quali", surv_only=FALSE, pvalue = TRUE, dep_temps=FALSE, .transf=NULL))
+.l1 <- lapply(binaire, function(x)draw_surv_bin(x, data = d, .time = "time.vni", .evt = "evt", vec_time_IC= c(1, 3), type = "quali", surv_only=FALSE, pvalue = TRUE, dep_temps=FALSE, .transf=NULL))
 ml <- marrangeGrob(.l1,ncol=1,nrow=1,top = NULL)
 ggsave(file="binaire_bl.pdf", ml)
 
@@ -115,7 +118,9 @@ AICmin <- tapply(as.numeric(as.character(rpts$AIC)), as.character(rpts$variable)
 AICmin <- data.frame(variable = names(AICmin), AICmin = as.numeric(AICmin))
 rpts <- merge(rpts, AICmin, by="variable")
 
-binRPt <- rpts[rpts$AIC==rpts$AICmin, c("variable", "transf")]
+binNRPt <- unique(rpts[rpts$AIC==rpts$AICmin, c("variable", "transf")])
+
+df_dept <- merge(binRPT, df_bint, by = c("variable","transf"), all=F)
 
 #####
 #Decoupe du temps pour les variables dont on n'a pas trouvé la bonne transformation:
@@ -127,6 +132,21 @@ pdf(paste0("data/analyses/RP_bin_decoup_", paste(b, collapse='-'), ".pdf"))
 })
 df_bint <- do.call(rbind, .l)
 dev.off()
+df_cutt <- df_bint
+binNRPcut <- unique(df_bint[ ,c("variable", "transf")])
+
+#####
+#J'ajoute une colonne transf NA pour les variables ok
+binRP1 <- data.frame(variable = binRP, transf = NA)
+#----
+#HR [IC] et survie [IC]
+
+#all var et transf
+allbin <- rbind(binNRPt, binNRPcut, binRP1)
+rownames(allbin) <- 1:nrow(allbin)
+allbin$variable <- as.character(allbin$variable) 
+
+HR_score (var=allbin$variable[3], data = bl, .time="time.vni", .evt="evt", type="quanti", recode=TRUE, .transf=allbin$transf[3], vec_time=NULL)
 
 #IC pour var de coupee temps
 t0<- 6

@@ -1357,10 +1357,123 @@ add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRU
       abline(h=bhat[i], col="blue", lty=2)
       abline(v=b)
     }
-    return(data.frame(variable = var, param = name_param, cut = name_cut, beta = coefbeta, pvalue = pval, 
+    return(data.frame(variable = var, param = name_param, transf = name_cut, beta = coefbeta, pvalue = pval, 
                       curve = NA,  AIC = .AIC, robust = rscore, probust = prscore))
   }
 }
+
+
+#HR TEST SCORE
+HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=TRUE, .transf=NULL, .tps_clinique = 12) {
+  s <- data
+  s$a <- s[ ,var]
+  s$evt <- s[ ,.evt]
+  #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+  s$tps <- (s[ ,.time]/365.25*12) + 0.001
+  s <- s[!is.na(s$a),]
+  
+  if (type=="quanti" & recode==TRUE) {
+    s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
+    .title <- paste0 ("RP of ", var, " superior to ", round(median(s$a),0))
+  } else {
+    s$a_recode <- s$a
+    .title <- paste0("RP of ", var)
+  }
+  
+  
+  if (is.na(.transf)){ #RP ok
+    mod <- coxph(Surv(tps, evt) ~ a_recode, data = s)
+    test <- summary (mod)
+    HRIC <- round(test$conf.int,2)
+    coefbeta <- round(test$coefficients[,1],4)
+    transf <- NA
+    tps_clinique <- NA
+    HRIC <- paste0(HRIC[1], " [", HRIC[3], " - ", HRIC[4],"]")
+    stat <- round(test$sctest["test"],2)
+    pval <- round(test$sctest["pvalue"],4)
+    return(data.frame(variable = var, transf = NA, tps_clinique = NA, HRIC = HRIC, test = "score", statistic = stat, pvalue = pval, param = "beta", beta = coefbeta))
+    
+  } else { #RP no respectés
+    ti <- sort(unique(c(0,s$tps[s$evt==1])))
+    slat <- s
+    slat$start <- 0
+    slat$stop <- slat$tps
+    slat$evt <- slat$evt
+    slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
+    
+    transf <- as.character(.transf)
+    
+    if(length(grep("t", transf))==1) { #var dépendantes du temps
+      print(paste(var, transf, sep="-"))
+      if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
+      if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
+      if (transf=="*t")slat$at<-slat$a_recode*(slat$stop)
+      if (transf=="/t")slat$at<-slat$a_recode/(slat$stop)
+      if (transf=="*t^2") slat$at <-slat$a_recode*(slat$stop^2)
+      if (transf=="*t^0.7") slat$at <-slat$a_recode*(slat$stop^0.7)
+      if (transf=="log10") slat$at <-slat$a_recode*log10(slat$stop)
+      if (transf=="*t^0.3") slat$at <-slat$a_recode*(slat$stop^0.3)
+      if (transf=="*t^3") slat$at <-slat$a_recode*(slat$stop^3)
+      f <- "Surv(start, stop, evt) ~ a_recode + at + cluster(PATIENT)"
+      
+      coxt <- coxph(as.formula(f), data=slat)
+      test <- summary(coxt)
+      
+      S <- vcov(coxt)
+      b <- coef(coxt)
+      t <- .tps_clinique #choisir le temps en mois
+      if (transf=="*t^0.7") t_t <- t^0.7
+      if (transf=="log") t_t <- log(t)
+      if (transf=="*t^2") t_t <- t^2 
+      if (transf=="*t") t_t <- t
+      if (transf=="*t^3") t_t <- t^3
+      if (transf=="/t") t_t <- 1/t
+      
+      variance <- S[1,1]+S[2,2]*(t_t)^2+2*S[1,2]*(t_t)
+      m <- b[1]+b[2]*(t_t) #coef de l'HR
+      HRIC <- round(c(exp(m), exp(m + qnorm(0.975)*sqrt(variance) * c(-1,1))),3)
+      HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
+      coefbeta <- round(test$coefficients[ ,"coef"], 5)
+      name_param <- rownames(test$coefficients)
+      stat <- round(test$robscore["test"],2)
+      pval <- round(test$robscore["pvalue"],4)
+      return(data.frame(variable = var, transf = transf, tps_clinique = .tps_clinique, HRIC = HRIC, test = "robust",
+                        statistic = stat, pvalue = pval, param = name_param, beta = coefbeta))
+      
+    } else {#var decoupées 
+      print(paste(var, transf, sep="-"))
+      b <- as.numeric(unlist(strsplit(transf, "-")))
+      name_cut <- transf
+      for (i in 1:(length(b)+1)){
+        if (i == 1) tmp <-  slat$a_recode * ifelse(slat$stop<=b[1], 1, 0)
+        if(i <= length(b) & i!= 1) tmp <- slat$a_recode * ifelse(slat$stop>b[i-1] & slat$stop<=b[i], 1, 0)
+        if(i == (length(b)+1)) tmp <-  slat$a_recode * ifelse(slat$stop>b[i-1], 1, 0)
+        slat[ ,paste0("at",i)] <- tmp
+      }
+      vat<-paste("at",  1:(length(b)+1), sep="")
+      x<-slat[, vat]
+      sx<-colSums(x) #interval de temps sans evt
+      wat<-vat[sx>0] #on supprime interval de temps quand pas d'evenement
+      f<-paste("Surv(start, stop, evt) ~ ", paste(wat, collapse="+"),"+cluster(PATIENT)", sep="")  #on ne met pas a_recode car les at couvre deja  toutes les perdiodes
+      
+      coxt <- coxph(as.formula(f), data=slat)
+      test <- summary(coxt)
+      coefbeta <- round(test$coefficients[ ,"coef"], 5)
+      name_param <- rownames(test$coefficients)
+      stat <- round(test$robscore["test"],2)
+      pval <- round(test$robscore["pvalue"],4)
+      
+      i <- findInterval(.tps_clinique, b) + 1 #findInterval commence à 0...
+      HRIC <- exp(cbind(coef(coxt)[i], qnorm(0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])), qnorm(1-0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i]))))
+      HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
+      
+      return(data.frame(variable = var, transf = transf, tps_clinique = .tps_clinique, HRIC = HRIC, test = "robust",
+                        statistic = stat, pvalue = pval, param = name_param, beta = coefbeta))
+    }
+  }
+}
+
+
 
 #HR et IC
 Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=TRUE, dep_temps = FALSE, .transf=NULL, vec_time=NULL) {
@@ -1384,7 +1497,6 @@ Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .
     s$a_recode <- s$a
     #cat("\ns$a_recode <- s$a\n")
   }
-  
   
   #TEST DU SCORE ET HR [95%IC]
   
