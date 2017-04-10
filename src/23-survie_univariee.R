@@ -91,7 +91,10 @@ binRP <-  as.character(rp[rp$RP, "variable"]) #RP ok, pas de var dépendante du 
 binNRP <- as.character(rp[!rp$RP, "variable"]) #RP pas ok, il faut rajouter var dépendante du temps
 
 #----
-#si dependant du temps recherche de la meilleure transformation
+#tranformation des variables ne respectant pas les RP
+
+#####
+#transformation du temps
 pdf(paste0("data/analyses/RP_bin.pdf"))
 .l <- lapply(binNRP, function(i){
    tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"), function(x)add_vart_and_check(data=d, .time="time.vni", .evt="evt", type="quali", var=i, .transf=x))
@@ -106,7 +109,7 @@ dev.off()
 write.table(print(df_bint[df_bint$beta_at==TRUE,]), file="clipboard", sep="\t", row.names=F)
 rpt <- read.csv2("data/RP dep du temps beta ok.csv")
 
-#selection de la transformation qd curve et garrel ok
+#selection de la transformation qd curve et Harrell ok
 rpts <- rpt[rpt$curve==TRUE,]
 AICmin <- tapply(as.numeric(as.character(rpts$AIC)), as.character(rpts$variable), min)
 AICmin <- data.frame(variable = names(AICmin), AICmin = as.numeric(AICmin))
@@ -114,10 +117,10 @@ rpts <- merge(rpts, AICmin, by="variable")
 
 binRPt <- rpts[rpts$AIC==rpts$AICmin, c("variable", "transf")]
 
-
+#####
 #Decoupe du temps pour les variables dont on n'a pas trouvé la bonne transformation:
 tmp <- binNRP [!binNRP %in% binRPt$variable]
-b <- c(6,18,50)
+b <- c(6,18,50) #ok on garde 6 18 50 pour toutes les variables non corrigées par transformation du temps
 pdf(paste0("data/analyses/RP_bin_decoup_", paste(b, collapse='-'), ".pdf"))
 .l <- lapply(tmp, function(i){
   add_vart_and_check(data=d, .time="time.vni", .evt="evt", type="quali", var=i, vec_cut = b)
@@ -125,8 +128,11 @@ pdf(paste0("data/analyses/RP_bin_decoup_", paste(b, collapse='-'), ".pdf"))
 df_bint <- do.call(rbind, .l)
 dev.off()
 
-
-
+#IC pour var de coupee temps
+t0<- 6
+i <- findInterval(t0, b)
+exp(coef(coxt)[i])
+exp(cbind(coef(coxt), qnorm(0.025, coef(coxt), sqrt(diag(vcov(coxt)))), qnorm(1-0.025, coef(coxt), sqrt(diag(vcov(coxt))))))
 
 
 #----------------------
@@ -171,6 +177,14 @@ f<-paste("Surv(start, stop, evt) ~ ", paste(wat, collapse="+"),"+cluster(PATIENT
 
 coxt <- coxph(as.formula(f), data=slat)
 coxt
+
+t0<- 6
+i <- findInterval(t0, b)
+exp(coef(coxt)[i])
+exp(cbind(coef(coxt), qnorm(0.025, coef(coxt), sqrt(diag(vcov(coxt)))), qnorm(1-0.025, coef(coxt), sqrt(diag(vcov(coxt))))))
+
+
+
 bhat<-coef(coxt)
 .AIC <- extractAIC(coxt)[2] #la premiere est le model vide, la deuxième le modèle avec les variables d'intéret
 zit <- cox.zph(coxt, transform = "rank")
@@ -220,6 +234,8 @@ for (i in 1:(nrow(zt$table)-1)){
   abline(h=bhat[i], col="blue", lty=2)
   abline(v=b)
 }
+
+
 
 summary(survfit(coxt), time=seq(0, 80, by=10))
 

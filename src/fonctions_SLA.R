@@ -1246,7 +1246,6 @@ check_RP <- function(var, data, .time, .evt, type="quanti", recode = TRUE){
 
 #RECODAGE EN FONCTION DU TEMPS ET VERIF
 add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRUE, .transf="log", vec_cut = NULL){
-  print(var)
   s <- data
   s$a <- s[ ,var]
   s$evt <- s[ ,.evt]
@@ -1269,9 +1268,10 @@ add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRU
   slat$evt <- slat$evt
   slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
   
-  if(is.null(vec_cut)){
+  #OPTION 1 : transformation du temps
+  if(is.null(vec_cut)){ 
     transf <- .transf 
-    print(transf)
+    print(paste(var, transf, sep="-"))
     if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
     if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
     if (transf=="*t")slat$at<-slat$a_recode*(slat$stop)
@@ -1281,64 +1281,47 @@ add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRU
     if (transf=="log10") slat$at <-slat$a_recode*log10(slat$stop)
     if (transf=="*t^0.3") slat$at <-slat$a_recode*(slat$stop^0.3)
     if (transf=="*t^3") slat$at <-slat$a_recode*(slat$stop^3)
-    f <- Surv(start, stop, evt) ~ a_recode + at + cluster(PATIENT)
+    f <- "Surv(start, stop, evt) ~ a_recode + at + cluster(PATIENT)"
     
     coxt <- coxph(as.formula(f), data=slat)
     test <- summary(coxt)
-    pval_at <- test$coefficients["at","Pr(>|z|)"]
-    #print(paste0("pval for time dependant coefficient : ", pval_at))
+    pval <-  round(test$coefficients[ ,"Pr(>|z|)"], 3)
+    coefbeta <- round(test$coefficients[ ,"coef"], 5)
+    name_param <- rownames(test$coefficients)
     
-    if (pval_at>0.05){
-      
-      #print(paste0("at non significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test"))
-      cat(paste0("\n",transf,": at not significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test"))
-      return (data.frame(variable = var, transf= .transf, pval_at = pval_at, beta_at = FALSE, Harrell = FALSE, curve = NA, AIC = NA))
-      
-    } else {
-      
-      #print(paste0("at significant (p<0.05), ", transf," may fit, check shoenfeld and Harrell test"))
-      res1 <- paste0("\n",transf, ": at significant (p<0.05), ", transf," may fit, check shoenfeld and Harrell test")
-      
-      #résidus de Shoenfeld non significatif?
-      
-      #test de Harrell
+    #La transformation du temps convient-elle?
+    
+    #non : coef de at non significatif => la transformation n'est pas bonne
+    if (as.numeric(pval["at"])>0.05){ 
+      #cat(paste0("\n",transf,": at not significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test"))
+      return (data.frame(variable = var, param = name_param, transf= .transf, beta = coefbeta, pvalue = pval, Harrell = NA, 
+                         curve = NA, AIC = NA, robust = NA, probust = NA))
+    
+    #peut-être : coef de at est significatif => on test les RP : Les 2 tests doivent être satisfaits
+    } else { 
+      .AIC <- round(extractAIC(coxt)[2],2) #le premier paramètre correspond au modèle vide, le deuxième est l'AIC du modèle. Plus l'AIC est petit, plus la vraisemblance est grande comparé au nombre de paramètres et mieux c'est.
+      rscore <- round(test$robscore["test"],2)
+      prscore <- round(test$robscore["pvalue"],4)
+      #test de Harrell 
       zit <- cox.zph(coxt, transform = "rank")
-      pval <- round(zit$table[,3],3)
-      #if (all(as.numeric(pval)>0.05)) print(paste0("Harrell test not significant : if curve ok too, ", transf, "fit"))
-      #else print(paste0("Harrell test significant : even if curve ok, ", transf, " do not fit"))
-      #print("-----------------------")
-      #Les 3 p doivent etre >=0.05
-      
-      if (all(as.numeric(pval)>0.05)) {
-        res2 <- paste0(" => Harrell test not significant : if curve ok too, ", transf, " fit")
-        .AIC <- round(extractAIC(coxt)[2],2) #le premier paramètre correspond au modèle vide, le deuxième est l'AIC du modèle. Plus l'AIC est petit, plus la vraisemblance est grande comparé au nombre de paramètres et mieux c'est.
-        
-        #plot
-        zt <- cox.zph(coxt, transf="identity")
-        for (i in 1:(nrow(zt$table)-1)){
-          iz<-i
-          plot(zt[iz], resid = FALSE, main = paste0("plot shoenfeld for ", var, rownames(zt[iz]$table), " with ",transf," transformation\nHarrell ok\nAIC = ", .AIC))
-          abline(h=0, col="red")
-        }
-        
-      } else {
-        res2 <- paste0(" => Harrell test significant : even if curve ok, ", transf, " do not fit")
-        .AIC <- NA
-        
-        #plot
-        zt <- cox.zph(coxt, transf="identity")
-        for (i in 1:(nrow(zt$table)-1)){
-          iz<-i
-          plot(zt[iz], resid = FALSE, main = paste0("plot shoenfeld for ", var, rownames(zt[iz]$table), " with ",transf," transformation\nHarrell NOT ok\nAIC = ", .AIC))
-          abline(h=0, col="red")
-        }
-        
-      } 
-      cat(paste(res1,res2, sep ="\n" ))
-      return (data.frame(variable = var, transf = .transf, pval_at = pval_at, beta_at = TRUE, Harrell = all(as.numeric(pval)>0.05), curve = NA,  AIC = .AIC))
+      pval_H <- round(zit$table[,3],3) #Les 3 p doivent etre >=0.05
+      Harrell <- if (all(as.numeric(pval_H)>0.05)) "ok" else "NOT ok"
+      #------
+      #plot #résidus de shoenfeld doivent être horizontaux
+      zt <- cox.zph(coxt, transf="identity")
+      for (i in 1:(nrow(zt$table)-1)){
+        iz<-i
+        plot(zt[iz], resid = FALSE, main = paste0("plot shoenfeld for ", var, rownames(zt[iz]$table), " with ",transf," transformation\nHarrell :", Harrell, "\nAIC = ", .AIC))
+        abline(h=0, col="red")
+      }
+      #------
+      return (data.frame(variable = var, param = name_param, transf = .transf, beta = coefbeta, pvalue = pval, Harrell = all(as.numeric(pval_H)>0.05),
+                         curve = NA,  AIC = .AIC, robust = rscore, probust = prscore))
     }
     
-  } else {
+  #OPTION 2 : découpage du temps
+  } else { 
+    print(var)
     b <- vec_cut
     name_cut <- paste(b, collapse = "-")
     
@@ -1357,10 +1340,15 @@ add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRU
 
     coxt <- coxph(as.formula(f), data=slat)
     test <- summary(coxt)
+    pval <-  round(test$coefficients[ ,"Pr(>|z|)"], 3) #on veut la pvalue du test robuste et le rscore et pas la pvalue des coefficients
+    coefbeta <- round(test$coefficients[ ,"coef"], 5)
+    name_param <- rownames(test$coefficients)
     .AIC <- round(extractAIC(coxt)[2],2)
-    #pval_at <- data.frame(t(round(test$coefficients[,"Pr(>|z|)"],3))) ; colnames(pval_at) <- paste0("p_", colnames(pval_at))  
-    pval_at <- round(test$coefficients[,"Pr(>|z|)"],3)
+    rscore <- round(test$robscore["test"],2)
+    prscore <- round(test$robscore["pvalue"],4)
+   
     
+    #on ne fait que la courbe et pas de test de Harrell pour la découpe du temps
     zt <- cox.zph(coxt, transf="identity")
     for (i in 1:(nrow(zt$table)-1)){
       iz<-i
@@ -1369,13 +1357,8 @@ add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRU
       abline(h=bhat[i], col="blue", lty=2)
       abline(v=b)
     }
-    # df <- data.frame(t(as.numeric(coef(coxt)))); colnames(df) <- rownames(test$coefficients)
-    # df <- cbind(df, pval_at)
-    # df <- df[,order(str_sub(colnames(df),-1,-1))]#pour intercaler les colonnes
-    df <- as.numeric(coef(coxt))
-    df <- cbind(num = 1 : length(df), at = df, pvalat = pval_at)                 
-
-    return(data.frame(variable = var, cut = name_cut, df, curve = NA))
+    return(data.frame(variable = var, param = name_param, cut = name_cut, beta = coefbeta, pvalue = pval, 
+                      curve = NA,  AIC = .AIC, robust = rscore, probust = prscore))
   }
 }
 
