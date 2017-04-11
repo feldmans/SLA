@@ -7,14 +7,14 @@ source("src/libraries_SLA.R")
 source("src/fonctions_SLA.R")
 bl <- readRDS("data/bl.rds")
 
-
+#=======================
 #=======================
 #variables baselines
 
 #data management
 d <- bl #base avec les colonnes qui ne sont pas dans bdd_dates
-d$LIEUDEB <- NULL
-d$DOB <- NULL
+d[ ,c("LIEUDEB", "DOB", "FIRSTSYMPTOM")] <- NULL
+
 #raison de la mise en place de la vni :
 for (i in (1:20)){
   d[ ,paste0("crit", i)] <- ifelse((d$CRIT_1_VNI==i & !is.na(d$CRIT_1_VNI==i)) | (d$CRIT_2_VNI==i & !is.na(d$CRIT_2_VNI==i)) | (d$CRIT_3_VNI==i & !is.na(d$CRIT_3_VNI==i)), 1, 0)
@@ -30,15 +30,14 @@ d [d$SEX == 2, "SEX"] <- 1
 
 bl$extraction <- as_date("2015-08-27")
 bl2 <- bl[bl$extraction - bl$datevni >= 365, ]
+
+
 #----------------
 #selection des variables
-
-
 d2 <- d[ ,names(d)[!names(d) %in% names(bdd_dates)]] #base avec les colonnes qui ne sont pas dans bdd_dates
+d2$FIRSTSYMPTOM <- NULL #base avec les colonnes qui ne sont pas dans bdd_dates
 n_val <- apply(d2, 2, function(x) sum(!is.na(x))) #nb de non NA par variable
 n_length <- apply(d2, 2, function(x) length(names(table(x)))) #nombre de valeurs différentes par variables
-n_length["OXY_THERAP"]
-n_length["FERM_BOUCHE"]
 min_level <-  apply(d2, 2, function(x)min(as.numeric(table(x)))) #nombre minimum de personnes par catégorie 
 ncu <- data.frame(var=names(d2), np_noNA=as.numeric(n_val), nval=as.numeric(n_length), min_level = min_level)
 
@@ -53,8 +52,8 @@ ncu <- ncu[!grepl("ALS", ncu$var), ]
 
 #pour regarder les différentes valeurs prises
 apply(d2, 2, unique)
-apply(d2, 2, unique)["FERM_BOUCHE"]
-apply(d2, 2, unique)["OXY_THERAP"]
+apply(d2, 2, unique)["FERM_BOUCHE"]#moins de 25% des sujets l'ont renseignée => pas dans binaire
+apply(d2, 2, unique)["OXY_THERAP"]#moins de 25% des sujets l'ont renseignée => pas dans binaire
 
 
 binaire <- as.character(ncu[ncu$nval == 2 & ncu$min_level > 1, "var"])
@@ -62,12 +61,11 @@ quanti  <- as.character(ncu[ncu$nval > 6, "var"])
 quali <- as.character(ncu[ncu$nval > 2 & ncu$nval <= 6, "var"])
 as.character(ncu[ncu$nval == 1, "var"])
 
-#----------------
-#----------------
+#=======================
 #analyses binaires
 
 #----
-#courbe de survie 
+#courbes de survie 
 .l1 <- lapply(binaire, function(x)draw_surv_bin(x, data = d, .time = "time.vni", .evt = "evt", vec_time_IC= c(1, 3), type = "quali", surv_only=FALSE, pvalue = TRUE, dep_temps=FALSE, .transf=NULL))
 ml <- marrangeGrob(.l1,ncol=1,nrow=1,top = NULL)
 ggsave(file="binaire_bl.pdf", ml)
@@ -138,21 +136,50 @@ binNRPcut <- unique(df_bint[ ,c("variable", "transf")])
 #####
 #J'ajoute une colonne transf NA pour les variables ok
 binRP1 <- data.frame(variable = binRP, transf = NA)
-#----
-#HR [IC] et survie [IC]
 
 #all var et transf
 allbin <- rbind(binNRPt, binNRPcut, binRP1)
 rownames(allbin) <- 1:nrow(allbin)
 allbin$variable <- as.character(allbin$variable) 
 
-HR_score (var=allbin$variable[3], data = bl, .time="time.vni", .evt="evt", type="quanti", recode=TRUE, .transf=allbin$transf[3], vec_time=NULL)
+#----
+#HR [IC] et test du score (ou robuste)
 
-#IC pour var de coupee temps
-t0<- 6
-i <- findInterval(t0, b)
-exp(coef(coxt)[i])
-exp(cbind(coef(coxt), qnorm(0.025, coef(coxt), sqrt(diag(vcov(coxt)))), qnorm(1-0.025, coef(coxt), sqrt(diag(vcov(coxt))))))
+.l <- lapply(1 : nrow(allbin), function(num){
+HR_score (var=allbin$variable[num], data = d, .time="time.vni", .evt="evt", type="quali", recode=TRUE, .transf=allbin$transf[num], .tps_clinique=12)
+})
+df_HR <- do.call(rbind,.l)
+
+#=======================
+#analyses quanti
+
+
+#----
+#hypothèse de loglinearité
+pdf(paste0("data/analyses/Log_lin_bl.pdf"))
+.l <- lapply(quanti, function(x){
+  a <- check_loglin (var=x, data=d, .time="time.vni", .evt="evt")  
+})
+.l <- do.call(rbind, .l)
+dev.off()
+
+#----
+#hypothèse des risques proportionnels
+pdf(paste0("data/analyses/RP_bin.pdf"))
+.l <- lapply(binaire, function(x)check_RP(var=x, data=d, .time="time.vni", .evt="evt", type="quali", recode = TRUE))
+dev.off()
+
+#NB j'ai rempli dans un tableau excel au regard des courbes si l'hypothèse des risques proportionnels était respecté(TRUE) ou non (FALSE)
+write.table(print(binaire), file="clipboard", sep="\t")
+rp <- read.csv2("data/RP_bin.csv")
+
+#separation var selon respect RP ou non
+binRP <-  as.character(rp[rp$RP, "variable"]) #RP ok, pas de var dépendante du temps
+binNRP <- as.character(rp[!rp$RP, "variable"]) #RP pas ok, il faut rajouter var dépendante du temps
+
+
+
+
 
 
 #----------------------

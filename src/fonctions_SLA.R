@@ -1229,7 +1229,7 @@ check_loglin <- function(var, data, .time, .evt){
   cox2<-coxph(Surv(tps,evt)~poly(a, df=2, raw=T), data=s)
   tabcox <- summary(cox2)
   .pval <- round(tabcox$coefficients[2,"Pr(>|z|)"], 3)
-  .recode <- pval<=0.05
+  .recode <- .pval<=0.05
   return(data.frame(var=var,pval=.pval, recode = .recode, stringsAsFactors = FALSE))
 }
 
