@@ -851,8 +851,10 @@ df_bl_neuro <- df_bl_neuro[ ,colnames(df_bl_neuro)[!colnames(df_bl_neuro)%in%c("
                                                                                "CAUSDCDPERE", "DCD_PERE_NEURO", "CAUSDCDMERE", "DCD_MERE_NEURO","DOB.y",
                                                                                "DOB.x", "DEBRILU", "FINRILU")]]
 
-df_bl_neuro$agevni <-  round(as.numeric(df_bl_neuro$datevni - df_bl_neuro$DOB)/365.25,0) #en annee
-df_bl_neuro$SLAtillvni <- round(as.numeric(df_bl_neuro$datevni - df_bl_neuro$FIRSTSYMPTOM)/365.25*12, 0)#en mois
+df_bl_neuro$agevni <-  round(as.numeric(df_bl_neuro$datevni - df_bl_neuro$DOB)/365.25,0) #age en annee
+#agefirstsymptom inutile deja variable AGE_DEBUT qui est équivalente et qui est mieux renseignée que FIRSTSYMPTOM
+#df_bl_neuro$agefirstsymptom <- round(as.numeric(df_bl_neuro$FIRSTSYMPTOM - df_bl_neuro$DOB)/365.25,0) #age en annee
+df_bl_neuro$SLAtillvni <- round(as.numeric(df_bl_neuro$datevni - df_bl_neuro$FIRSTSYMPTOM)/365.25*12, 0)#temps en mois
 
 #date de premier symptome ultérieur à la date de vni
 pb<-df_bl_neuro[df_bl_neuro$SLAtillvni<0 & !is.na(df_bl_neuro$SLAtillvni), ]

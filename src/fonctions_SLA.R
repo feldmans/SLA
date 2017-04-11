@@ -1180,13 +1180,15 @@ describe_all <- function(var, data){
 # .time <- "time.vni"
 # .evt <- "evt" 
 # data <- sla
+data <- bl
+var <- 
 
 check_loglin <- function(var, data, .time, .evt){
 s <- data
 s$a <- s[ ,var]
 s$evt <- s[ ,.evt]
 #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-s$tps <- (s[ ,.time]/365.25*12) + 0.001
+s$tps <- (s[ ,.time]/365.25*12) + 0.001 # temps en mois
 
 s <- s[!is.na(s$a),]
 
@@ -1207,42 +1209,29 @@ paste0("pvalue polynome degre 2 : ", round(pval,3))
 
 #HYP DES RISQUES PROP
 
-check_RP <- function(var, data, .time, .evt, type="quanti", recode = TRUE){
+check_loglin <- function(var, data, .time, .evt){
   s <- data
   s$a <- s[ ,var]
   s$evt <- s[ ,.evt]
   #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-  s$tps <- (s[ ,.time]/365.25*12) + 0.001
+  s$tps <- (s[ ,.time]/365.25*12) + 0.001 # temps en mois
   
   s <- s[!is.na(s$a),]
   
-  if (type=="quanti" & recode==TRUE) {
-    s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-    .title <- paste0 ("RP of ", var, " superior to ", round(median(s$a),0))
-  } else {
-    s$a_recode <- s$a
-    .title <- paste0("RP of ", var)
-  }
-  mod <- coxph(Surv(tps, evt) ~ a_recode, data = s)
+  # 1/ plot résidus du modèle vide en fonction de la variable explicative
+  cox1<-coxph(Surv(tps,evt)~1, data=s)
+  r<-residuals(cox1, "martingale")
+  lw<-lowess(r~s$a)
+  plot(s$a, r, main=paste0("Loglinearity of ",var), xlab = var, ylab = paste0("residuals"))
+  lines(lw, lwd= 2)
   
-    #Test de Harrell
-  z <- cox.zph(mod, transform = "rank")
-  cat("Test de Harrell\n\n")
-  print(z)
-  pval <- round(z$table[,3],3)
-  cat(paste0("\nTest de Harrell p value: ", pval))
-  #non signif si p>=0.05
-  
-  #résidus de Shoenfeld
-  z <- cox.zph(mod, transf="identity")
-  plot(z, main=paste0(.title, "\nHarrell test p = ",pval), resid = FALSE, ylab = paste0("Beta(t) for ", var))
-  abline(h=0, col="red")
-  abline(h=coef(mod), col="blue")
-  #text(x = (max(s$tps)*1/2), y = z$table[,1]+ 2, labels = paste0("Harrell test p = ", pval))
-  return(data.frame(var=var,pval=pval))
-  #non significatif si l'IC contient a tout moment la courbe rouge
+  # 2/ découpe la variable le variable en fonction du temps avec une polynome de degré 2
+  cox2<-coxph(Surv(tps,evt)~poly(a, df=2, raw=T), data=s)
+  tabcox <- summary(cox2)
+  .pval <- round(tabcox$coefficients[2,"Pr(>|z|)"], 3)
+  .recode <- pval<=0.05
+  return(data.frame(var=var,pval=.pval, recode = .recode, stringsAsFactors = FALSE))
 }
-
 
 #RECODAGE EN FONCTION DU TEMPS ET VERIF
 add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRUE, .transf="log", vec_cut = NULL){
