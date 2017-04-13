@@ -1180,34 +1180,7 @@ describe_all <- function(var, data){
 # .time <- "time.vni"
 # .evt <- "evt" 
 # data <- sla
-data <- bl
-var <- 
 
-check_loglin <- function(var, data, .time, .evt){
-s <- data
-s$a <- s[ ,var]
-s$evt <- s[ ,.evt]
-#s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-s$tps <- (s[ ,.time]/365.25*12) + 0.001 # temps en mois
-
-s <- s[!is.na(s$a),]
-
-# 1/ plot résidus du modèle vide en fonction de la variable explicative
-cox1<-coxph(Surv(tps,evt)~1, data=s)
-r<-residuals(cox1, "martingale")
-lw<-lowess(r~s$a)
-plot(s$a, r, main=paste0("Loglinearity of ",var))
-lines(lw)
-
-# 2/ découpe la variable le variable en fonction du temps avec une polynome de degré 2
-cox2<-coxph(Surv(tps,evt)~poly(a, df=2, raw=T), data=s)
-tabcox <- summary(cox2)
-pval <- tabcox$coefficients[2,"Pr(>|z|)"]
-paste0("pvalue polynome degre 2 : ", round(pval,3))
-}
-
-
-#HYP DES RISQUES PROP
 
 check_loglin <- function(var, data, .time, .evt){
   s <- data
@@ -1230,11 +1203,91 @@ check_loglin <- function(var, data, .time, .evt){
   tabcox <- summary(cox2)
   .pval <- round(tabcox$coefficients[2,"Pr(>|z|)"], 3)
   .recode <- .pval<=0.05
-  return(data.frame(var=var,pval=.pval, recode = .recode, stringsAsFactors = FALSE))
+  return(data.frame(variable=var,pval=.pval, recode = .recode, stringsAsFactors = FALSE))
 }
 
+#Pour binariser variables quali
+get_binaires <- function(vec, data){
+  data[,vec] <- as.factor(data[,vec])
+  data <- data[!is.na(data[,vec]),]
+  a <- model.matrix( ~ data[ ,vec])
+  #pour avoir un nom de variable reconnaissable dans les schéma (si on laisse tel quel ça donne data[ ,vec] CHF par exemple)
+  colnames(a) <- gsub("data",vec,  colnames(a))
+  colnames(a) <- gsub("\\[", "",  colnames(a))
+  colnames(a) <- gsub("\\]", "",  colnames(a))
+  colnames(a) <- gsub("\\,", "",  colnames(a))
+  colnames(a) <- gsub("vec", "",  colnames(a))
+  colnames(a) <- gsub(" ", "_",  colnames(a))
+  #créer les  variables binaires
+  for (i in 1:(length(colnames(a))-1)){
+    data[ ,colnames(a)[i+1]] <- a[ ,i+1]
+  }
+  return(data)
+}
+
+#HYP DES RISQUES PROP
+#check_RP <- function(var, data, .time, .evt, type="quanti", recode = FALSE){
+check_RP <- function(var, data, .time, .evt, quali = FALSE, recode = FALSE){
+  s <- data
+  s$a <- s[ ,var]
+  s$evt <- s[ ,.evt]
+  #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+  s$tps <- (s[ ,.time]/365.25*12) + 0.001
+  
+  s <- s[!is.na(s$a),]
+  
+  if (quali == FALSE){
+    if (recode==TRUE) {
+      s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
+      .title <- paste0 ("RP of ", var, " superior to ", round(median(s$a),0))
+    } else {
+      s$a_recode <- s$a
+      .title <- paste0("RP of ", var)
+    }
+    mod <- coxph(Surv(tps, evt) ~ a_recode, data = s)
+    
+    #Test de Harrell
+    z <- cox.zph(mod, transform = "rank")
+    pval <- round(z$table[,3],3)
+    #non signif si p>=0.05
+    
+    #résidus de Shoenfeld
+    z <- cox.zph(mod, transf="identity")
+    plot(z, main=paste0(.title, "\nHarrell test p = ",pval), resid = FALSE, ylab = paste0("Beta(t) for ", var))
+    abline(h=0, col="red")
+    abline(h=coef(mod), col="blue")
+    #text(x = (max(s$tps)*1/2), y = z$table[,1]+ 2, labels = paste0("Harrell test p = ", pval))
+    return(data.frame(variable=var,pval=pval))
+    #non significatif si l'IC contient a tout moment la courbe rouge
+    
+  } else {
+    q2b <- get_binaires(var, s)
+    vec <- grep(var, names(q2b))
+    n1 <- names(q2b)[vec[-1]]
+    ref <- names(table(d[,var]))[1]
+    f <- paste0("Surv(tps, evt) ~ ", paste(n1, collapse=" + "))
+    mod <- coxph(as.formula(f), data = q2b)
+    .title <- paste0("RP of ", n1)
+    #Test de Harrell
+    z <- cox.zph(mod, transform = "rank")
+    pval <- round(z$table[,3],3)[-nrow(z$table)]
+    
+    #résidus de Shoenfeld
+    z <- cox.zph(mod, transf="identity")
+    for (i in 1:(nrow(z$table)-1)){
+      plot(z[i], main=paste0(.title[i], "\nref = ", ref, "\nHarrell test p = ",pval[i]), resid = FALSE, ylab = paste0("Beta(t) for ", n1[i]))
+      abline(h=0, col="red")
+    }
+    return(data.frame(variable=n1,pval=pval))
+  }
+  
+}
+  
+
+
+
 #RECODAGE EN FONCTION DU TEMPS ET VERIF
-add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRUE, .transf="log", vec_cut = NULL){
+add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="log", vec_cut = NULL){
   s <- data
   s$a <- s[ ,var]
   s$evt <- s[ ,.evt]
@@ -1242,7 +1295,7 @@ add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRU
   s$tps <- (s[ ,.time]/365.25*12) + 0.001
   s <- s[!is.na(s$a),]
   
-  if (type=="quanti" & recode==TRUE) {
+  if (recode==TRUE) {
     s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
     .title <- paste0 ("RP of ", var, " superior to ", round(median(s$a),0))
   } else {
@@ -1283,7 +1336,7 @@ add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRU
     #non : coef de at non significatif => la transformation n'est pas bonne
     if (as.numeric(pval["at"])>0.05){ 
       #cat(paste0("\n",transf,": at not significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test"))
-      return (data.frame(variable = var, param = name_param, transf= .transf, beta = coefbeta, pvalue = pval, Harrell = NA, 
+      return (data.frame(variable = var, recode = recode, param = name_param, transf= .transf, beta = coefbeta, pvalue = pval, beta_at = FALSE, Harrell = NA, 
                          curve = NA, AIC = NA, robust = NA, probust = NA))
     
     #peut-être : coef de at est significatif => on test les RP : Les 2 tests doivent être satisfaits
@@ -1304,7 +1357,7 @@ add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRU
         abline(h=0, col="red")
       }
       #------
-      return (data.frame(variable = var, param = name_param, transf = .transf, beta = coefbeta, pvalue = pval, Harrell = all(as.numeric(pval_H)>0.05),
+      return (data.frame(variable = var, recode = recode, param = name_param, transf = .transf, beta = coefbeta, pvalue = pval, beta_at = TRUE, Harrell = all(as.numeric(pval_H)>0.05),
                          curve = NA,  AIC = .AIC, robust = rscore, probust = prscore))
     }
     
@@ -1346,14 +1399,14 @@ add_vart_and_check <- function(var, data, .time, .evt, type="quanti", recode=TRU
       abline(h=bhat[i], col="blue", lty=2)
       abline(v=b)
     }
-    return(data.frame(variable = var, param = name_param, transf = name_cut, beta = coefbeta, pvalue = pval, 
+    return(data.frame(variable = var, recode = recode, param = name_param, transf = name_cut, beta = coefbeta, pvalue = pval, 
                       curve = NA,  AIC = .AIC, robust = rscore, probust = prscore))
   }
 }
 
 
 #HR TEST SCORE
-HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=TRUE, .transf=NULL, .tps_clinique = 12) {
+HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", recode=FALSE, .transf=NULL, .tps_clinique = 12) {
   s <- data
   s$a <- s[ ,var]
   s$evt <- s[ ,.evt]
@@ -1361,7 +1414,7 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", type="qu
   s$tps <- (s[ ,.time]/365.25*12) + 0.001
   s <- s[!is.na(s$a),]
   
-  if (type=="quanti" & recode==TRUE) {
+  if (recode==TRUE) {
     s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
     .title <- paste0 ("RP of ", var, " superior to ", round(median(s$a),0))
   } else {
@@ -1371,6 +1424,7 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", type="qu
   
   
   if (is.na(.transf)){ #RP ok
+    print(paste(var, "RP ok", sep="-"))
     mod <- coxph(Surv(tps, evt) ~ a_recode, data = s)
     test <- summary (mod)
     HRIC <- round(test$conf.int,2)
@@ -1417,6 +1471,7 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", type="qu
       if (transf=="*t") t_t <- t
       if (transf=="*t^3") t_t <- t^3
       if (transf=="/t") t_t <- 1/t
+      if (transf=="*t^0.3") t_t <- t^0.3
       
       variance <- S[1,1]+S[2,2]*(t_t)^2+2*S[1,2]*(t_t)
       m <- b[1]+b[2]*(t_t) #coef de l'HR
@@ -1453,7 +1508,7 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", type="qu
       pval <- round(test$robscore["pvalue"],4)
       
       i <- findInterval(.tps_clinique, b) + 1 #findInterval commence à 0...
-      HRIC <- exp(cbind(coef(coxt)[i], qnorm(0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])), qnorm(1-0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i]))))
+      HRIC <- round(exp(cbind(coef(coxt)[i], qnorm(0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])), qnorm(1-0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])))),3)
       HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
       
       return(data.frame(variable = var, transf = transf, tps_clinique = .tps_clinique, HRIC = HRIC, test = "robust",
@@ -1564,14 +1619,14 @@ Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .
 #pour courbe , tps en année
 
 #Attention a été modifiée pour être sortie avec marrange Grob. Il faut maintenant faire print de la fonction pour l'afficher(ou marrange grob)
-draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), type = "quanti", surv_only=FALSE, pvalue = TRUE, dep_temps=FALSE, .transf=NULL) {
+draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), recode = FALSE, surv_only=FALSE, pvalue = TRUE, dep_temps=FALSE, .transf=NULL) {
 
   s <- data
   s$a <- s[ ,var]
   s <- s[!is.na(s$a),]
   .title <- paste0("Survival by ", var)
   
-  if (type=="quanti") {
+  if (recode == TRUE) {
     s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
     #.title <- paste0 ("Survival by ", var, " superior to ", round(median(s$a),0))
   } else {
@@ -1589,12 +1644,12 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), type = "
   skmi0<-summary(km0, time=vec_time_IC-0.1)
   skmi1<-summary(km1, time=vec_time_IC+0.1) #plus d'évènement apres 1.94 ans
   
-  if(type=="quali") {
-    group0 <- paste0("\nIn group ", var, " = 0\n ")
-    group1 <- paste0("\nIn group ", var, " = 1\n ")
-  } else {
+  if(recode == TRUE) {
     group0 <- paste0("\nIn group ", var, " < ",round(median(s$a),0), "\n ")
     group1 <- paste0("\nIn group ", var, " >= ",round(median(s$a),0), "\n ")
+  } else {
+    group0 <- paste0("\nIn group ", var, " = 0\n ")
+    group1 <- paste0("\nIn group ", var, " = 1\n ")
   }
   #survies aux tps choisis
   cat(group0)
@@ -1619,9 +1674,8 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), type = "
     skm1 <- data.frame(time=skm1$time, n.risk=skm1$n.risk)
     
     #preparation legende
-    if(type=="quali")leg<-str_sub(names(km$strata),-1,-1)
-    
-    if(type=="quanti")leg <- c(paste0(var, " < ", round(median(s$a),0)), paste0(var, " >= ", round(median(s$a),0)))
+    if (recode == TRUE) leg <- c(paste0(var, " < ", round(median(s$a),0)), paste0(var, " >= ", round(median(s$a),0)))
+    else leg<-str_sub(names(km$strata),-1,-1)
     col <- hue_pal()(length(leg))
     
     #courbe de survie
@@ -1707,6 +1761,7 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), type = "
     df[,3:5] <- round(df[,3:5], 0)
     df1 <- df
     df <- rbind(df0, df1)
+    df <- cbind(variable = var, df)
     return(df)
     
   }
@@ -1801,17 +1856,20 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), type = "
 #   
 # }
 #fonction survie quali à plusiuers clkasses(à fusionner avec celle du dessus à l'occasion)
-surv_lieudeb <- function(surv_only=FALSE, pvalue=TRUE){
-  vec_time_IC=1
-  s <- sla
-  s <- s[!is.na(s$LIEUDEB_recode),]
-  s$tps <- (s$time.vni/365.25) + 0.001 
+draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec_time_IC= c(1, 3), surv_only=FALSE, pvalue=TRUE){
+  print(var)
+  s <- data
+  s$a <- s[ ,var]
+  s <- s[!is.na(s$a),]
+  s$a <- as.factor(s$a)
   
-  var <- "beginning of onset"
-  km <- survfit(Surv(tps,evt)~LIEUDEB_recode, data=s, conf.int=.95)
+  s$evt <- s[ ,.evt]
+  s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+  
+  km <- survfit(Surv(tps,evt)~a, data=s, conf.int=.95)
   
   for (i in 1:length(km$strata)){
-    .km <- survfit(Surv(tps,evt)~LIEUDEB_recode, data=s[s$LIEUDEB_recode==levels(s$LIEUDEB_recode)[i], ], conf.int=.95)
+    .km <- survfit(Surv(tps, evt)~a, data=s[s$a==levels(s$a)[i], ], conf.int=.95)
     assign(paste0("km",i), .km)
     #pour IC95%
     am <- i/10
@@ -1823,7 +1881,7 @@ surv_lieudeb <- function(surv_only=FALSE, pvalue=TRUE){
     assign(paste0("skm",i), .skm)
     
     #survies aux tps choisis
-    cat(paste0("\nIn group ", var, " = ", levels(s$LIEUDEB_recode)[i], "\n "))
+    cat(paste0("\nIn group ", var, " = ", levels(s$a)[i], "\n "))
     sv <- summary(.km, time=vec_time_IC)
     df <- data.frame(time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
     df[,2:4] <- round(df[,2:4], 0)
@@ -1834,7 +1892,7 @@ surv_lieudeb <- function(surv_only=FALSE, pvalue=TRUE){
   if (surv_only==FALSE){
     #preparation legende
     leg<-names(km$strata)
-    leg <- str_sub(leg,16,-1)
+    leg <- str_sub(leg,3,-1)
     col <- hue_pal()(length(leg))
     .title <- paste0("Survival by ", var)
     
@@ -1853,6 +1911,7 @@ surv_lieudeb <- function(surv_only=FALSE, pvalue=TRUE){
             axis.title.y = element_text(size = 12), axis.title.x = element_text(size = 12),
             legend.title = element_text(size=14), legend.text = element_text(size=12)) #top, right, bottom, left
     
+    
     #intervalle de confiance
     for (j in 1:length(km$strata)){
       .skmi <- get(paste0(paste0("skmi",j)))
@@ -1862,11 +1921,11 @@ surv_lieudeb <- function(surv_only=FALSE, pvalue=TRUE){
         g <- g + geom_segment(x = .skmi$time[i] - 0.1, y = .skmi$upper[i], xend = .skmi$time[i] + 0.1, yend = .skmi$upper[i], colour = col[j])
       }
     }
-    
+
     #risk table
     #position_y <- c(-1.2, -1.5, -1.7, -1.9, -2.1)
     position_y <- c(-1.4, -1.5, -1.6, -1.7, -1.8)
-    for (j in 1:5){
+    for (j in 1:length(km$strata)){
       .skm <- get(paste0(paste0("skm",j)))
       .pos <- position_y[j]
       for (ii in 1:nrow(.skm)) {
@@ -1875,11 +1934,11 @@ surv_lieudeb <- function(surv_only=FALSE, pvalue=TRUE){
     }
     
     #display group text
-    for (j in 1:5){
+    for (j in 1:length(km$strata)){
       g <- g + annotation_custom(grob = textGrob(leg[j]), xmin = -2.1, xmax = -2.1, ymin = position_y[j])
     }
     if (pvalue==TRUE){
-      mod <- coxph(Surv(tps, evt) ~ LIEUDEB_recode, data = s)
+      mod <- coxph(Surv(tps, evt) ~ a, data = s)
       test <- summary (mod)
       pval <- round(test$sctest["pvalue"],3)
       pval <- ifelse(pval<0.05, paste0(pval, " *"), pval)
@@ -1891,11 +1950,106 @@ surv_lieudeb <- function(surv_only=FALSE, pvalue=TRUE){
     }
     gt <- ggplotGrob(g)
     gt$layout$clip[gt$layout$name=="panel"] <- "off"
-    grid.draw(gt) 
-    
+    grid.draw(gt)
+    return(gt)
   }
 }
 
+# draw_surv_qualisup2 généralise cette fonction :
+# surv_lieudeb <- function(surv_only=FALSE, pvalue=TRUE){
+#   vec_time_IC=1
+#   s <- sla
+#   s <- s[!is.na(s$LIEUDEB_recode),]
+#   s$tps <- (s$time.vni/365.25) + 0.001 
+#   
+#   var <- "beginning of onset"
+#   km <- survfit(Surv(tps,evt)~LIEUDEB_recode, data=s, conf.int=.95)
+#   
+#   for (i in 1:length(km$strata)){
+#     .km <- survfit(Surv(tps,evt)~LIEUDEB_recode, data=s[s$LIEUDEB_recode==levels(s$LIEUDEB_recode)[i], ], conf.int=.95)
+#     assign(paste0("km",i), .km)
+#     #pour IC95%
+#     am <- i/10
+#     .skmi <- summary(.km, time=vec_time_IC-am)
+#     assign(paste0("skmi",i), .skmi)
+#     #pour table de survie
+#     .skm <- summary(.km, time=seq(0, 10, by=1))
+#     .skm <- data.frame(time=.skm$time, n.risk=.skm$n.risk)
+#     assign(paste0("skm",i), .skm)
+#     
+#     #survies aux tps choisis
+#     cat(paste0("\nIn group ", var, " = ", levels(s$LIEUDEB_recode)[i], "\n "))
+#     sv <- summary(.km, time=vec_time_IC)
+#     df <- data.frame(time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+#     df[,2:4] <- round(df[,2:4], 0)
+#     cat(paste0("At ", df$time, " year, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
+#     #cat(paste0("At ", df$time, " months, survival[95%CI] ", df$survival, "% [",df$LCI,"% - ",df$UCI, "%]\n"))
+#   }
+#   
+#   if (surv_only==FALSE){
+#     #preparation legende
+#     leg<-names(km$strata)
+#     leg <- str_sub(leg,16,-1)
+#     col <- hue_pal()(length(leg))
+#     .title <- paste0("Survival by ", var)
+#     
+#     #courbe de survie
+#     g <- ggsurv(km, CI=FALSE, order.legend = FALSE, surv.col=col, cens.col=col) +
+#       #changement des axes
+#       scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
+#       scale_y_continuous(labels=percent) +
+#       labs(x="Time of follow-up, year", title=.title) +
+#       #changement legende
+#       guides (linetype = FALSE) +
+#       scale_colour_discrete( labels = leg) +
+#       theme(legend.position="right", legend.title=element_blank()) +
+#       #espace autour du schéma
+#       theme(plot.margin = unit(c(0,1,4,2), "cm"), plot.title = element_text(size = 16, face = "bold"),
+#             axis.title.y = element_text(size = 12), axis.title.x = element_text(size = 12),
+#             legend.title = element_text(size=14), legend.text = element_text(size=12)) #top, right, bottom, left
+#     
+#     #intervalle de confiance
+#     for (j in 1:length(km$strata)){
+#       .skmi <- get(paste0(paste0("skmi",j)))
+#       for (i in 1:2) {
+#         g <- g + geom_segment(x = .skmi$time[i], y = .skmi$lower[i], xend = .skmi$time[i], yend = .skmi$upper[i], colour = col[j])
+#         g <- g + geom_segment(x = .skmi$time[i] - 0.1, y = .skmi$lower[i], xend = .skmi$time[i] + 0.1, yend = .skmi$lower[i], colour = col[j])
+#         g <- g + geom_segment(x = .skmi$time[i] - 0.1, y = .skmi$upper[i], xend = .skmi$time[i] + 0.1, yend = .skmi$upper[i], colour = col[j])
+#       }
+#     }
+#     
+#     #risk table
+#     #position_y <- c(-1.2, -1.5, -1.7, -1.9, -2.1)
+#     position_y <- c(-1.4, -1.5, -1.6, -1.7, -1.8)
+#     for (j in 1:5){
+#       .skm <- get(paste0(paste0("skm",j)))
+#       .pos <- position_y[j]
+#       for (ii in 1:nrow(.skm)) {
+#         g <- g + annotation_custom(grob = textGrob(.skm$n.risk[ii]), xmin = .skm$time[ii], xmax = .skm$time[ii], ymin= .pos )
+#       } 
+#     }
+#     
+#     #display group text
+#     for (j in 1:5){
+#       g <- g + annotation_custom(grob = textGrob(leg[j]), xmin = -2.1, xmax = -2.1, ymin = position_y[j])
+#     }
+#     if (pvalue==TRUE){
+#       mod <- coxph(Surv(tps, evt) ~ LIEUDEB_recode, data = s)
+#       test <- summary (mod)
+#       pval <- round(test$sctest["pvalue"],3)
+#       pval <- ifelse(pval<0.05, paste0(pval, " *"), pval)
+#       pval <- ifelse(pval<0.01, "Score test \n p<0.01 *",paste0("Score test \n p=", pval))
+#       g <- g + annotate("text",
+#                         x=0.75*max(km$time),
+#                         y=0.75*max(km$surv),
+#                         label=pval)
+#     }
+#     gt <- ggplotGrob(g)
+#     gt$layout$clip[gt$layout$name=="panel"] <- "off"
+#     grid.draw(gt) 
+#     
+#   }
+# }
 #=======================================================
 #fonctions analyse var répétées
 

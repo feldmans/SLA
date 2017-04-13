@@ -66,13 +66,13 @@ as.character(ncu[ncu$nval == 1, "var"])
 
 #----
 #courbes de survie 
-.l1 <- lapply(binaire, function(x)draw_surv_bin(x, data = d, .time = "time.vni", .evt = "evt", vec_time_IC= c(1, 3), type = "quali", surv_only=FALSE, pvalue = TRUE, dep_temps=FALSE, .transf=NULL))
+.l1 <- lapply(binaire[1:2], function(x)draw_surv_bin(x, data = d, .time = "time.vni", .evt = "evt", vec_time_IC= c(1, 3), recode = FALSE, surv_only=FALSE, pvalue = TRUE, dep_temps=FALSE, .transf=NULL))
 ml <- marrangeGrob(.l1,ncol=1,nrow=1,top = NULL)
 ggsave(file="binaire_bl.pdf", ml)
 
 #----
 #survie à 1 et 3 ans
-.l2 <- lapply(binaire, function(x)draw_surv_bin(x, data = d, .time = "time.vni", .evt = "evt", vec_time_IC= c(1, 3), type = "quali", surv_only=TRUE, pvalue = TRUE, dep_temps=FALSE, .transf=NULL))
+.l2 <- lapply(binaire[1:3], function(x)draw_surv_bin(x, data = d, .time = "time.vni", .evt = "evt", vec_time_IC= c(1, 3), recode  = FALSE, surv_only=TRUE, pvalue = TRUE, dep_temps=FALSE, .transf=NULL))
 df_surv <- do.call(rbind, .l2)
 saveRDS(df_surv, "data/analyses/df_surv_bl.rds")
 df_surv
@@ -80,7 +80,7 @@ df_surv
 #----
 #hypothèse des risques proportionnels
 pdf(paste0("data/analyses/RP_bin.pdf"))
-.l <- lapply(binaire, function(x)check_RP(var=x, data=d, .time="time.vni", .evt="evt", type="quali", recode = TRUE))
+.l <- lapply(binaire, function(x)check_RP(var=x, data=d, .time="time.vni", .evt="evt", recode = FALSE))
 dev.off()
 
 #NB j'ai rempli dans un tableau excel au regard des courbes si l'hypothèse des risques proportionnels était respecté(TRUE) ou non (FALSE)
@@ -98,7 +98,7 @@ binNRP <- as.character(rp[!rp$RP, "variable"]) #RP pas ok, il faut rajouter var 
 #transformation du temps
 pdf(paste0("data/analyses/RP_bin.pdf"))
 .l <- lapply(binNRP, function(i){
-   tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"), function(x)add_vart_and_check(data=d, .time="time.vni", .evt="evt", type="quali", var=i, .transf=x))
+   tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"), function(x)add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = FALSE, var=i, .transf=x))
   #tmp <- lapply(c("log"), function(x)add_vart_and_check(data=d, .time="time.vni", .evt="evt", type="quali", var=i, .transf=x))
   .a <- do.call(rbind, tmp)
 })
@@ -107,7 +107,7 @@ dev.off()
 
 #remplissage de curve si test de beta_at(t) significatif
 #remplissage à la main
-write.table(print(df_bint[df_bint$beta_at==TRUE,]), file="clipboard", sep="\t", row.names=F)
+write.table(print(df_bint[df_bint$beta_at==TRUE,]), file="clipboard", sep="\t", row.names=F) 
 rpt <- read.csv2("data/RP dep du temps beta ok.csv")
 
 #selection de la transformation qd curve et Harrell ok
@@ -126,7 +126,7 @@ tmp <- binNRP [!binNRP %in% binRPt$variable]
 b <- c(6,18,50) #ok on garde 6 18 50 pour toutes les variables non corrigées par transformation du temps
 pdf(paste0("data/analyses/RP_bin_decoup_", paste(b, collapse='-'), ".pdf"))
 .l <- lapply(tmp, function(i){
-  add_vart_and_check(data=d, .time="time.vni", .evt="evt", type="quali", var=i, vec_cut = b)
+  add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = FALSE, var=i, vec_cut = b)
 })
 df_bint <- do.call(rbind, .l)
 dev.off()
@@ -146,7 +146,7 @@ allbin$variable <- as.character(allbin$variable)
 #HR [IC] et test du score (ou robuste)
 
 .l <- lapply(1 : nrow(allbin), function(num){
-HR_score (var=allbin$variable[num], data = d, .time="time.vni", .evt="evt", type="quali", recode=TRUE, .transf=allbin$transf[num], .tps_clinique=12)
+HR_score (var=allbin$variable[num], data = d, .time="time.vni", .evt="evt", recode=FALSE, .transf=allbin$transf[num], .tps_clinique=12)
 })
 df_HR <- do.call(rbind,.l)
 
@@ -160,38 +160,137 @@ pdf(paste0("data/analyses/Log_lin_bl.pdf"))
 .l <- lapply(quanti, function(x){
   a <- check_loglin (var=x, data=d, .time="time.vni", .evt="evt")  
 })
-.l <- do.call(rbind, .l)
+quanti_ln <- do.call(rbind, .l) #TRUE qd hypothèse non respectée et qu'il faut recoder
 dev.off()
 
 #----
-#hypothèse des risques proportionnels
-pdf(paste0("data/analyses/RP_bin.pdf"))
-.l <- lapply(binaire, function(x)check_RP(var=x, data=d, .time="time.vni", .evt="evt", type="quali", recode = TRUE))
+#hypothèse des risques proportionnels : prend en compte la log lin vérifiée plus haut quanti_ln$recode 
+pdf(paste0("data/analyses/RP_quanti_bl.pdf"))
+.l <- lapply(1 : nrow(quanti_ln), function(x)check_RP(var=quanti_ln$variable[x], data=d, .time="time.vni", .evt="evt", recode = quanti_ln$recode[x]))
+RP_quanti <- do.call(rbind, .l) #NB cette sortie est inutile, j'ai déjà l'info sur le graphe...
 dev.off()
+RP_quanti$RP <- NA
 
-#NB j'ai rempli dans un tableau excel au regard des courbes si l'hypothèse des risques proportionnels était respecté(TRUE) ou non (FALSE)
-write.table(print(binaire), file="clipboard", sep="\t")
-rp <- read.csv2("data/RP_bin.csv")
+#Je rempli colonne RP en fonction de la courbe : si y=0 est toujours contenu par les bornes de l'IC et pvalue non signif, RP = T(l'hyp des RP est repectée), sinon RP = F 
+write.table(print(RP_quanti), file="clipboard", sep="\t")
+rp <- read.csv2("data/RP_quanti_bl.csv") #RP = TRUE pour hyopthèses respectée
+
+#j'ajoute les info concernant la loglin
+rp <- merge(quanti_ln, rp, by="variable")
+rp <- rp[ , c("variable", "recode", "RP")]
 
 #separation var selon respect RP ou non
-binRP <-  as.character(rp[rp$RP, "variable"]) #RP ok, pas de var dépendante du temps
-binNRP <- as.character(rp[!rp$RP, "variable"]) #RP pas ok, il faut rajouter var dépendante du temps
+QRP <-  rp[rp$RP, ] #RP ok, pas de var dépendante du temps
+QN_RP <- rp[!rp$RP, ] #RP pas ok, il faut rajouter var dépendante du temps
 
+#----
+#tranformation des variables ne respectant pas les RP : variables QN_RP
 
+#####
+#transformation du temps
+pdf(paste0("data/analyses/RP_quanti_bl_transft.pdf"))
+.l <- lapply(1 : nrow(QN_RP), function(i){
+  tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"), function(x){
+  #tmp <- lapply(c("log"), function(x){
+    add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = QN_RP$recode[i], var=QN_RP$variable[i], .transf=x)
+  })
+  .a <- do.call(rbind, tmp)
+})
+df_quant <- do.call(rbind, .l)
+dev.off()
+dim(df_quant[df_quant$beta_at==TRUE & df_quant$param == "at",])
 
+#Je ne regarde que les transformations pour lesquelles la pvalue de at est inférieure à 0.05 (beta_at = TRUE) (la courbe n'est de toute façon pas tracée quand sup à 0.05) 
 
+#remplissage de curve si test de beta_at(t) significatif
+#remplissage à la main de la colonne curve à l'aide du fichier "data/analyses/RP_quanti_bl_transft.pdf"
+write.table(print(df_bint[df_bint$beta_at==TRUE & df_quant$param == "at", c("variable", "transf", "curve")]), file="clipboard", sep="\t", row.names=F) 
+rpt <- read.csv2("data/RP quanti dept beta ok.csv")
+rpt <- merge(rpt, subset(df_quant, select=-curve), by=c("variable", "transf"), all= F)
 
+#selection de la transformation qd curve et Harrell ok (en fait quand curve ok, harrell est forcémen ok aussi)
+rpts <- rpt[rpt$curve==TRUE,]
+#Je prend la transformation avec le plus petit AIC
+AICmin <- tapply(as.numeric(as.character(rpts$AIC)), as.character(rpts$variable), min)
+AICmin <- data.frame(variable = names(AICmin), AICmin = as.numeric(AICmin))
+rpts <- merge(rpts, AICmin, by="variable")
+
+quanti_NRPt <- unique(rpts[rpts$AIC==rpts$AICmin, c("variable", "recode", "transf")])
+quanti_NRPt$variable <- as.character(quanti_NRPt$variable)
+
+#####
+#Decoupe du temps pour les variables dont on n'a pas trouvé la bonne transformation:
+tmp <- QN_RP [!QN_RP$variable %in% quanti_NRPt$variable, ]
+
+#b <- c(6,18,50) #ok on garde 6 18 50 pour toutes les variables non corrigées par transformation du temps
+#b <- c(6, 17, 34, 60) #ok on garde 6 18 50 pour toutes les variables non corrigées par transformation du temps
+b <- c(7, 17, 34, 60) #ok on garde 6 18 50 pour toutes les variables non corrigées par transformation du temps
+#add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = tmp$recode[1], var=tmp$variable[1], vec_cut = b)
+
+pdf(paste0("data/analyses/RP_quanti_bl_decoup_", paste(b, collapse='-'), ".pdf"))
+.l <- lapply(1: nrow(tmp), function(i){
+  #add_vart_and_check(data=d, .time="time.vni", .evt="evt", type="quali", var=i, vec_cut = b)
+  add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = tmp$recode[i], var=tmp$variable[i], vec_cut = b)
+})
+df_quanti_cutt <- do.call(rbind, .l)
+dev.off()
+QN_RPcut <- unique(df_quanti_cutt[ ,c("variable", "recode","transf")])
+
+#####
+#J'ajoute une colonne transf NA pour les variables ok
+QRP$transf <- NA
+
+#all var et transf
+allquant <- rbind(subset(QRP, select=-RP), QN_RPcut, quanti_NRPt)
+rownames(allquant) <- 1:nrow(allquant)
+allquant$variable <- as.character(allquant$variable) 
+
+#----
+#HR [IC] et test du score (ou robuste)
+
+.l <- lapply(1 : nrow(allquant), function(num){
+  HR_score (var=allquant$variable[num], data = d, .time="time.vni", .evt="evt", recode=allquant$recode[num], .transf=allquant$transf[num], .tps_clinique=12)
+})
+df_HR_quanti_bl <- do.call(rbind,.l)
 
 #----------------------
+#Survie pour les quanti recodées
 
-tmp <- binNRP [!binNRP %in% binRPt$variable]
-b <- c(6,18,50)
-pdf(paste0("data/analyses/RP_bin_decoup_", paste(b, collapse='-'), ".pdf"))
-.l <- lapply(tmp, function(i){
-  add_vart_and_check(data=d, .time="time.vni", .evt="evt", type="quali", var=i, vec_cut = c(6,18,50))
-})
-df_bint <- do.call(rbind, .l)
+#courbe
+df <- allquant[allquant$recode==TRUE, ]
+.l <- lapply(df$variable, function(x)draw_surv_bin(var=x, data = d, .time="time.vni", .evt="evt", vec_time_IC= c(1, 3), 
+                  recode=TRUE, surv_only=FALSE, pvalue = TRUE))
+ml <- marrangeGrob(.l,ncol=1,nrow=1,top = NULL)
+ggsave(file="courbe_survie_quanti_recode_bl.pdf", ml)
+
+#survie à 1 et 3 ans
+.l <- lapply(df$variable, function(x)draw_surv_bin(var=x, data = d, .time="time.vni", .evt="evt", vec_time_IC= c(1, 3), 
+                                                   recode=TRUE, surv_only=TRUE))
+df_surv_quant_bl <- do.call(rbind, .l)
+
+#=======================
+#analyses quali plus de 2 classes
+
+test_musc <- grepl("TEST_MUSC", quali)
+.l <- lapply(quali[!test_musc], function(x) draw_surv_qualisup2(var=x, data = d, .time = "time.vni", .evt = "evt", vec_time_IC= c(1, 3), surv_only=FALSE, pvalue=TRUE))
+ml <- marrangeGrob(.l,ncol=1,nrow=1,top = NULL)
+ggsave(file="courbe_survie_qualisup2_bl.pdf", ml)
+
+
+#check RP
+pdf(paste0("data/analyses/RP_quali_bl.pdf"))
+.l <- lapply(quali[!test_musc], function(x)check_RP(var=x, data=d, .time="time.vni", .evt="evt", quali = TRUE))
 dev.off()
+RP_quanti$RP <- NA
+
+#modif Non RP
+
+#HRIC
+
+
+#=======================
+#=======================
+#variables dont la valeur dépendant du temps
 
 
 s <- d
