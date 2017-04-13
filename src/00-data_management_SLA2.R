@@ -571,7 +571,7 @@ tmp2 <- df_rep_nobl_pneumo %>%
   bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_ITEMS_1_SV") %>% #poursuite VNI 1 oui 0 non
               group_by(PATIENT) %>% filter(row_number()== 1) %>%
               mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>%#x = 0 non :l'item n'est pas modifié
-bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_ITEMS_2_SV") %>% #poursuite VNI 1 oui 0 non
+  bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_ITEMS_2_SV") %>% #poursuite VNI 1 oui 0 non
             group_by(PATIENT) %>% filter(row_number()== 1) %>%
             mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>%#x = 0 non :l'item n'est pas modifié
   bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_ITEMS_3_SV") %>% #poursuite VNI 1 oui 0 non
@@ -881,6 +881,8 @@ dr <- merge(dr, bdd_dates[ ,! names(bdd_dates) %in% "datevni"], by="PATIENT", al
 dr <- dr[order(dr$qui, dr$PATIENT, dr$date), ]
 #normalement inutile car all=F mais juste pour être sûr:
 dr <- dr[dr$PATIENT %in% bdd_dates$PATIENT, ]
+dr$evt <- dr$censor
+dr$censor <- NULL
 saveRDS(dr,"data/df_rep_avecdoublons.rds")
 #---------------
 #---------------
@@ -942,9 +944,12 @@ dr <- dr[!d,]
 #Je supprime les dates incohérentes
 dr <- dr[dr$date<as_date("2016-01-01"), ]
 #si date de visite après décès, ce n'est pas un décès et time.vni(follow up time à partir de la vni) = max date de visite 
-dr[dr$date>dr$date_dc& !is.na(dr$date_dc), "evt"] <- 0
-dr[ , "time.vni"] <- as.numeric(max(dr[dr$date>dr$date_dc, "date"]) - dr[dr$date>dr$date_dc, "datevni"][1])
-dr[dr$date>dr$date_dc & !is.na(dr$date_dc), "date_dc"] <- NA
+pat_pb <- unique(dr[dr$date>dr$date_dc & !is.na(dr$date_dc), "PATIENT"])
+for (i in pat_pb){
+  dr[dr$PATIENT==i, "evt"] <- 0
+  dr[dr$PATIENT==i , "date_dc"] <- NA
+  dr[dr$PATIENT==i , "time.vni"] <- as.numeric(max(dr[dr$PATIENT==i, "date"]) - unique(dr[dr$PATIENT==i, "datevni"]))
+}
 
 
 #tableau sans doublons :
