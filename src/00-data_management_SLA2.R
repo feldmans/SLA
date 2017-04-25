@@ -361,7 +361,8 @@ fin_vni <- poursuite %>% group_by(PATIENT) %>% arrange(desc(date)) %>% top_n(1) 
 
 #date de fin 
 bdd_dates <- merge(ddn_tot, bdd_dcd, by="PATIENT", all=T)
-bdd_dates$censor <- ifelse (!is.na(bdd_dates$date_dc), 1, 0)
+bdd_dates$evt <- ifelse (!is.na(bdd_dates$date_dc), 1, 0)
+#bdd_dates$censor <- ifelse (!is.na(bdd_dates$date_dc), 1, 0)
 bdd_dates$dfin <- ifelse (!is.na(bdd_dates$date_dc), bdd_dates$date_dc, bdd_dates$ddn)
 
 bdd_dates <- merge(bdd_dates, fin_vni, by="PATIENT", all=T)
@@ -881,8 +882,8 @@ dr <- merge(dr, bdd_dates[ ,! names(bdd_dates) %in% "datevni"], by="PATIENT", al
 dr <- dr[order(dr$qui, dr$PATIENT, dr$date), ]
 #normalement inutile car all=F mais juste pour être sûr:
 dr <- dr[dr$PATIENT %in% bdd_dates$PATIENT, ]
-dr$evt <- dr$censor
-dr$censor <- NULL
+#dr$evt <- dr$censor
+#dr$censor <- NULL
 saveRDS(dr,"data/df_rep_avecdoublons.rds")
 #---------------
 #---------------
@@ -949,8 +950,22 @@ for (i in pat_pb){
   dr[dr$PATIENT==i, "evt"] <- 0
   dr[dr$PATIENT==i , "date_dc"] <- NA
   dr[dr$PATIENT==i , "time.vni"] <- as.numeric(max(dr[dr$PATIENT==i, "date"]) - unique(dr[dr$PATIENT==i, "datevni"]))
+  dr[dr$PATIENT==i , "ddn"] <- as_date(ifelse(max(dr[dr$PATIENT==i, "date"]) <= unique(dr[dr$PATIENT==i, "ddn"]), unique(dr[dr$PATIENT==i , "ddn"]), max(dr[dr$PATIENT==i, "date"])))
+  dr[dr$PATIENT==i , "dfin"] <- as_date(ifelse(max(dr[dr$PATIENT==i, "date"]) <= unique(dr[dr$PATIENT==i, "ddn"]), unique(dr[dr$PATIENT==i , "ddn"]), max(dr[dr$PATIENT==i, "date"])))
 }
-
+for (i in pat_pb[! pat_pb %in% fin_vni$PATIENT ]){
+  dr[dr$PATIENT==i , "fin_vni"] <- max(dr[dr$PATIENT==i, "date"])
+}
+#si date de visite après ddn(qui n'est pas un décès), je change ddn en date de visite
+pat_pb <- unique(dr[dr$date>dr$ddn, "PATIENT"])
+for (i in pat_pb){
+  dr[dr$PATIENT==i , "ddn"] <- max(dr[dr$PATIENT==i, "date"])
+  dr[dr$PATIENT==i , "dfin"] <- max(dr[dr$PATIENT==i, "date"])
+  dr[dr$PATIENT==i , "time.vni"] <- as.numeric(max(dr[dr$PATIENT==i, "date"]) - unique(dr[dr$PATIENT==i, "datevni"]))
+}
+for (i in pat_pb[! pat_pb %in% fin_vni$PATIENT ]){
+  dr[dr$PATIENT==i , "fin_vni"] <- max(dr[dr$PATIENT==i, "date"])
+}
 
 #tableau sans doublons :
 saveRDS(dr, "data/df_rep.rds")

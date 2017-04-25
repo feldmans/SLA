@@ -96,9 +96,9 @@ for (var in vec) {#ce sera le debut de la boucle
   # s0<-s0[-1,]
   
   
-  #La boucle suivante permet de réaliser ce que ferait automatiquement un survsplit
-  #cependant avec un survsplit, chaque patient serait découper en le nombre de temps total de changement de valeur
-  #alors qu'ici chaque patient est découpé en le nombre de changement de valeurs pour lui même uniquement 
+  #La boucle suivante permet de réaliser ce que ferait automatiquement un survsplit mais en découpant chaque patient par ses valeurs uniquement
+  #(avec un survsplit classique sur toute la base, chaque patient serait découper en le nombre de temps total de changement de valeur
+  #alors qu'ici chaque patient est découpé en le nombre de changement de valeurs pour lui même uniquement )
   
   for (id in idu) {
     #cat(id, "\n")

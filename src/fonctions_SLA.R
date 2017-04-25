@@ -1145,7 +1145,7 @@ describe_quantitative <- function(vec_var, .data){
         nNA <- paste0(nNA," (",pNA,"%)")
       }
       
-      myrange <- range(data, na.rm=T)
+      myrange <- round(range(data, na.rm=T),2)
       myrange <- paste0(myrange[1]," - ",myrange[2])
       # a <- rbind (a,nNA)
       # rownames(a)[-nrow(a)] <- paste0(i,"*") 
@@ -1195,7 +1195,7 @@ check_loglin <- function(var, data, .time, .evt){
   cox1<-coxph(Surv(tps,evt)~1, data=s)
   r<-residuals(cox1, "martingale")
   lw<-lowess(r~s$a)
-  plot(s$a, r, main=paste0("Loglinearity of ",var), xlab = var, ylab = paste0("residuals"))
+  plot(s$a, r, main=paste0("Loglinearity of ",var), ylab = paste0("residuals"), xlab = "Time, months" )
   lines(lw, lwd= 2)
   
   # 2/ découpe la variable le variable en fonction du temps avec une polynome de degré 2
@@ -1253,7 +1253,8 @@ check_RP <- function(var, data, .time, .evt, quali = FALSE, recode = FALSE){
     
     #résidus de Shoenfeld
     z <- cox.zph(mod, transf="identity")
-    plot(z, main=paste0(.title, "\nHarrell test p = ",pval), resid = FALSE, ylab = paste0("Beta(t) for ", var))
+    plot(z, main=paste0(.title, "\nHarrell test p = ",pval), resid = FALSE, ylab = paste0("Beta(t) for ", var),
+         xlab = "Time, months")
     abline(h=0, col="red")
     abline(h=coef(mod), col="blue")
     #text(x = (max(s$tps)*1/2), y = z$table[,1]+ 2, labels = paste0("Harrell test p = ", pval))
@@ -1355,6 +1356,7 @@ add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="lo
         iz<-i
         plot(zt[iz], resid = FALSE, main = paste0("plot shoenfeld for ", var, rownames(zt[iz]$table), " with ",transf," transformation\nHarrell :", Harrell, "\nAIC = ", .AIC))
         abline(h=0, col="red")
+        abline(h=coef(coxt)[iz], col="blue")
       }
       #------
       return (data.frame(variable = var, recode = recode, param = name_param, transf = .transf, beta = coefbeta, pvalue = pval, beta_at = TRUE, Harrell = all(as.numeric(pval_H)>0.05),
@@ -1363,6 +1365,7 @@ add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="lo
     
   #OPTION 2 : découpage du temps
   } else { 
+    #browser()
     print(var)
     b <- vec_cut
     name_cut <- paste(b, collapse = "-")
@@ -1373,6 +1376,7 @@ add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="lo
       if(i == (length(b)+1)) tmp <-  slat$a_recode * ifelse(slat$stop>b[i-1], 1, 0)
       slat[ ,paste0("at",i)] <- tmp
     }
+
     vat<-paste("at",  1:(length(b)+1), sep="")
     x<-slat[, vat]
     sx<-colSums(x) #interval de temps sans evt
@@ -1396,7 +1400,7 @@ add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="lo
       iz<-i
       plot(zt[iz], resid = FALSE, main = paste0("plot shoenfeld for", var, " cut ", name_cut, "\nAIC = ", .AIC))
       abline(h=0, col="red")
-      abline(h=bhat[i], col="blue", lty=2)
+      abline(h=coef(coxt)[iz], col="blue", lty=2)
       abline(v=b)
     }
     return(data.frame(variable = var, recode = recode, param = name_param, transf = name_cut, beta = coefbeta, pvalue = pval, 
@@ -1434,7 +1438,7 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", recode=F
     HRIC <- paste0(HRIC[1], " [", HRIC[3], " - ", HRIC[4],"]")
     stat <- round(test$sctest["test"],2)
     pval <- round(test$sctest["pvalue"],4)
-    return(data.frame(variable = var, transf = NA, tps_clinique = NA, HRIC = HRIC, test = "score", statistic = stat, pvalue = pval, param = "beta", beta = coefbeta))
+    return(data.frame(variable = var, recode = recode, RP = TRUE, transf = NA, tps_clinique = NA, HRIC = HRIC, test = "score", statistic = stat, pvalue = pval, param = "beta", beta = coefbeta))
     
   } else { #RP no respectés
     ti <- sort(unique(c(0,s$tps[s$evt==1])))
@@ -1446,7 +1450,7 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", recode=F
     
     transf <- as.character(.transf)
     
-    if(length(grep("t", transf))==1) { #var dépendantes du temps
+    if(length(grep("t", transf))==1 | length(grep("log", transf))==1) { #var dépendantes du temps
       print(paste(var, transf, sep="-"))
       if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
       if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
@@ -1472,6 +1476,7 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", recode=F
       if (transf=="*t^3") t_t <- t^3
       if (transf=="/t") t_t <- 1/t
       if (transf=="*t^0.3") t_t <- t^0.3
+      if (transf=="sqrt") t_t <- sqrt(t)
       
       variance <- S[1,1]+S[2,2]*(t_t)^2+2*S[1,2]*(t_t)
       m <- b[1]+b[2]*(t_t) #coef de l'HR
@@ -1481,7 +1486,7 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", recode=F
       name_param <- rownames(test$coefficients)
       stat <- round(test$robscore["test"],2)
       pval <- round(test$robscore["pvalue"],4)
-      return(data.frame(variable = var, transf = transf, tps_clinique = .tps_clinique, HRIC = HRIC, test = "robust",
+      return(data.frame(variable = var, recode = recode, RP = FALSE, transf = transf, tps_clinique = .tps_clinique, HRIC = HRIC, test = "robust",
                         statistic = stat, pvalue = pval, param = name_param, beta = coefbeta))
       
     } else {#var decoupées 
@@ -1511,7 +1516,7 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", recode=F
       HRIC <- round(exp(cbind(coef(coxt)[i], qnorm(0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])), qnorm(1-0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])))),3)
       HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
       
-      return(data.frame(variable = var, transf = transf, tps_clinique = .tps_clinique, HRIC = HRIC, test = "robust",
+      return(data.frame(variable = var, recode = recode, RP= FALSE, transf = transf, tps_clinique = .tps_clinique, HRIC = HRIC, test = "robust",
                         statistic = stat, pvalue = pval, param = name_param, beta = coefbeta))
     }
   }
@@ -1519,100 +1524,100 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", recode=F
 
 
 
-#HR et IC
-Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=TRUE, dep_temps = FALSE, .transf=NULL, vec_time=NULL) {
-  
-  s <- data
-  s$a <- s[ ,var]
-  s$evt <- s[ ,.evt]
-  #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-  s$tps <- (s[ ,.time]/365.25*12) + 0.001 
-  s <- s[!is.na(s$a),]
-  if (type== "quanti" & recode==TRUE) {
-    cat("Loglinearity Hypothesis is not verified, quantitative variable cut at the median \n")
-    #cat(paste0("a = ", var))
-    #cat("\ns$a_recode <- ifelse (s$a < median(s$a), 0, 1)")
-    s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-    cat(paste0("median of ", var, " = ", median(s$a),"\n"))
-    
-  } else {
-    if (type=="quanti" & recode==FALSE) cat("Loglinearity Hypothesis is assumed verified \n")
-    #cat(paste0("a = ", var))
-    s$a_recode <- s$a
-    #cat("\ns$a_recode <- s$a\n")
-  }
-  
-  #TEST DU SCORE ET HR [95%IC]
-  
-  if (dep_temps==TRUE){ #NON RESPECT DES RISQUES PROP=> ajout variable dependant du temps
-    cat("Proportionality Hypothesis is not verified ")
-    ti <- sort(unique(c(0,s$tps[s$evt==1])))
-    slat <- s
-    slat$start <- 0
-    slat$stop <- slat$tps
-    slat$evt <- slat$evt
-    slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
-    
-    transf <- .transf
-    cat(paste0("=> transformation function of time is added. \nTransformation = ",transf))
-    
-    if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
-    if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
-    if (transf=="*t")slat$at<-slat$a_recode*(slat$stop)
-    if (transf=="/t")slat$at<-slat$a_recode/(slat$stop)
-    if (transf=="*t^2") slat$at <-slat$a_recode*(slat$stop^2)
-    if (transf=="*t^0.7") slat$at <-slat$a_recode*(slat$stop^0.7)
-    if (transf=="*t^3") slat$at <-slat$a_recode*(slat$stop^3)
-    
-    mod <- coxph(Surv(tps, evt) ~ a_recode + at , data = slat)
-    test <- summary (mod)
-    
-    S <- vcov(mod)
-    b <- coef(mod)
-    t <- vec_time #choisir le temps en mois
-    if (transf=="*t^0.7") t_t <- t^0.7
-    if (transf=="log") t_t <- log(t)
-    if (transf=="*t^2") t_t <- t^2 
-    if (transf=="*t") t_t <- t
-    if (transf=="*t^3") t_t <- t^3
-    
-    variance <- S[1,1]+S[2,2]*(t_t)^2+2*S[1,2]*(t_t)
-    m <- b[1]+b[2]*(t_t) #coef de l'HR
-    
-    
-    cat("\n\nmod <- coxph(Surv(tps, evt) ~ ", var, " + ", var, "(time), data)")
-    cat(paste0("\n\nScore test: ", round(test$sctest["pvalue"],3)))
-    HR <- round(exp(m),3)
-    IC <- round(exp(m + qnorm(0.975)*sqrt(variance) * c(-1,1)),3)
-    #cat(paste0("\nHR[95%CI] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" ))
-    cat(paste0("\nHR[95%CI] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " months" ))
-    param <- round(test$coefficients[,1],4)
-    cat(paste0("\ncoefficient of ", c(var,paste0(var, "(time)")), ": ", param))
-    
-  } else { #RESPECT DE L'HYP DES RISQUES PROP
-    cat("Proportionality Hypothesis is assumed verified")
-    mod <- coxph(Surv(tps, evt) ~ a_recode, data = s)
-    test <- summary (mod)
-    cat("\n\nmod <- coxph(Surv(tps, evt) ~ ", var, ", data)")
-    cat(paste0("\n\nScore test: ", round(test$sctest["pvalue"],3)))
-    HRIC <- round(test$conf.int,2)
-    param <- round(test$coefficients[,1],4)
-    
-    
-    if(type=="quali2"){
-      lev <- levels(s$a_recode)
-      cat("\nref=",lev[1],"\n\n")
-      for (i in 1:(length(levels(s$a_recode))-1)){
-        cat(paste0("\nHR[95%CI] ", "of class ", lev[i+1]," = ", HRIC[i, 1] , " [", HRIC[i, 3], "-", HRIC[i, 4], "] (if PHH verified)" ))
-        cat(paste0("\ncoefficient of ", lev[i+1],": ", param[i]))
-      }
-    } else {
-      cat(paste0("\nHR[95%CI] = ",HRIC[1] , " [", HRIC[3], "-", HRIC[4], "] (if PHH verified)" ))
-      cat(paste0("\ncoefficient of ", var,": ", param))
-    }
-    
-  }
-}
+# #HR et IC
+# Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=TRUE, dep_temps = FALSE, .transf=NULL, vec_time=NULL) {
+#   
+#   s <- data
+#   s$a <- s[ ,var]
+#   s$evt <- s[ ,.evt]
+#   #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+#   s$tps <- (s[ ,.time]/365.25*12) + 0.001 
+#   s <- s[!is.na(s$a),]
+#   if (type== "quanti" & recode==TRUE) {
+#     cat("Loglinearity Hypothesis is not verified, quantitative variable cut at the median \n")
+#     #cat(paste0("a = ", var))
+#     #cat("\ns$a_recode <- ifelse (s$a < median(s$a), 0, 1)")
+#     s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
+#     cat(paste0("median of ", var, " = ", median(s$a),"\n"))
+#     
+#   } else {
+#     if (type=="quanti" & recode==FALSE) cat("Loglinearity Hypothesis is assumed verified \n")
+#     #cat(paste0("a = ", var))
+#     s$a_recode <- s$a
+#     #cat("\ns$a_recode <- s$a\n")
+#   }
+#   
+#   #TEST DU SCORE ET HR [95%IC]
+#   
+#   if (dep_temps==TRUE){ #NON RESPECT DES RISQUES PROP=> ajout variable dependant du temps
+#     cat("Proportionality Hypothesis is not verified ")
+#     ti <- sort(unique(c(0,s$tps[s$evt==1])))
+#     slat <- s
+#     slat$start <- 0
+#     slat$stop <- slat$tps
+#     slat$evt <- slat$evt
+#     slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
+#     
+#     transf <- .transf
+#     cat(paste0("=> transformation function of time is added. \nTransformation = ",transf))
+#     
+#     if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
+#     if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
+#     if (transf=="*t")slat$at<-slat$a_recode*(slat$stop)
+#     if (transf=="/t")slat$at<-slat$a_recode/(slat$stop)
+#     if (transf=="*t^2") slat$at <-slat$a_recode*(slat$stop^2)
+#     if (transf=="*t^0.7") slat$at <-slat$a_recode*(slat$stop^0.7)
+#     if (transf=="*t^3") slat$at <-slat$a_recode*(slat$stop^3)
+#     
+#     mod <- coxph(Surv(tps, evt) ~ a_recode + at , data = slat)
+#     test <- summary (mod)
+#     
+#     S <- vcov(mod)
+#     b <- coef(mod)
+#     t <- vec_time #choisir le temps en mois
+#     if (transf=="*t^0.7") t_t <- t^0.7
+#     if (transf=="log") t_t <- log(t)
+#     if (transf=="*t^2") t_t <- t^2 
+#     if (transf=="*t") t_t <- t
+#     if (transf=="*t^3") t_t <- t^3
+#     
+#     variance <- S[1,1]+S[2,2]*(t_t)^2+2*S[1,2]*(t_t)
+#     m <- b[1]+b[2]*(t_t) #coef de l'HR
+#     
+#     
+#     cat("\n\nmod <- coxph(Surv(tps, evt) ~ ", var, " + ", var, "(time), data)")
+#     cat(paste0("\n\nScore test: ", round(test$sctest["pvalue"],3)))
+#     HR <- round(exp(m),3)
+#     IC <- round(exp(m + qnorm(0.975)*sqrt(variance) * c(-1,1)),3)
+#     #cat(paste0("\nHR[95%CI] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" ))
+#     cat(paste0("\nHR[95%CI] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " months" ))
+#     param <- round(test$coefficients[,1],4)
+#     cat(paste0("\ncoefficient of ", c(var,paste0(var, "(time)")), ": ", param))
+#     
+#   } else { #RESPECT DE L'HYP DES RISQUES PROP
+#     cat("Proportionality Hypothesis is assumed verified")
+#     mod <- coxph(Surv(tps, evt) ~ a_recode, data = s)
+#     test <- summary (mod)
+#     cat("\n\nmod <- coxph(Surv(tps, evt) ~ ", var, ", data)")
+#     cat(paste0("\n\nScore test: ", round(test$sctest["pvalue"],3)))
+#     HRIC <- round(test$conf.int,2)
+#     param <- round(test$coefficients[,1],4)
+#     
+#     
+#     if(type=="quali2"){
+#       lev <- levels(s$a_recode)
+#       cat("\nref=",lev[1],"\n\n")
+#       for (i in 1:(length(levels(s$a_recode))-1)){
+#         cat(paste0("\nHR[95%CI] ", "of class ", lev[i+1]," = ", HRIC[i, 1] , " [", HRIC[i, 3], "-", HRIC[i, 4], "] (if PHH verified)" ))
+#         cat(paste0("\ncoefficient of ", lev[i+1],": ", param[i]))
+#       }
+#     } else {
+#       cat(paste0("\nHR[95%CI] = ",HRIC[1] , " [", HRIC[3], "-", HRIC[4], "] (if PHH verified)" ))
+#       cat(paste0("\ncoefficient of ", var,": ", param))
+#     }
+#     
+#   }
+# }
 
 #COURBE DE SURVIE VARIABLE BINAIRE
 
@@ -1689,7 +1694,7 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), recode =
       #changement legende
       guides (linetype = FALSE) +
       scale_colour_discrete( labels = leg) +
-      theme(legend.position="right", legend.title=element_blank()) +
+      theme(legend.position="right", legend.title=element_blank(), axis.title = element_text(size=16)) +
       #espace autour du schéma
       theme(plot.margin = unit(c(1,1,3,2), "cm")) #top, right, bottom, left
     
@@ -1739,6 +1744,14 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), recode =
       pval <- round(test$sctest["pvalue"],3)
       pval <- ifelse(pval<0.05, paste0(pval, " *"), pval)
       pval <- ifelse(pval<0.01, "Score test \n p<0.01 *",paste0("Score test \n p=", pval))
+      
+      if (nrow(table(s$a)==2)){
+        survtest <- survdiff(Surv(time.vni, evt)~ a, data=s)
+        pval <- round(1 - pchisq(survtest$chisq, 1), 3)
+        pval <- ifelse(pval<0.05, paste0(pval, " *"), pval)
+        pval <- ifelse(pval<0.01, "Logrank test \n p<0.01 *",paste0("Logrank test \n p=", pval))
+      }
+      
       g <- g + annotate("text",
                         x=0.75*max(km$time),
                         y=0.75*max(km$surv),
@@ -2053,48 +2066,27 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
 #=======================================================
 #fonctions analyse var répétées
 
-check_loglin_dt <- function(modele=NULL, var=NULL, data=NULL, .time=NULL, .evt=NULL){
-  browser()
-  s <- data
-  s$a <- s[ ,var]
-  s$evt <- s[ ,.evt]
-  #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-  s$tps <- (s[ ,.time]/365.25*12) + 0.001
-  
-  s <- s[!is.na(s$a),]
-  
-  #1/ découpe la variable le variable en fonction du temps avec une polynome de degré 2
-  cox2<-coxph(Surv(tps,evt)~poly(a, df=2, raw=T), data=s)
-  tabcox <- summary(cox2)
-  pval <- tabcox$coefficients[2,"Pr(>|z|)"]
-  paste0("pvalue polynome degre 2 : ", round(pval,3))
-  return(pval)
-}
+# check_loglin_dt <- function(modele=NULL, var=NULL, data=NULL, .time=NULL, .evt=NULL){
+#   browser()
+#   s <- data
+#   s$a <- s[ ,var]
+#   s$evt <- s[ ,.evt]
+#   #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+#   s$tps <- (s[ ,.time]/365.25*12) + 0.001
+#   
+#   s <- s[!is.na(s$a),]
+#   
+#   #1/ découpe la variable le variable en fonction du temps avec une polynome de degré 2
+#   cox2<-coxph(Surv(tps,evt)~poly(a, df=2, raw=T), data=s)
+#   tabcox <- summary(cox2)
+#   pval <- tabcox$coefficients[2,"Pr(>|z|)"]
+#   paste0("pvalue polynome degre 2 : ", round(pval,3))
+#   return(pval)
+# }
 
-check_RP_dt <- function(modele=NULL, var=NULL, data=NULL, .time=NULL, .evt=NULL, type="quanti", recode = TRUE){
-  
-  if(!is.null(modele)){
-    mod <- modele
-    .title <- paste0("RP of ", var)
-  } else {
-    s <- data
-    s$a <- s[ ,var]
-    s$evt <- s[ ,.evt]
-    #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-    s$tps <- (s[ ,.time]/365.25*12) + 0.001
-    
-    s <- s[!is.na(s$a),]
-    
-    if (type=="quanti" & recode==TRUE) {
-      s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-      .title <- paste0 ("RP of ", var, " superior to ", round(median(s$a),0))
-    } else {
-      s$a_recode <- s$a
-      .title <- paste0("RP of ", var)
-    }
-    mod <- coxph(Surv(tps, evt) ~ a_recode, data = s)
-  }
-  
+check_RP_dt <- function(modele, var=NULL, data=NULL, .time=NULL, .evt=NULL, type="quanti", recode = TRUE){
+  mod <- modele
+  .title <- paste0("RP of ", var)
   
   #Test de Harrell
   z <- cox.zph(mod, transform = "rank")
@@ -2106,7 +2098,8 @@ check_RP_dt <- function(modele=NULL, var=NULL, data=NULL, .time=NULL, .evt=NULL,
   
   #résidus de Shoenfeld
   z <- cox.zph(mod, transf="identity")
-  plot(z, main=paste0(.title, "\nHarrell test p = ", pval))
+  plot(z, main=paste0(.title, "\nHarrell test p = ", pval), resid = FALSE, ylab = paste0("Beta(t) for ", var),
+       xlab = "Time, days")
   abline(h=0, col="red")
   abline(h=coef(mod), col="blue")
   #non significatif si l'IC contient a tout moment la courbe rouge
@@ -2116,94 +2109,228 @@ check_RP_dt <- function(modele=NULL, var=NULL, data=NULL, .time=NULL, .evt=NULL,
 
 
 #RECODAGE EN FONCTION DU TEMPS ET VERIF
-add_vart_and_check_dt <- function(data_split=NULL, modele=NULL, var, data=NULL, .time=NULL, .evt=NULL, type="quanti", recode=TRUE, .transf="log"){
+add_vart_and_check_dt <- function(data_split=NULL, var, data=NULL, title = .title, .time=NULL, .evt=NULL, recode, .transf="log", vec_cut = NULL){
+  
   if(!is.null(data_split)){
     slat <- data_split
-    .title <- paste0("RP of ", var)
+    .title <- title
     slat$a_recode <- slat$x
-    slat$at <- slat$xt
+    #slat$at <- slat$xt
+    }
+
+  if(is.null(vec_cut)){
+
+    transf <- .transf 
+    print(paste(var, transf, sep="-"))
+    if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
+    if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
+    if (transf=="*t")slat$at<-slat$a_recode*(slat$stop)
+    if (transf=="/t")slat$at<-slat$a_recode/(slat$stop)
+    if (transf=="*t^2") slat$at <-slat$a_recode*(slat$stop^2)
+    if (transf=="*t^0.7") slat$at <-slat$a_recode*(slat$stop^0.7)
+    if (transf=="log10") slat$at <-slat$a_recode*log10(slat$stop)
+    if (transf=="*t^0.3") slat$at <-slat$a_recode*(slat$stop^0.3)
+    if (transf=="*t^3") slat$at <-slat$a_recode*(slat$stop^3)
+    f <- "Surv(start, stop, evt) ~ a_recode + at + cluster(id)"
     
-  } else {
-    s <- data
-    s$a <- s[ ,var]
-    s$evt <- s[ ,.evt]
-    #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-    s$tps <- (s[ ,.time]/365.25*12) + 0.001
+    try(new_obj <- coxph(as.formula(f), data=slat), silent = TRUE)
     
-    s <- s[!is.na(s$a),]
+    if (exists("new_obj")) coxt <- new_obj
+    else return(NULL)
+    #coxt <- coxph(as.formula(f), data=slat)
+    test <- summary(coxt)
+    pval <-  round(test$coefficients[ ,"Pr(>|z|)"], 3)
+    coefbeta <- round(test$coefficients[ ,"coef"], 5)
+    name_param <- rownames(test$coefficients)
     
-    if (type=="quanti" & recode==TRUE) {
-      s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-      .title <- paste0 ("RP of ", var, " superior to ", round(median(s$a),0))
-    } else {
-      s$a_recode <- s$a
-      .title <- paste0("RP of ", var)
+    #La transformation du temps convient-elle?
+    
+    #non : coef de at non significatif => la transformation n'est pas bonne
+    if (as.numeric(pval["at"])>0.05){ 
+      #cat(paste0("\n",transf,": at not significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test"))
+      return (data.frame(variable = var, recode = recode, param = name_param, transf= .transf, beta = coefbeta, pvalue = pval, beta_at = FALSE, Harrell = NA, 
+                         curve = NA, AIC = NA, robust = NA, probust = NA))
+      
+      #peut-être : coef de at est significatif => on test les RP : Les 2 tests doivent être satisfaits
+    } else { 
+      .AIC <- round(extractAIC(coxt)[2],2) #le premier paramètre correspond au modèle vide, le deuxième est l'AIC du modèle. Plus l'AIC est petit, plus la vraisemblance est grande comparé au nombre de paramètres et mieux c'est.
+      rscore <- round(test$robscore["test"],2)
+      prscore <- round(test$robscore["pvalue"],4)
+      #test de Harrell 
+      zit <- cox.zph(coxt, transform = "rank")
+      pval_H <- round(zit$table[,3],3) #Les 3 p doivent etre >=0.05
+      Harrell <- if (all(as.numeric(pval_H)>0.05)) "ok" else "NOT ok"
+      
+      if(Harrell == "NOT ok") {
+        return (data.frame(variable = var, recode = recode, param = name_param, transf= .transf, beta = coefbeta, pvalue = pval, beta_at = TRUE, Harrell = Harrell, 
+                           curve = NA, AIC = NA, robust = NA, probust = NA))
+      }
+      #------
+      #plot #résidus de shoenfeld doivent être horizontaux
+      zt <- cox.zph(coxt, transf="identity")
+      for (i in 1:(nrow(zt$table)-1)){
+        iz<-i
+        plot(zt[iz], resid = FALSE, main = paste("plot shoenfeld for ", var, rownames(zt[iz]$table), " with ",transf," transformation\nHarrell :", Harrell, "\nAIC = ", .AIC))
+        abline(h=0, col="red")
+        abline(h=coef(coxt)[iz], col="blue")
+      }
+      #------
+      return (data.frame(variable = var, recode = recode, param = name_param, transf = .transf, beta = coefbeta, pvalue = pval, beta_at = TRUE, Harrell = Harrell,
+                         curve = NA,  AIC = .AIC, robust = rscore, probust = prscore))
     }
     
-    ti <- sort(unique(c(0,s$tps[s$evt==1])))
-    slat <- s
-    slat$start <- 0
-    slat$stop <- slat$tps
-    slat$evt <- slat$evt
-    slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
-  }
-  
-  transf <- .transf 
-  print(transf)
-  
-  if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
-  if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
-  if (transf=="*t")slat$at<-slat$a_recode*(slat$stop)
-  if (transf=="/t")slat$at<-slat$a_recode/(slat$stop)
-  if (transf=="*t^2") slat$at <-slat$a_recode*(slat$stop^2)
-  if (transf=="*t^0.7") slat$at <-slat$a_recode*(slat$stop^0.7)
-  if (transf=="log10") slat$at <-slat$a_recode*log10(slat$stop)
-  if (transf=="*t^0.3") slat$at <-slat$a_recode*(slat$stop^0.3)
-  if (transf=="*t^3") slat$at <-slat$a_recode*(slat$stop^3)
-  
-  slat$a <- slat$a_recode
-  coxt <- coxph(Surv(start, stop, evt) ~ a + at, data=slat)
-  test <- summary(coxt)
-  pval_at <- test$coefficients["at","Pr(>|z|)"]
-  #print(paste0("pval for time dependant coefficient : ", pval_at))
-  if (pval_at>0.05){
-    #print(paste0("at non significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test"))
-    res <- paste0("\n",transf,": at not significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test")
-    return (list(res, NA))
-  } else {
-    #print(paste0("at significant (p<0.05), ", transf," may fit, check shoenfeld and Harrell test"))
-    res1 <- paste0("\n",transf, ": at significant (p<0.05), ", transf," may fit, check shoenfeld and Harrell test")
+    #OPTION 2 : découpage du temps
+  } else { 
     
-    #résidus de Shoenfeld non significatif?
+    print(var)
+    b <- vec_cut
+    name_cut <- paste(b, collapse = "-")
+    
+    for (i in 1:(length(b)+1)){
+      if (i == 1) tmp <-  slat$a_recode * ifelse(slat$stop<=b[1], 1, 0)
+      if(i <= length(b) & i!= 1) tmp <- slat$a_recode * ifelse(slat$stop>b[i-1] & slat$stop<=b[i], 1, 0)
+      if(i == (length(b)+1)) tmp <-  slat$a_recode * ifelse(slat$stop>b[i-1], 1, 0)
+      slat[ ,paste0("at",i)] <- tmp
+    }
+    vat<-paste("at",  1:(length(b)+1), sep="")
+    x<-slat[, vat]
+    sx<-colSums(x) #interval de temps sans evt
+    wat<-vat[sx>0] #on supprime interval de temps quand pas d'evenement
+    f<-paste("Surv(start, stop, evt) ~ ", paste(wat, collapse="+"),"+cluster(id)", sep="")  #on ne met pas a_recode car les at couvre deja  toutes les perdiodes
+    
+    
+    coxt <- coxph(as.formula(f), data=slat)
+    test <- summary(coxt)
+    pval <-  round(test$coefficients[ ,"Pr(>|z|)"], 3) #on veut la pvalue du test robuste et le rscore et pas la pvalue des coefficients
+    coefbeta <- round(test$coefficients[ ,"coef"], 5)
+    name_param <- rownames(test$coefficients)
+    .AIC <- round(extractAIC(coxt)[2],2)
+    rscore <- round(test$robscore["test"],2)
+    prscore <- round(test$robscore["pvalue"],4)
+    
+    
+    #on ne fait que la courbe et pas de test de Harrell pour la découpe du temps
     zt <- cox.zph(coxt, transf="identity")
     for (i in 1:(nrow(zt$table)-1)){
       iz<-i
-      plot(zt[iz], main=paste0("plot shoenfeld for ",rownames(zt[iz]$table), "(", var, ")", " with ",transf," transformation"))
+      plot(zt[iz], resid = FALSE, main = paste0("plot shoenfeld for", var, " cut ", name_cut, "\nAIC = ", .AIC))
       abline(h=0, col="red")
+      abline(h=coef(coxt)[iz], col="blue", lty=2)
+      abline(v=b)
     }
-    
-    zit <- cox.zph(coxt, transform = "rank")
-    zit
-    zit <- cox.zph(coxt, transform = "rank")
-    pval <- round(zit$table[,3],3)
-    #if (all(as.numeric(pval)>0.05)) print(paste0("Harrell test not significant : if curve ok too, ", transf, "fit"))
-    #else print(paste0("Harrell test significant : even if curve ok, ", transf, " do not fit"))
-    #print("-----------------------")
-    #Les 3 p doivent etre >=0.05 
-    
-    if (all(as.numeric(pval)>0.05)) res2 <- paste0(" => Harrell test not significant : if curve ok too, ", transf, " fit")
-    else res2 <- paste0(" => Harrell test significant : even if curve ok, ", transf, " do not fit")
-    
-    res3 <- paste(res1,res2, sep ="\n" )
-    
-    if(pval_at<0.05 & all(as.numeric(pval)>0.05)){
-      keep <- .transf
-    } else {
-      keep <- NA
-    }
-    return(list(res3, keep))
+    return(data.frame(variable = var, recode = recode, param = name_param, transf = name_cut, beta = coefbeta, pvalue = pval, 
+                      curve = NA,  AIC = .AIC, robust = rscore, probust = prscore))
   }
 }
+
+cut_rep <- function(var, b, recode){
+
+  #.l <- lapply(2, function(nr){
+  #------------------
+  #gestion du changement de valeur en fonction du temps
+  #nr <- which(var == rNok_cut$var)
+  #var <- rNok_cut$var[nr]
+  #recode <- rNok_cut$recode[nr]
+  
+  print(var)
+  s <- s_i[s_i$qui==var, ]
+  s$time <- ifelse(s$del<0, 0, s$del) #del est le délai entre la date de receuil de la variable(date) et la date de vni (datevni). le del peut ê négatif pour les variables baseline
+  
+  #en mois
+  s$time <-(s$time/365.25*12) + 0.001 
+  s$time.vni <- (s$time.vni /365.25*12) + 0.001 
+  
+  idu<-sort(unique(s$PATIENT))
+  s[, "x"]<-as.numeric(as.character(s[, "x"]))
+  
+  #La boucle suivante permet de réaliser ce que ferait automatiquement un survsplit mais en découpant chaque patient par ses valeurs uniquement
+  for (id in idu) {
+    s1 <- s[s$PATIENT==id, c("PATIENT", "time.vni", "evt", "time", "x")]
+    s1 <- s1[!is.na(s1$time),]
+    s1 <- s1[order(s1$time),]
+    ns1<-dim(s1)[1] #nombre de changement de valeurs pour un patient
+    #si x à la valeur NA, alors je remplace par la dernière valeur connue (ce cas existe-t-il vraiment?)
+    if (ns1>1) {
+      if (is.na(s1[1, "x"])) s1[1, "x"] <-s1[2, "x"]
+      for (x in 2:nrow(s1)){
+        if (is.na(s1[x, "x"])) s1[x, "x"] <-s1[(x-1), "x"]
+      }
+    } 
+    d<-s1
+    #creation de la table avec start stop, la valeur prise dans chaque interval et l'evt dans le bon interval (survsplit mais à la main)
+    if (ns1>=1) {  
+      d$id<-d$PATIENT
+      d$del<-d$time.vni
+      d$n<-ns1
+      t<-sort(unique(d$time));t
+      
+      dt<-d[, c("id", "del", "evt", "time", "n", "x")]
+      n <-dim(d)[1]
+      dt$start<-c(d$time)
+      dt$stop<-c(d$time[-1], d$del[n])
+      dt$etat<-0
+      dt$etat[ns1]<-dt$evt[ns1]
+      dt$w<-c(d[, "x"])
+    } else { #si le patient n'a pas de ligne, le tableau est vide (? ce cas peut-il vraiment exister? si oui pourquoi ne pas faire dt <- NULL ?)
+      dt<-s0
+    }
+    #je merge le tableau du patient idu[id] à celui du patient idu[id-1]
+    if (id==idu[1]) {
+      Dt<-dt
+    } else {
+      Dt<-rbind(Dt, dt) 
+    }
+  }
+  
+  #Je remet dans l'ordre : par patient et par temps de start
+  Dt<-Dt[order(Dt$id, Dt$start),]
+  
+  #data management 
+  #gestion du cas start=stop : survient uniquement pour le dernier intervalle d'un patient, lorsqu'une nouvelle valeur est enregistrée
+  #lors d'une visite, mais que cette visite correspond à la date de dernière nouvelle (etat=0) ou à la date de décès (état=1)
+  #afficher cas etat=0
+  Dt$i<-1:dim(Dt)[1] #numérote les lignes
+  ote<-ifelse(Dt$start==Dt$stop & Dt$etat==0, 1, 0) 
+  io<-Dt$i[ote==1] #recupere lignes pour lesquels dernier interval : start=stop et etat=0
+  jo<-sort(unique(c(io, io-1)))#juste pour verif qu'on peut supprimer derniere ligne : on regarde ensemble derniere ligneet avant derniere
+  
+  #afficher cas etat=1
+  remp<-ifelse(Dt$start==Dt$stop & Dt$etat==1, 1, 0)
+  ir<-Dt$i[remp==1]
+  jr<-sort(unique(c(ir, ir-1)))
+  
+  #gérer cas etat=1 : c'est la ligne d'avant qui devient evt=1(la date d'evt correspond à la date du stop, donc la date d'evt est juste) et la ligne start=stop est supprimée
+  Dt$etat[Dt$i %in% (ir-1)]<-1
+  #gérer cas etat=1 ou etat=0 : on supprime la dernière ligne de ces 2 cas possibles du tableau Dt
+  Dt<-Dt[!(Dt$i %in% c(io, ir)),]
+  
+  #------------------
+  #si loglin non vérifiée, je recoupe à la médiane
+  if (recode == TRUE) {
+    Dt$x <- ifelse(Dt$x < median(Dt$x), 0, 1)
+    .title <- paste0 ("RP of ", var, " superior to ", round(median(Dt$x),0))
+  } else {
+    .title <- paste0 ("RP of ", var)
+  }
+  
+  #------------------
+  #RP non vérifiés, ajout variable dépendante du temps
+  
+  #on split une deuxième fois
+  dt<-Dt
+  dt$evt<-dt$etat
+  ti <- sort(unique(dt$stop[dt$etat==1]))
+  dt<-survSplit(dt, end="stop", start="start", cut=ti, event="evt")
+  dt<-dt[order(dt$id, dt$start),]
+  
+  #Decoupe du temps pour les variables dont on n'a pas trouvé la bonne transformation:
+
+  a <- add_vart_and_check_dt(data_split=dt, recode = recode, var = var, vec_cut = b)
+  return(a)
+  #})
+}
+
+
 
 Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=TRUE, dep_temps = FALSE, .transf=NULL, vec_time=NULL) {
   
@@ -2277,7 +2404,7 @@ Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .
     
   } else { #RESPECT DE L'HYP DES RISQUES PROP
     cat("Proportionality Hypothesis is assumed verified")
-    mod <- coxph(Surv(tps, evt) ~ a_recode, data = s)
+    mod <- coxph(Surv(tps, evt) ~ a_recode + cluster (PATIENT), data = s)
     test <- summary (mod)
     cat("\n\nmod <- coxph(Surv(tps, evt) ~ ", var, ", data)")
     cat(paste0("\n\nScore test: ", round(test$sctest["pvalue"],3)))
