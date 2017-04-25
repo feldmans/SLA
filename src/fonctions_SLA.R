@@ -1195,7 +1195,11 @@ check_loglin <- function(var, data, .time, .evt){
   cox1<-coxph(Surv(tps,evt)~1, data=s)
   r<-residuals(cox1, "martingale")
   lw<-lowess(r~s$a)
+<<<<<<< HEAD
   plot(s$a, r, main=paste0("Loglinearity of ",var), ylab = paste0("residuals"), xlab = "Time, months" )
+=======
+  plot(s$a, r, main=paste0("Loglinearity of ",var), xlab = var, ylab = paste0("residuals"), xlab = "Time, months" )
+>>>>>>> 2c6114ea93b7ac3eb1cb3051f70a3cab85199115
   lines(lw, lwd= 2)
   
   # 2/ découpe la variable le variable en fonction du temps avec une polynome de degré 2
@@ -2109,7 +2113,11 @@ check_RP_dt <- function(modele, var=NULL, data=NULL, .time=NULL, .evt=NULL, type
 
 
 #RECODAGE EN FONCTION DU TEMPS ET VERIF
+<<<<<<< HEAD
 add_vart_and_check_dt <- function(data_split=NULL, var, data=NULL, title = .title, .time=NULL, .evt=NULL, recode, .transf="log", vec_cut = NULL){
+=======
+add_vart_and_check_dt <- function(data_split=NULL, var, data=NULL, title = .title, .time=NULL, .evt=NULL, recode=TRUE, .transf="log", vec_cut = NULL){
+>>>>>>> 2c6114ea93b7ac3eb1cb3051f70a3cab85199115
   
   if(!is.null(data_split)){
     slat <- data_split
@@ -2172,7 +2180,10 @@ add_vart_and_check_dt <- function(data_split=NULL, var, data=NULL, title = .titl
         iz<-i
         plot(zt[iz], resid = FALSE, main = paste("plot shoenfeld for ", var, rownames(zt[iz]$table), " with ",transf," transformation\nHarrell :", Harrell, "\nAIC = ", .AIC))
         abline(h=0, col="red")
+<<<<<<< HEAD
         abline(h=coef(coxt)[iz], col="blue")
+=======
+>>>>>>> 2c6114ea93b7ac3eb1cb3051f70a3cab85199115
       }
       #------
       return (data.frame(variable = var, recode = recode, param = name_param, transf = .transf, beta = coefbeta, pvalue = pval, beta_at = TRUE, Harrell = Harrell,
@@ -2181,11 +2192,18 @@ add_vart_and_check_dt <- function(data_split=NULL, var, data=NULL, title = .titl
     
     #OPTION 2 : découpage du temps
   } else { 
+<<<<<<< HEAD
     
     print(var)
     b <- vec_cut
     name_cut <- paste(b, collapse = "-")
     
+=======
+    print(var)
+    b <- vec_cut
+    name_cut <- paste(b, collapse = "-")
+    
+>>>>>>> 2c6114ea93b7ac3eb1cb3051f70a3cab85199115
     for (i in 1:(length(b)+1)){
       if (i == 1) tmp <-  slat$a_recode * ifelse(slat$stop<=b[1], 1, 0)
       if(i <= length(b) & i!= 1) tmp <- slat$a_recode * ifelse(slat$stop>b[i-1] & slat$stop<=b[i], 1, 0)
@@ -2215,7 +2233,11 @@ add_vart_and_check_dt <- function(data_split=NULL, var, data=NULL, title = .titl
       iz<-i
       plot(zt[iz], resid = FALSE, main = paste0("plot shoenfeld for", var, " cut ", name_cut, "\nAIC = ", .AIC))
       abline(h=0, col="red")
+<<<<<<< HEAD
       abline(h=coef(coxt)[iz], col="blue", lty=2)
+=======
+      abline(h=bhat[i], col="blue", lty=2)
+>>>>>>> 2c6114ea93b7ac3eb1cb3051f70a3cab85199115
       abline(v=b)
     }
     return(data.frame(variable = var, recode = recode, param = name_param, transf = name_cut, beta = coefbeta, pvalue = pval, 
@@ -2223,6 +2245,7 @@ add_vart_and_check_dt <- function(data_split=NULL, var, data=NULL, title = .titl
   }
 }
 
+<<<<<<< HEAD
 cut_rep <- function(var, b, recode){
 
   #.l <- lapply(2, function(nr){
@@ -2231,6 +2254,15 @@ cut_rep <- function(var, b, recode){
   #nr <- which(var == rNok_cut$var)
   #var <- rNok_cut$var[nr]
   #recode <- rNok_cut$recode[nr]
+=======
+cut_rep <- function(var, b){
+  #.l <- lapply(2, function(nr){
+  #------------------
+  #gestion du changement de valeur en fonction du temps
+  nr <- which(var == rNok_cut$var)
+  var <- rNok_cut$var[nr]
+  recode <- rNok_cut$recode[nr]
+>>>>>>> 2c6114ea93b7ac3eb1cb3051f70a3cab85199115
   
   print(var)
   s <- s_i[s_i$qui==var, ]
@@ -2319,12 +2351,19 @@ cut_rep <- function(var, b, recode){
   #on split une deuxième fois
   dt<-Dt
   dt$evt<-dt$etat
+<<<<<<< HEAD
   ti <- sort(unique(dt$stop[dt$etat==1]))
   dt<-survSplit(dt, end="stop", start="start", cut=ti, event="evt")
   dt<-dt[order(dt$id, dt$start),]
   
   #Decoupe du temps pour les variables dont on n'a pas trouvé la bonne transformation:
 
+=======
+  dt<-survSplit(dt, end="stop", start="start", cut=t, event="evt")
+  dt<-dt[order(dt$id, dt$start),]
+  
+  #Decoupe du temps pour les variables dont on n'a pas trouvé la bonne transformation:
+>>>>>>> 2c6114ea93b7ac3eb1cb3051f70a3cab85199115
   a <- add_vart_and_check_dt(data_split=dt, recode = recode, var = var, vec_cut = b)
   return(a)
   #})
