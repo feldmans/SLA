@@ -4,8 +4,7 @@
 
 
 source("src/libraries_SLA.R")
-source("src/fonctions_SLA.R")
-
+source("src/01-fonctions_SLA.R")
 
 #=======================
 #=======================
@@ -65,6 +64,21 @@ quali <- as.character(ncu[ncu$nval > 2 & ncu$nval <= 6, "var"])
 as.character(ncu[ncu$nval == 1, "var"])
 
 #=======================
+#description des données manquantes
+head(d)
+missbl.df <- data.frame(variable=c(binaire,quanti, quali), missing = sapply(c(binaire,quanti, quali), function(x)sum(is.na(d[,x]))))
+rownames(missbl.df) <- NULL
+missbl.df$missing_perc <- paste0(round(missbl.df$missing/nrow(d),2)*100, "%")
+write.table(print(missbl.df), file="clipboard", sep = "\t", row.names = FALSE)
+saveRDS(missbl.df, "data/missingbl.rds")
+
+# donnees manquantes pour criteres de decision de ventilation
+df1 <- data.frame(apply(bl[ ,c("CRIT_1_VNI", "CRIT_2_VNI", "CRIT_3_VNI")], 2, is.na))
+df1$nbNA <- rowSums(df1)
+df1$allNA <- df1$nbNA == 3
+table(df1$allNA)
+prop.table(table(df1$allNA))
+#=======================
 #analyses binaires
 
 #----
@@ -103,7 +117,7 @@ binNRP <- as.character(rp[!rp$RP, "variable"]) #RP pas ok, il faut rajouter var 
 #transformation du temps
 pdf(paste0("data/analyses/RP_bin_transft.pdf"))
 .l <- lapply(binNRP, function(i){
-   tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"), function(x)add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = FALSE, var=i, .transf=x))
+  tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"), function(x)add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = FALSE, var=i, .transf=x))
   #tmp <- lapply(c("log"), function(x)add_vart_and_check(data=d, .time="time.vni", .evt="evt", type="quali", var=i, .transf=x))
   .a <- do.call(rbind, tmp)
 })
@@ -154,7 +168,7 @@ saveRDS(allbin, "data/all_var_bin_bl.rds")
 #HR [IC] et test du score (ou robuste)
 
 .l <- lapply(1 : nrow(allbin), function(num){
-HR_score (var=allbin$variable[num], data = d, .time="time.vni", .evt="evt", recode=FALSE, .transf=allbin$transf[num], .tps_clinique=12)
+  HR_score (var=allbin$variable[num], data = d, .time="time.vni", .evt="evt", recode=FALSE, .transf=allbin$transf[num], .tps_clinique=12)
 })
 df_HR <- do.call(rbind,.l)
 
@@ -202,7 +216,7 @@ QN_RP <- rp[!rp$RP, ] #RP pas ok, il faut rajouter var dépendante du temps
 pdf(paste0("data/analyses/RP_quanti_bl_transft.pdf"))
 .l <- lapply(1 : nrow(QN_RP), function(i){
   tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"), function(x){
-  #tmp <- lapply(c("log"), function(x){
+    #tmp <- lapply(c("log"), function(x){
     add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = QN_RP$recode[i], var=QN_RP$variable[i], .transf=x)
   })
   .a <- do.call(rbind, tmp)
@@ -274,7 +288,7 @@ allquant <- readRDS("data/all_var_quanti_bl.rds")
 #courbe
 df <- allquant[allquant$recode==TRUE, ]
 .l <- lapply(df$variable, function(x)draw_surv_bin(var=x, data = d, .time="time.vni", .evt="evt", vec_time_IC= 1,
-                  recode=TRUE, surv_only=FALSE, pvalue = TRUE))
+                                                   recode=TRUE, surv_only=FALSE, pvalue = TRUE))
 ml <- marrangeGrob(.l,ncol=1,nrow=1,top = NULL)
 ggsave(file="courbe_survie_quanti_recode_bl.pdf", ml)
 
@@ -363,7 +377,7 @@ all_var$Harrell_test <- NA
 
 pdf("data/analyses/RP_var_rep.pdf")
 for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
-#for (nr in 64) {#ce sera le debut de la boucle
+  #for (nr in 64) {#ce sera le debut de la boucle
   var <- all_var$var[nr]
   print(var)
   s <- s_i[s_i$qui==var, ]
@@ -372,11 +386,11 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
   #en mois
   s$time <-(s$time/365.25*12) + 0.001
   s$time.vni <- (s$time.vni /365.25*12) + 0.001
-
+  
   idu<-sort(unique(s$PATIENT))
-
+  
   s[, "x"]<-as.numeric(as.character(s[, "x"]))
-
+  
   #La boucle suivante permet de réaliser ce que ferait automatiquement un survsplit mais en découpant chaque patient par ses valeurs uniquement
   for (id in idu) {
     s1 <- s[s$PATIENT==id, c("PATIENT", "time.vni", "evt", "time", "x")]
@@ -397,7 +411,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
       d$del<-d$time.vni
       d$n<-ns1
       t<-sort(unique(d$time));t
-
+      
       dt<-d[, c("id", "del", "evt", "time", "n", "x")]
       n <-dim(d)[1]
       dt$start<-c(d$time)
@@ -414,7 +428,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
       Dt<-rbind(Dt, dt)
     }
   }
-
+  
   #Je remet dans l'ordre : par patient et par temps de start
   Dt<-Dt[order(Dt$id, Dt$start),]
   #head(Dt[Dt$n==5,]) #montre les lignes des patients qui ont au moins 5 intervalles (5 changements de valeur pour la variable var)
@@ -422,7 +436,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
   ttab<-table(tab<-table(Dt$id));ttab
   #sum(ttab)
   #table(Dt$n)
-
+  
   #data management sur ce fichier long découpé par intervalles de changement de valeurs
   #gestion du cas start=stop : survient uniquement pour le dernier intervalle d'un patient, lorsqu'une nouvelle valeur est enregistrée
   #lors d'une visite, mais que cette visite correspond à la date de dernière nouvelle (etat=0) ou à la date de décès (état=1)
@@ -437,7 +451,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
   ir<-Dt$i[remp==1]
   jr<-sort(unique(c(ir, ir-1)))
   head(Dt[Dt$i %in% jr,])
-
+  
   #gérer cas etat=1 : c'est la ligne d'avant qui devient evt=1(la date d'evt correspond à la date du stop, donc la date d'evt est juste) et la ligne start=stop est supprimée
   Dt$etat[Dt$i %in% ir]
   Dt$etat[Dt$i %in% (ir-1)]<-1
@@ -446,16 +460,16 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
   head(Dt[Dt$i %in% c(jo),])
   head(Dt[Dt$i %in% c(jr),])
   #NB : les lignes start=stop sont de toutes façons eliminées par coxph, mais là au moins on récupère l'info du décès.
-
+  
   # Dt[Dt$start>=Dt$stop,]
   # bd[bd$time.vni==0,]
   # s[s$time.vni==0,]
-
+  
   #======================================
   #3/verif des hypothèses pour une variable donnée
   #NB : il faudra faire une grande boucle qui va jusqu'à la vérif des risques proportionnels => creation de HRok (boucle sur le nom des variables)
   #puis continuer la boucle jusqu'à test du score et HRIC (rbind de res)
-
+  
   .title <- paste0("RP of ", var)
   #------------
   #si quanti, verif de la loglin
@@ -475,7 +489,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
       }
     }
   }
-
+  
   #--------------
   #3.2/ vérif hypoth des risques proportionnels
   mod <- coxph(Surv(start, stop, etat)~x+cluster(id), data=Dt) #deja recode ou non en 0/1 selon étape précédente
@@ -484,7 +498,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
     .rp <- round(z$table[,3],3)
     plot (0,0, main=paste0("RP of ", var, "\nHarrell test p = ", pval))
   } else {
-
+    
     #Test de Harrell
     z <- cox.zph(mod, transform = "rank")
     cat("Test de Harrell\n\n")
@@ -492,7 +506,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
     pval <- round(z$table[,3],3)
     cat(paste0("\nTest de Harrell p value: ", pval))
     #non signif si p>=0.05
-
+    
     #résidus de Shoenfeld
     z <- cox.zph(mod, transf="identity")
     plot(z, main=paste0(.title, "\nHarrell test p = ", pval), resid = FALSE, ylab = paste0("Beta(t) for ", var),
@@ -500,7 +514,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
     abline(h=0, col="red")
     abline(h=coef(mod), col="blue")
     #non significatif si l'IC contient a tout moment la courbe rouge
-
+    
   }
   all_var$Harrell_test[nr] <- pval
   all_var$RP
@@ -533,24 +547,24 @@ rNok <- all_var[all_var$RP==FALSE, ]
 
 pdf("data/analyses/RP_var_rep_findtransf.pdf")
 .l <- lapply(1:nrow(rNok), function(nr){
-#.l <- lapply(5, function(nr){
+  #.l <- lapply(5, function(nr){
   #------------------
   #gestion du changement de valeur en fonction du temps
-
+  
   var <- rNok$var[nr]
   recode <- rNok$recode[nr]
-
+  
   print(var)
   s <- s_i[s_i$qui==var, ]
   s$time <- ifelse(s$del<0, 0, s$del) #del est le délai entre la date de receuil de la variable(date) et la date de vni (datevni). le del peut ê négatif pour les variables baseline
-
+  
   #en mois
   s$time <-(s$time/365.25*12) + 0.001
   s$time.vni <- (s$time.vni /365.25*12) + 0.001
-
+  
   idu<-sort(unique(s$PATIENT))
   s[, "x"]<-as.numeric(as.character(s[, "x"]))
-
+  
   #La boucle suivante permet de réaliser ce que ferait automatiquement un survsplit mais en découpant chaque patient par ses valeurs uniquement
   for (id in idu) {
     s1 <- s[s$PATIENT==id, c("PATIENT", "time.vni", "evt", "time", "x")]
@@ -571,7 +585,7 @@ pdf("data/analyses/RP_var_rep_findtransf.pdf")
       d$del<-d$time.vni
       d$n<-ns1
       t<-sort(unique(d$time));t
-
+      
       dt<-d[, c("id", "del", "evt", "time", "n", "x")]
       n <-dim(d)[1]
       dt$start<-c(d$time)
@@ -589,10 +603,10 @@ pdf("data/analyses/RP_var_rep_findtransf.pdf")
       Dt<-rbind(Dt, dt)
     }
   }
-
+  
   #Je remet dans l'ordre : par patient et par temps de start
   Dt<-Dt[order(Dt$id, Dt$start),]
-
+  
   #data management
   #gestion du cas start=stop : survient uniquement pour le dernier intervalle d'un patient, lorsqu'une nouvelle valeur est enregistrée
   #lors d'une visite, mais que cette visite correspond à la date de dernière nouvelle (etat=0) ou à la date de décès (état=1)
@@ -601,17 +615,17 @@ pdf("data/analyses/RP_var_rep_findtransf.pdf")
   ote<-ifelse(Dt$start==Dt$stop & Dt$etat==0, 1, 0)
   io<-Dt$i[ote==1] #recupere lignes pour lesquels dernier interval : start=stop et etat=0
   jo<-sort(unique(c(io, io-1)))#juste pour verif qu'on peut supprimer derniere ligne : on regarde ensemble derniere ligneet avant derniere
-
+  
   #afficher cas etat=1
   remp<-ifelse(Dt$start==Dt$stop & Dt$etat==1, 1, 0)
   ir<-Dt$i[remp==1]
   jr<-sort(unique(c(ir, ir-1)))
-
+  
   #gérer cas etat=1 : c'est la ligne d'avant qui devient evt=1(la date d'evt correspond à la date du stop, donc la date d'evt est juste) et la ligne start=stop est supprimée
   Dt$etat[Dt$i %in% (ir-1)]<-1
   #gérer cas etat=1 ou etat=0 : on supprime la dernière ligne de ces 2 cas possibles du tableau Dt
   Dt<-Dt[!(Dt$i %in% c(io, ir)),]
-
+  
   #------------------
   #si loglin non vérifiée, je recoupe à la médiane
   if (recode == TRUE) {
@@ -620,25 +634,25 @@ pdf("data/analyses/RP_var_rep_findtransf.pdf")
   } else {
     .title <- paste0 ("RP of ", var)
   }
-
+  
   #------------------
   #RP non vérifiés, ajout variable dépendante du temps
-
+  
   #on split une deuxième fois
   dt<-Dt
   dt$evt<-dt$etat
   dt<-survSplit(dt, end="stop", start="start", cut=t, event="evt")
   dt<-dt[order(dt$id, dt$start),]
-
-
+  
+  
   #transformation :
   tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"),function(x){
-  #tmp <- lapply("/t",function(x){
+    #tmp <- lapply("/t",function(x){
     # tmp <- lapply(c("*t^0.7"),function(x){
     add_vart_and_check_dt(data_split=dt, var=var, title = .title, .transf=x)#[[1]] #Evite que ça ne bloque si le modèle ne converge pas
   })
   a <- do.call(rbind, tmp)
-
+  
   return(a)
 })
 
@@ -718,7 +732,7 @@ all_var$Harrell_test <- NA
 
 pdf("data/analyses/RP_var_rep.pdf")
 for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
-#for (nr in 64) {#ce sera le debut de la boucle
+  #for (nr in 64) {#ce sera le debut de la boucle
   var <- all_var$var[nr]
   print(var)
   s <- s_i[s_i$qui==var, ]
@@ -727,11 +741,11 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
   #en mois
   s$time <-(s$time/365.25*12) + 0.001
   s$time.vni <- (s$time.vni /365.25*12) + 0.001
-
+  
   idu<-sort(unique(s$PATIENT))
-
+  
   s[, "x"]<-as.numeric(as.character(s[, "x"]))
-
+  
   #La boucle suivante permet de réaliser ce que ferait automatiquement un survsplit mais en découpant chaque patient par ses valeurs uniquement
   for (id in idu) {
     s1 <- s[s$PATIENT==id, c("PATIENT", "time.vni", "evt", "time", "x")]
@@ -752,7 +766,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
       d$del<-d$time.vni
       d$n<-ns1
       t<-sort(unique(d$time));t
-
+      
       dt<-d[, c("id", "del", "evt", "time", "n", "x")]
       n <-dim(d)[1]
       dt$start<-c(d$time)
@@ -769,7 +783,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
       Dt<-rbind(Dt, dt)
     }
   }
-
+  
   #Je remet dans l'ordre : par patient et par temps de start
   Dt<-Dt[order(Dt$id, Dt$start),]
   #head(Dt[Dt$n==5,]) #montre les lignes des patients qui ont au moins 5 intervalles (5 changements de valeur pour la variable var)
@@ -777,7 +791,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
   ttab<-table(tab<-table(Dt$id));ttab
   #sum(ttab)
   #table(Dt$n)
-
+  
   #data management sur ce fichier long découpé par intervalles de changement de valeurs
   #gestion du cas start=stop : survient uniquement pour le dernier intervalle d'un patient, lorsqu'une nouvelle valeur est enregistrée
   #lors d'une visite, mais que cette visite correspond à la date de dernière nouvelle (etat=0) ou à la date de décès (état=1)
@@ -792,7 +806,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
   ir<-Dt$i[remp==1]
   jr<-sort(unique(c(ir, ir-1)))
   head(Dt[Dt$i %in% jr,])
-
+  
   #gérer cas etat=1 : c'est la ligne d'avant qui devient evt=1(la date d'evt correspond à la date du stop, donc la date d'evt est juste) et la ligne start=stop est supprimée
   Dt$etat[Dt$i %in% ir]
   Dt$etat[Dt$i %in% (ir-1)]<-1
@@ -801,16 +815,16 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
   head(Dt[Dt$i %in% c(jo),])
   head(Dt[Dt$i %in% c(jr),])
   #NB : les lignes start=stop sont de toutes façons eliminées par coxph, mais là au moins on récupère l'info du décès.
-
+  
   # Dt[Dt$start>=Dt$stop,]
   # bd[bd$time.vni==0,]
   # s[s$time.vni==0,]
-
+  
   #======================================
   #3/verif des hypothèses pour une variable donnée
   #NB : il faudra faire une grande boucle qui va jusqu'à la vérif des risques proportionnels => creation de HRok (boucle sur le nom des variables)
   #puis continuer la boucle jusqu'à test du score et HRIC (rbind de res)
-
+  
   .title <- paste0("RP of ", var)
   #------------
   #si quanti, verif de la loglin
@@ -830,7 +844,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
       }
     }
   }
-
+  
   #--------------
   #3.2/ vérif hypoth des risques proportionnels
   mod <- coxph(Surv(start, stop, etat)~x+cluster(id), data=Dt) #deja recode ou non en 0/1 selon étape précédente
@@ -839,7 +853,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
     .rp <- round(z$table[,3],3)
     plot (0,0, main=paste0("RP of ", var, "\nHarrell test p = ", pval))
   } else {
-
+    
     #Test de Harrell
     z <- cox.zph(mod, transform = "rank")
     cat("Test de Harrell\n\n")
@@ -847,7 +861,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
     pval <- round(z$table[,3],3)
     cat(paste0("\nTest de Harrell p value: ", pval))
     #non signif si p>=0.05
-
+    
     #résidus de Shoenfeld
     z <- cox.zph(mod, transf="identity")
     plot(z, main=paste0(.title, "\nHarrell test p = ", pval), resid = FALSE, ylab = paste0("Beta(t) for ", var),
@@ -855,7 +869,7 @@ for (nr in 1:nrow(all_var)) {#ce sera le debut de la boucle
     abline(h=0, col="red")
     abline(h=coef(mod), col="blue")
     #non significatif si l'IC contient a tout moment la courbe rouge
-
+    
   }
   all_var$Harrell_test[nr] <- pval
   all_var$RP
@@ -888,24 +902,24 @@ rNok <- all_var[all_var$RP==FALSE, ]
 
 pdf("data/analyses/RP_var_rep_findtransf.pdf")
 .l <- lapply(1:nrow(rNok), function(nr){
-#.l <- lapply(5, function(nr){
+  #.l <- lapply(5, function(nr){
   #------------------
   #gestion du changement de valeur en fonction du temps
-
+  
   var <- rNok$var[nr]
   recode <- rNok$recode[nr]
-
+  
   print(var)
   s <- s_i[s_i$qui==var, ]
   s$time <- ifelse(s$del<0, 0, s$del) #del est le délai entre la date de receuil de la variable(date) et la date de vni (datevni). le del peut ê négatif pour les variables baseline
-
+  
   #en mois
   s$time <-(s$time/365.25*12) + 0.001
   s$time.vni <- (s$time.vni /365.25*12) + 0.001
-
+  
   idu<-sort(unique(s$PATIENT))
   s[, "x"]<-as.numeric(as.character(s[, "x"]))
-
+  
   #La boucle suivante permet de réaliser ce que ferait automatiquement un survsplit mais en découpant chaque patient par ses valeurs uniquement
   for (id in idu) {
     s1 <- s[s$PATIENT==id, c("PATIENT", "time.vni", "evt", "time", "x")]
@@ -926,7 +940,7 @@ pdf("data/analyses/RP_var_rep_findtransf.pdf")
       d$del<-d$time.vni
       d$n<-ns1
       t<-sort(unique(d$time));t
-
+      
       dt<-d[, c("id", "del", "evt", "time", "n", "x")]
       n <-dim(d)[1]
       dt$start<-c(d$time)
@@ -944,10 +958,10 @@ pdf("data/analyses/RP_var_rep_findtransf.pdf")
       Dt<-rbind(Dt, dt)
     }
   }
-
+  
   #Je remet dans l'ordre : par patient et par temps de start
   Dt<-Dt[order(Dt$id, Dt$start),]
-
+  
   #data management
   #gestion du cas start=stop : survient uniquement pour le dernier intervalle d'un patient, lorsqu'une nouvelle valeur est enregistrée
   #lors d'une visite, mais que cette visite correspond à la date de dernière nouvelle (etat=0) ou à la date de décès (état=1)
@@ -956,17 +970,17 @@ pdf("data/analyses/RP_var_rep_findtransf.pdf")
   ote<-ifelse(Dt$start==Dt$stop & Dt$etat==0, 1, 0)
   io<-Dt$i[ote==1] #recupere lignes pour lesquels dernier interval : start=stop et etat=0
   jo<-sort(unique(c(io, io-1)))#juste pour verif qu'on peut supprimer derniere ligne : on regarde ensemble derniere ligneet avant derniere
-
+  
   #afficher cas etat=1
   remp<-ifelse(Dt$start==Dt$stop & Dt$etat==1, 1, 0)
   ir<-Dt$i[remp==1]
   jr<-sort(unique(c(ir, ir-1)))
-
+  
   #gérer cas etat=1 : c'est la ligne d'avant qui devient evt=1(la date d'evt correspond à la date du stop, donc la date d'evt est juste) et la ligne start=stop est supprimée
   Dt$etat[Dt$i %in% (ir-1)]<-1
   #gérer cas etat=1 ou etat=0 : on supprime la dernière ligne de ces 2 cas possibles du tableau Dt
   Dt<-Dt[!(Dt$i %in% c(io, ir)),]
-
+  
   #------------------
   #si loglin non vérifiée, je recoupe à la médiane
   if (recode == TRUE) {
@@ -975,27 +989,27 @@ pdf("data/analyses/RP_var_rep_findtransf.pdf")
   } else {
     .title <- paste0 ("RP of ", var)
   }
-
+  
   #------------------
   #RP non vérifiés, ajout variable dépendante du temps
-
+  
   #on split une deuxième fois
   dt<-Dt
   dt$evt<-dt$etat
   ti <- sort(unique(dt$stop[dt$etat==1]))
   dt<-survSplit(dt, end="stop", start="start", cut=ti, event="evt")
   dt<-dt[order(dt$id, dt$start),]
-
-
+  
+  
   #transformation :
   tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"),function(x){
-  #tmp <- lapply("/t",function(x){
+    #tmp <- lapply("/t",function(x){
     # tmp <- lapply(c("*t^0.7"),function(x){
     add_vart_and_check_dt(data_split=dt, var=var, recode = recode, title = .title, .transf=x)#[[1]] #Evite que ça ne bloque si le modèle ne converge pas
     #add_vart_and_check_dt(data_split=dt, var=var, .transf="*t")#[[1]] #Evite que ça ne bloque si le modèle ne converge pas
   })
   a <- do.call(rbind, tmp)
-
+  
   return(a)
 })
 
@@ -1032,8 +1046,8 @@ rNRP_cut <- rNok[is.na(rNok$transf), ]
 # b <- c(6,20,60)
 # b <- c(4, 10, 30)
 # b <- c(5, 7)
- b <- c(7,17,34)
- cut_rep(rNRP_cut$var[1], b, rNRP_cut$recode[1])
+b <- c(7,17,34)
+cut_rep(rNRP_cut$var[1], b, rNRP_cut$recode[1])
 # dev.off()
 #
 # dfrepcut <- do.call(rbind, .l)
@@ -1057,30 +1071,30 @@ all_var <- rbind(rRPok, rNRP_t, rNRP_cut)
 
 
 .l <- lapply(1:nrow(all_var), function(nr){
-#.l <- lapply(80:88, function(nr){
- # .l <- lapply(88, function(nr){
+  #.l <- lapply(80:88, function(nr){
+  # .l <- lapply(88, function(nr){
   tps_clinique = 12
   var.df <- all_var
   data.df <- s_i
-
+  
   var <- as.character(var.df$variable[nr])
   recode <- var.df$recode[nr]
   transf <- as.character(var.df$transf[nr])
   RP <- ifelse(is.na(var.df$transf[nr]), TRUE, FALSE)
-
+  
   #------------------
   #gestion du changement de valeur en fonction du temps
   print(var)
   s <- data.df[data.df$qui==var, ]
   s$time <- ifelse(s$del<0, 0, s$del) #del est le délai entre la date de receuil de la variable(date) et la date de vni (datevni). le del peut ê négatif pour les variables baseline
-
+  
   #en mois
   s$time <-(s$time/365.25*12) + 0.001
   s$time.vni <- (s$time.vni /365.25*12) + 0.001 #délai entre la date de vni et la mort
-
+  
   idu<-sort(unique(s$PATIENT))
   s[, "x"]<-as.numeric(as.character(s[, "x"]))
-
+  
   #La boucle suivante permet de réaliser ce que ferait automatiquement un survsplit mais en découpant chaque patient par ses valeurs uniquement
   for (id in idu) {
     s1 <- s[s$PATIENT==id, c("PATIENT", "time.vni", "evt", "time", "x")]
@@ -1101,7 +1115,7 @@ all_var <- rbind(rRPok, rNRP_t, rNRP_cut)
       d$del<-d$time.vni
       d$n<-ns1
       t<-sort(unique(d$time));t
-
+      
       dt<-d[, c("id", "del", "evt", "time", "n", "x")]
       n <-dim(d)[1]
       dt$start<-c(d$time)
@@ -1119,30 +1133,30 @@ all_var <- rbind(rRPok, rNRP_t, rNRP_cut)
       Dt<-rbind(Dt, dt)
     }
   }
-
+  
   #Je remet dans l'ordre : par patient et par temps de start
   Dt<-Dt[order(Dt$id, Dt$start),]
-
-      #------
-      #data management
-      #gestion du cas start=stop : survient uniquement pour le dernier intervalle d'un patient, lorsqu'une nouvelle valeur est enregistrée
-      #lors d'une visite, mais que cette visite correspond à la date de dernière nouvelle (etat=0) ou à la date de décès (état=1)
-      #afficher cas etat=0
-      Dt$i<-1:dim(Dt)[1] #numérote les lignes
-      ote<-ifelse(Dt$start==Dt$stop & Dt$etat==0, 1, 0)
-      io<-Dt$i[ote==1] #recupere lignes pour lesquels dernier interval : start=stop et etat=0
-      jo<-sort(unique(c(io, io-1)))#juste pour verif qu'on peut supprimer derniere ligne : on regarde ensemble derniere ligneet avant derniere
-
-      #afficher cas etat=1
-      remp<-ifelse(Dt$start==Dt$stop & Dt$etat==1, 1, 0)
-      ir<-Dt$i[remp==1]
-      jr<-sort(unique(c(ir, ir-1)))
-
-      #gérer cas etat=1 : c'est la ligne d'avant qui devient evt=1(la date d'evt correspond à la date du stop, donc la date d'evt est juste) et la ligne start=stop est supprimée
-      Dt$etat[Dt$i %in% (ir-1)]<-1
-      #gérer cas etat=1 ou etat=0 : on supprime la dernière ligne de ces 2 cas possibles du tableau Dt
-      Dt<-Dt[!(Dt$i %in% c(io, ir)),]
-
+  
+  #------
+  #data management
+  #gestion du cas start=stop : survient uniquement pour le dernier intervalle d'un patient, lorsqu'une nouvelle valeur est enregistrée
+  #lors d'une visite, mais que cette visite correspond à la date de dernière nouvelle (etat=0) ou à la date de décès (état=1)
+  #afficher cas etat=0
+  Dt$i<-1:dim(Dt)[1] #numérote les lignes
+  ote<-ifelse(Dt$start==Dt$stop & Dt$etat==0, 1, 0)
+  io<-Dt$i[ote==1] #recupere lignes pour lesquels dernier interval : start=stop et etat=0
+  jo<-sort(unique(c(io, io-1)))#juste pour verif qu'on peut supprimer derniere ligne : on regarde ensemble derniere ligneet avant derniere
+  
+  #afficher cas etat=1
+  remp<-ifelse(Dt$start==Dt$stop & Dt$etat==1, 1, 0)
+  ir<-Dt$i[remp==1]
+  jr<-sort(unique(c(ir, ir-1)))
+  
+  #gérer cas etat=1 : c'est la ligne d'avant qui devient evt=1(la date d'evt correspond à la date du stop, donc la date d'evt est juste) et la ligne start=stop est supprimée
+  Dt$etat[Dt$i %in% (ir-1)]<-1
+  #gérer cas etat=1 ou etat=0 : on supprime la dernière ligne de ces 2 cas possibles du tableau Dt
+  Dt<-Dt[!(Dt$i %in% c(io, ir)),]
+  
   #------------------
   #si loglin non vérifiée, je recoupe à la médiane
   if (recode == TRUE) {
@@ -1151,7 +1165,7 @@ all_var <- rbind(rRPok, rNRP_t, rNRP_cut)
   } else {
     .title <- paste0 ("RP of ", var)
   }
-
+  
   #------------------
   #HR IC valeur des coef beta et test (analyses en fonction de la transformation qui convient)
   if(is.na(transf)){
@@ -1170,16 +1184,16 @@ all_var <- rbind(rRPok, rNRP_t, rNRP_cut)
     res <- data.frame(variable = var, recode, RP, transf, tps_clinique = NA, HRIC, test, statistic = stat, pvalue = pval, param = "x", beta = coefx)
     return(res)
   } else {
-
+    
     #avant de transformer, on split une deuxième fois
     dt<-Dt
     dt$evt<-dt$etat
     ti <- sort(unique(dt$stop[dt$etat==1]))
     dt<-survSplit(dt, end="stop", start="start", cut=ti, event="evt")
     dt<-dt[order(dt$id, dt$start),]
-
+    
     if(transf %in% c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3")){
-
+      
       #ajout var xt dont la valeure dépendant du temps
       if (transf=="log") dt$xt<-dt$x*log(dt$stop)
       if (transf=="sqrt")dt$xt<-dt$x*sqrt(dt$stop)
@@ -1190,15 +1204,15 @@ all_var <- rbind(rRPok, rNRP_t, rNRP_cut)
       if (transf=="log10") dt$xt <-dt$x*log10(dt$stop)
       if (transf=="*t^0.3") dt$xt <-dt$x*(dt$stop^0.3)
       if (transf=="*t^3") dt$xt <-dt$x*(dt$stop^3)
-
+      
       f <- "Surv(start, stop, evt) ~ x + xt + cluster(id)"
       coxt <- coxph(as.formula(f), data=dt)
-
+      
       #significativité
       test <- summary(coxt)
       stat <- round(test$robscore["test"],2)
       pval <- round(test$robscore["pvalue"],4)
-
+      
       #Intervalle de confiance
       S <- vcov(coxt)
       b <- coef(coxt)
@@ -1211,22 +1225,22 @@ all_var <- rbind(rRPok, rNRP_t, rNRP_cut)
       if (transf=="/t") t_t <- 1/t
       if (transf=="*t^0.3") t_t <- t^0.3
       if (transf=="sqrt") t_t <- sqrt(t)
-
+      
       variance <- S[1,1]+S[2,2]*(t_t)^2+2*S[1,2]*(t_t)
       m <- b[1]+b[2]*(t_t) #coef de l'HR
       HRIC <- round(c(exp(m), exp(m + qnorm(0.975)*sqrt(variance) * c(-1,1))),3)
       HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
-
+      
       #valeur des paramètres beta
       name_param <- rownames(test$coefficients)
       coefbeta <- round(test$coefficients[ ,"coef"], 5)
-
-
+      
+      
       return(data.frame(variable = var, recode, RP = FALSE, transf = transf, tps_clinique = tps_clinique, HRIC = HRIC, test = "robust",
                         statistic = stat, pvalue = pval, param = name_param, beta = coefbeta))
-
+      
     } else {
-
+      
       print(paste(var, transf, sep="-"))
       b <- as.numeric(unlist(strsplit(transf, "-")))
       name_cut <- transf
@@ -1241,24 +1255,24 @@ all_var <- rbind(rRPok, rNRP_t, rNRP_cut)
       sx<-colSums(x) #interval de temps sans evt
       wat<-vat[sx>0] #on supprime interval de temps quand pas d'evenement
       f<-paste("Surv(start, stop, evt) ~ ", paste(wat, collapse="+")," + cluster(id)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
-
+      
       coxt <- coxph(as.formula(f), data=dt)
       test <- summary(coxt)
       coefbeta <- round(test$coefficients[ ,"coef"], 5)
       name_param <- rownames(test$coefficients)
       stat <- round(test$robscore["test"],2)
       pval <- round(test$robscore["pvalue"],4)
-
+      
       i <- findInterval(tps_clinique, b) + 1 #findInterval commence à 0...
       HRIC <- round(exp(cbind(coef(coxt)[i], qnorm(0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])), qnorm(1-0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])))),3)
       HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
       #browser()
       return(data.frame(variable = var, recode, RP = FALSE, transf, tps_clinique = tps_clinique, HRIC, test = "robust",
                         statistic = stat, pvalue = pval, param = name_param, beta = coefbeta))
-
-
-      }
-
+      
+      
+    }
+    
   }
 })
 a <- do.call(rbind, .l)
@@ -1301,27 +1315,51 @@ df1 <- readRDS("data/HRIC_bin_bl.rds")
 df2 <- readRDS("data/HRIC_quanti_bl.rds")
 df3 <- readRDS("data/HRIC_var_rep.rds")
 
+#missing
+missbl.df <- readRDS("data/missingbl.rds")
+
 #df1
 data <- readRDS("data/HRIC_bin_bl.rds")
 data <- data[ , c("variable", "recode", "RP", "transf", "tps_clinique", "HRIC", "pvalue", "beta")]
+#mise en ligne des coefficients
 data$beta <- ifelse(data$beta > -0.001 & data$beta <0, "-0.001<beta<0", as.character(round(data$beta, 2)))
 a <- tapply(data$beta, data$variable, paste, collapse = "; ")
 a <- data.frame(variable = names(a), beta = a)
 a$variable <- as.character(a$variable)
-data <- data[match(unique(data$variable), data$variable), ]
+data <- data[match(unique(data$variable), data$variable), ]#garder uniquement première ligne de chaque variable
 data <- merge(data[ , - ncol(data)], a, by="variable")
+#merge avec la survie et mise en ligne
+data2 <- s1
+data2$survIC <- paste0(data2$group, " : ", data2$survIC)
+surv.t <- tapply(data2$survIC, data2$variable, paste, collapse = " ; ") 
+a <- data.frame(variable = names(surv.t), survie = surv.t)
+a$variable <- as.character(a$variable)
+data <- merge(data, a, by="variable")
+#merge avec missing value
+data <- merge(data, missbl.df, by = "variable", all.x = TRUE, all.y = FALSE)
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
 #df2
 data <- readRDS("data/HRIC_quanti_bl.rds")
 data <- data[ , c("variable", "recode", "RP", "transf", "tps_clinique", "HRIC", "pvalue", "beta")]
+#mise en ligne des coefficients
 data$beta <- ifelse(data$beta > -0.001 & data$beta <0, "-0.001<beta<0", as.character(round(data$beta, 2)))
 a <- tapply(data$beta, data$variable, paste, collapse = "; ")
 a <- data.frame(variable = names(a), beta = a)
 a$variable <- as.character(a$variable)
-#uniquement première ligne
-data <- data[match(unique(data$variable), data$variable), ]
+data <- data[match(unique(data$variable), data$variable), ]#garder uniquement première ligne de chaque variable
 data <- merge(data[ , - ncol(data)], a, by="variable")
+#merge avec la survie et mise en ligne
+data2 <- s2
+data2 <- data2[match(unique(paste0(data2$variable, data2$group)), paste0(data2$variable, data2$group)), ]
+data2$survIC <- paste0(data2$group, " : ", data2$survIC)
+surv.t <- tapply(data2$survIC, data2$variable, paste, collapse = " ; ") 
+a <- data.frame(variable = names(surv.t), survie = surv.t)
+a$variable <- as.character(a$variable)
+data <- merge(data, a, by="variable", all.x=TRUE, all.y=FALSE)
+#merge avec missing value
+data <- merge(data, missbl.df, by = "variable", all.x = TRUE, all.y = FALSE)
+
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
 #df3
