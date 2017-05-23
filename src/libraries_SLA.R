@@ -12,4 +12,4 @@ library(gridExtra)
 library(grid)
 library(GGally)#fonction ggsurv
 library(scales)
-
+library(ggplot2)

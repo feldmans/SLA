@@ -49,9 +49,9 @@ ncu <- data.frame(var=names(d2), np_noNA=as.numeric(n_val), nval=as.numeric(n_le
 n10 <- nrow(bl)*0.25
 ncu <- ncu[ncu$np_noNA > n10, ]
 
-#Je supprime les sous échelle de E_BULBAIRE et de ALSFRS
-ncu <- ncu[!grepl("E_BULBAIRE", ncu$var), ]
-ncu <- ncu[!grepl("ALS", ncu$var), ]
+# #Je supprime les sous échelle de E_BULBAIRE et de ALSFRS
+# ncu <- ncu[!grepl("E_BULBAIRE", ncu$var), ]
+# ncu <- ncu[!grepl("ALS", ncu$var), ]
 
 #pour regarder les différentes valeurs prises
 # apply(d2, 2, unique)

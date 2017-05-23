@@ -1,7 +1,9 @@
 
 
-.dir <- dir("C:/Users/4051268/Documents/SLA/sauvegarde data/sla/data/",full.names = T, recursive = T)
-
+#.dir <- dir("C:/Users/4051268/Documents/SLA/sauvegarde data/sla/data/",full.names = T, recursive = T)
+.dir <- dirname(getwd())
+.dir <- paste0(.dir, "/sauvegarde data/sla/data/")
+.dir <- dir (.dir, full.names = T, recursive = T)
 .dir_csv <- .dir[str_sub(.dir, -3, -1)=="csv"]
 .dir_sas <- .dir[str_sub(.dir, -3, -1)=="sas"]
 
@@ -12,17 +14,20 @@
 # anonymes <- data.frame(PATIENT = names_pat, numpat = paste0("ID", 1:length(names_pat)))
 # write.csv2(anonymes, file="C:/Users/4051268/Documents/SLA/sauvegarde data/sla/data/tableau_anonymat.csv")
 
-anonymes <- read.csv2("C:/Users/4051268/Documents/SLA/sauvegarde data/sla/anonymisation sarah/tableau_anonymat.csv")
+.dir2 <- dirname(getwd())
+.dir2 <- paste0(.dir2, "/sauvegarde data/sla/anonymisation sarah/")
+anonymes <- read.csv2(paste0(.dir2, "tableau_anonymat.csv"))
+#anonymes <- read.csv2("C:/Users/4051268/Documents/SLA/sauvegarde data/sla/anonymisation sarah/tableau_anonymat.csv")
 anonymes$PATIENT <- as.character(anonymes$PATIENT)
 anonymes$numpat <- as.character(anonymes$numpat)
 
 
 #==================================
-#Pour charger toutes les bases de données disponibles (se nommeront bdd 1 à 9)
-for (i in .dir_csv) {
-  print(i)
-  num <- which(.dir_csv==i)
-  a <- read.csv2(i)
+#Pour charger toutes les bases de données disponibles (se nommeront bdd 1 à 9) à partir de csv
+for (.d in .dir_csv) {
+  print(.d)
+  num <- which(.dir_csv==.d)
+  a <- read.csv2(.d)
   assign(paste0("bdd",num),a)
 }
 bdds <- paste0("bdd",1:9)
@@ -71,7 +76,7 @@ names(bdd7)[i]<-as.character(w$w)
 names(bdd7)[i]
 
 #==============
-#Enregistrer les bdd et retirer toutes traces de noms 
+#Enregistrer les bdd et retirer toutes traces de noms et infos personnelles
 for (i in bdds){
   data <- get(i)
   data[ ,grep("NAME",names(data))] <- NULL
@@ -82,7 +87,13 @@ for (i in bdds){
   saveRDS(data, paste0("data/bdds/", i, ".rds"))
 }
 
-
+#============================
+#charger toutes les bases de données à partir de rds ()
+for (i in bdds){
+  data <- readRDS(paste0("data/bdds/", i, ".rds"))
+  assign(i,data)
+}
+# bdd1 <- readRDS("data/bdds/bdd1.rds")
 
 #============================
 #BASE  DE DONNEES DDN

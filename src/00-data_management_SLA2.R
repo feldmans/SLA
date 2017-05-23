@@ -289,7 +289,41 @@ names_vnisla <- names(table(unique(vnisla$PATIENT)))
 #AJOUT D'INFO A LA BASE DE DONNEE vnisla (ddn, deces, fin de vni): creation bdd_dates
 
 #---------------
+#rajouter les décès et ddn entrés manuellement par Jésus GONZALEZ
+DC_2.df <- read.csv2("data/date_evt_patientHorsSuiviNeuro.csv")
+DC_2.df$date_evt[DC_2.df$date_evt==""] <- NA
+DC_2.df <- DC_2.df[!is.na(DC_2.df$date_evt), ]
+DC_2.df$date_evt <- manage_date_ND(DC_2.df$date_evt)
+DC_2.df$ddn2 <- ifelse(is.na(DC_2.df$date_evt), as_date("2015-08-27"), DC_2.df$date_evt)
+DC_2.df$ddn2 <- as_date(DC_2.df$ddn2)
+DC_2.df$PATIENT <- as.character(DC_2.df$PATIENT)
+
+#-----------
+#BASE DE DONNEE trachéo
+listes_brut <- lapply(bdds[c(6,8,9)], which_col,"DATETRACH",type="merge")
+listes_net <- listes_brut[sapply(listes_brut,function(x)!is.null(x))] #supprimer les élements de la liste sans information
+for (i in 1:length(listes_net)) {
+  data <- listes_net[[i]]
+  res <- if (i==1) data else merge(res,data,by="PATIENT",all=T)
+}
+bdd_trach <- get_min_max(data = res, fun = "min")
+bdd_trach$date_trach <- manage_date_ND(bdd_trach$min)
+bdd_trach <- unique(bdd_trach[ , c("PATIENT","date_trach")])
+
+
+#---------------
 #BASE  DE DONNEES DDN
+#2/Pour charger les ddn obtenues ()
+for (i in .dir_csv[-2]) {
+  num <- which(.dir_csv==i)
+  print(num)
+  a <- readRDS(paste0("data/ddn/ddn",num,".rds")) #NB : supprimer ddn2.Rds du dossier data/ddn car le fichier est vide
+  #a <- a[[1]]
+  a <- aggregate(a, by=list(a$PATIENT),max,na.rm=T) #qd des noms sont rassemblé et que toutes leurs dates valent NA, alors le tableau vaut NA
+  a <- a[ ,c("PATIENT", "max")]
+  assign(paste0("ddn",num),a)
+} #warnings : In FUN(X[[i]], ...) : no non-missing arguments, returning NA : c'est normal
+ddns <- paste0("ddn", c(1, 3:9))
 
 #nom des dataframe ddn
 dfddn <- str_sub(dir("data/ddn"),1,-5)[sapply(dir("data/ddn"),function(x)is.data.frame(get(str_sub(x,1,-5))))]
@@ -317,8 +351,12 @@ ddn_tot$ddn <- as_date(ddn_tot$ddn)
 dim(ddn_tot)
 
 saveRDS(ddn_tot, "data/bdd_to_merge/ddn_tot.rds")
-
-ddn_tot <- readRDS("data/bdd_to_merge/ddn_tot.rds")
+# 
+# ddn_tot <- readRDS("data/bdd_to_merge/ddn_tot.rds")
+# ddn_tot <- merge(ddn_tot, DC_2.df, by="PATIENT", all=T)
+# ddn_tot$ddn <- ifelse (!is.na(ddn_tot$ddn2), ddn_tot$ddn2, ddn_tot$ddn)
+# ddn_tot$ddn <- as_date(ddn_tot$ddn)
+# ddn_tot <- ddn_tot[, c("PATIENT", "ddn")]
 
 #-------------
 #BASE DE DONNEES DECES
@@ -340,9 +378,10 @@ bdd_dcd <- unique(bdd_dcd[ , c("PATIENT","date_dc")]) #seul les vrais doublons n
 
 saveRDS(bdd_dcd, "data/bdd_to_merge/bdd_dcd.rds")
 
-bdd_dcd <- readRDS("data/bdd_to_merge/bdd_dcd.rds")
-
-
+# bdd_dcd <- readRDS("data/bdd_to_merge/bdd_dcd.rds")
+# bdd_dcd <- merge(bdd_dcd, DC_2.df, by="PATIENT", all=T)
+# bdd_dcd$date_dc <- ifelse(is.na(bdd_dcd$date_dc), bdd_dcd$date_evt, bdd_dcd$date_dc)
+# bdd_dcd$date_dc <- as_date(bdd_dcd$date_dc)
 
 #Recupération à partir de la base de données répétées (Préférer la version data mining après concertation avec Yan)
 # date_dc <- get_var_blf0_suivif1_neuro_date("DATEDCD", "DATEDCD_V")
@@ -355,38 +394,90 @@ poursuite %>% filter(PATIENT %in% poursuite[poursuite$x==0, "PATIENT"]) #Attenti
 fin_vni <- poursuite %>% group_by(PATIENT) %>% arrange(desc(date)) %>% top_n(1) %>% filter(x==0) %>% select(fin_vni=date)#Je sélectionne la date la plus récente puis je sélectionne poursuite =0
 #message : Adding missing grouping variables: `PATIENT`
 
+#En rajoutant ce passage, on perd 1 patient qui a fin de vni en 2003 et début en 2007
+# listes_brut <- lapply(bdds[c(6,8,9)], which_col,"DATEVNI_STOP",type="merge")
+# listes_net <- listes_brut[[2]]
+# listes_net$DATEVNI_STOP <- manage_date_ND(listes_net$DATEVNI_STOP)
+# fin_vni <- merge(listes_net, fin_vni, by="PATIENT", all=T)
+# fin_vni$fin_vni <- pmin(fin_vni$DATEVNI_STOP, fin_vni$fin_vni, na.rm=T)
+# fin_vni <- fin_vni[ ,c("PATIENT", "fin_vni")]
+
 #-----------
 #CREATION bdd_dates : regroupe vnisla, ddn_tot, bdd_dcd, fin_vni 
 #table avec infos essentielles : date de vni, ddn, date décès, date de fin, date de fin de vni
 
-#date de fin 
+#---
+# #old
+# #date de fin
+# bdd_dates <- merge(ddn_tot, bdd_dcd, by="PATIENT", all=T)
+# bdd_dates$censor <- ifelse (!is.na(bdd_dates$date_dc), 1, 0)
+# bdd_dates$dfin <- ifelse (!is.na(bdd_dates$date_dc), bdd_dates$date_dc, bdd_dates$ddn)
+# 
+# bdd_dates <- merge(bdd_dates, fin_vni, by="PATIENT", all=T)
+# bdd_dates$fin_vni <- ifelse(!is.na(bdd_dates$fin_vni), bdd_dates$fin_vni, bdd_dates$dfin)
+# 
+# #ne sélectionner que les patients vni et rajouter leur date de vni:
+# bdd_dates <- merge(vnisla[ , c("PATIENT", "datevni")], bdd_dates, by="PATIENT", all.x=T, all.y=F)
+# bdd_dates$dfin <- as_date(bdd_dates$dfin) #date de fin de suivi (ddn ou décès)
+# bdd_dates$fin_vni <- as_date(bdd_dates$fin_vni)
+# 
+# #creation variable time.vni et evt
+# bdd_dates$time.vni <- as.numeric(bdd_dates$dfin - bdd_dates$datevni)
+# bdd_dates$evt <- ifelse (!is.na(bdd_dates$date_dc), 1, 0)
+# 
+# #supprimer les patients avec une date de fin de vni ou date de décès antérieure à la date de debut de vni
+# saveRDS(bdd_dates, "data/bdd_dates_avecpbdates.rds")
+# bdd_dates <- bdd_dates[bdd_dates$datevni<=bdd_dates$fin_vni, ]
+# bdd_dates <- bdd_dates[bdd_dates$time.vni>0,]
+# 
+# #il reste d'éventuels doublons
+# saveRDS(bdd_dates, "data/bdd_dates_avecdoublons.rds")
+# 
+# #Je modifie vnisla pour qu'il ne contienne plus les patients avec ces dates incohérentes
+# pbvni <- bdd_dates[bdd_dates$datevni>bdd_dates$fin_vni | bdd_dates$time.vni<=0, ]
+# vnisla <- vnisla[! vnisla$PATIENT %in% pbvni$PATIENT, ]
+# 
+# saveRDS(vnisla, "data/vnisla_sansvniinco.rds")
+
+#----
+#new
+
 bdd_dates <- merge(ddn_tot, bdd_dcd, by="PATIENT", all=T)
-bdd_dates$evt <- ifelse (!is.na(bdd_dates$date_dc), 1, 0)
-#bdd_dates$censor <- ifelse (!is.na(bdd_dates$date_dc), 1, 0)
-bdd_dates$dfin <- ifelse (!is.na(bdd_dates$date_dc), bdd_dates$date_dc, bdd_dates$ddn)
-
+bdd_dates <- merge(bdd_dates, bdd_trach, by="PATIENT", all=T)
+bdd_dates <- merge(bdd_dates, DC_2.df, by="PATIENT", all=T) #date_evt rempli si dc ou trachéo
 bdd_dates <- merge(bdd_dates, fin_vni, by="PATIENT", all=T)
-bdd_dates$fin_vni <- ifelse(!is.na(bdd_dates$fin_vni), bdd_dates$fin_vni, bdd_dates$dfin)
+bdd_dates <- merge(bdd_dates, vnisla[ , c("PATIENT", "datevni")], by="PATIENT", all=T)
+bdd_dates$ddn <- pmax(bdd_dates$ddn, bdd_dates$ddn2, na.rm=T) #ddn2 : patient indiqués comme toujour vivant par JG au 23/05/2017
+bdd_dates$ddn2 <- NULL
 
-#ne sélectionner que les patients vni et rajouter leur date de vni:
-bdd_dates <- merge(vnisla[ , c("PATIENT", "datevni")], bdd_dates, by="PATIENT", all.x=T, all.y=F)
-bdd_dates$dfin <- as_date(bdd_dates$dfin) #date de fin de suivi (ddn ou décès)
-bdd_dates$fin_vni <- as_date(bdd_dates$fin_vni)
+#evt et date de fin 
+bdd_dates$evt <- ifelse (!is.na(bdd_dates$date_dc) | !is.na(bdd_dates$date_trach) | !is.na(bdd_dates$date_evt), 1, 0)
+bdd_dates$dfin <- pmin(bdd_dates$fin_vni, bdd_dates$ddn, bdd_dates$date_trach, bdd_dates$date_dc, bdd_dates$date_evt, na.rm=T)
+
+#si arrêt de vni moins de 2 mois avant le décès, on considère que c'est un décès (mais à la date de fin de vni)
+bdd_dates %>% filter(bdd_dates$date_dc < bdd_dates$fin_vni + 30.25*2) #c'est déjà le cas
+bdd_dates [(bdd_dates$date_dc < bdd_dates$fin_vni + 30.25*2) & !is.na(bdd_dates$date_dc) & !is.na(bdd_dates$fin_vni), "dfin"] <- bdd_dates [(bdd_dates$date_dc < bdd_dates$fin_vni + 30.25*2) & !is.na(bdd_dates$date_dc) & !is.na(bdd_dates$fin_vni), "date_dc"]
+#si arrêt de vni plus de mois avant décès alors c'est evt=0 
+bdd_dates %>% filter(bdd_dates$date_dc >= bdd_dates$fin_vni + 30.25*2) 
+bdd_dates [bdd_dates$date_dc >= bdd_dates$fin_vni + 30.25*2 & !is.na(bdd_dates$date_dc) & !is.na(bdd_dates$fin_vni), "evt"] <- 0 
+
+#je ne sélectionne que les patients qui ont date de vni
+bdd_dates <- bdd_dates[!is.na(bdd_dates$datevni), ]
+table(is.na(bdd_dates$datevni))
 
 #creation variable time.vni et evt
-bdd_dates$time.vni <- as.numeric(bdd_dates$dfin - bdd_dates$datevni)
-bdd_dates$evt <- ifelse (!is.na(bdd_dates$date_dc), 1, 0)
+bdd_dates$time.vni <- as.numeric(bdd_dates$dfin - bdd_dates$datevni) 
 
 #supprimer les patients avec une date de fin de vni ou date de décès antérieure à la date de debut de vni
 saveRDS(bdd_dates, "data/bdd_dates_avecpbdates.rds")
-pbvni <- bdd_dates[bdd_dates$datevni>bdd_dates$fin_vni | bdd_dates$time.vni<=0, ]
-bdd_dates <- bdd_dates[bdd_dates$datevni<=bdd_dates$fin_vni, ]
-bdd_dates <- bdd_dates[bdd_dates$time.vni>0,]
+pbvni <- bdd_dates[(bdd_dates$datevni > bdd_dates$fin_vni &!is.na(bdd_dates$date_dc) & !is.na(bdd_dates$fin_vni)) | bdd_dates$time.vni<=0, ]
+bdd_dates <- bdd_dates[!bdd_dates$PATIENT %in% pbvni$PATIENT, ]
+
+# bdd_dates <- bdd_dates[bdd_dates$datevni<=bdd_dates$fin_vni, ]
+# bdd_dates <- bdd_dates[bdd_dates$time.vni>0,]
 
 #il reste d'éventuels doublons
-
 saveRDS(bdd_dates, "data/bdd_dates_avecdoublons.rds")
-
 
 #Je modifie vnisla pour qu'il ne contienne plus les patients avec ces dates incohérentes
 vnisla <- vnisla[! vnisla$PATIENT %in% pbvni$PATIENT, ]
@@ -456,7 +547,8 @@ table(bdd7$PIMAX_PP_CL1)#bcp moins renseingée que PIMAX_PP, j'elimine
 #var pneumo repetees avec les 3 types de variables renseignées (PP PV SV)
 
 #J'utilise le tableau de toutes les var pneumo (après nettoyage) pour obtenir le tableau repete 
-vpr <- read.csv2("data/variables_suivi_pneumo_clean.csv")
+#vpr <- read.csv2("data/variables_suivi_pneumo_clean.csv") #version avant retrait des var inutiles pour l'analyse et var redondantes
+vpr <- read.csv2("data/variables_suivi_pneumo_clean2.csv")
 vpr <- data.frame(lapply(vpr, as.character), stringsAsFactors=FALSE)
 vpr <- vpr[!is.na(vpr$variables_PP) & !is.na(vpr$variables_PV) & !is.na(vpr$variables_SV), ]
 vpr$variables_PV <- str_sub(vpr$variables_PV, 1, -4)
@@ -868,6 +960,10 @@ saveRDS(df_bl_neuro, "data/df_bl_neuro.rds")
 #df_bl_neuro<-readRDS("data/df_bl_neuro.rds")
 
 #-------
+df_bl_neuro <- readRDS("data/df_bl_neuro.rds")
+df_bl_pneumo <- readRDS("data/df_bl_pneumo.rds")
+df_bl_depvni_pneumo_wide <- readRDS("data/df_bl_depvni_pneumo_wide.rds")
+
 #Merge bl neuro et pneumo
 bl <- merge(df_bl_neuro, df_bl_pneumo, by="PATIENT", all=T) #les var de bdd_dates sont déjà dans df_bl_neuro
 bl <- merge(bl, df_bl_depvni_pneumo_wide[ ,!names(df_bl_depvni_pneumo_wide)%in% c("datevni", "SEX")], by="PATIENT", all=T)
@@ -916,7 +1012,7 @@ dr <- readRDS("data/df_rep_avecdoublons.rds")
 
 #bl
 table(tab <- table(bl$PATIENT))
-names(tab)[tab>1] #7 doublons
+names(tab)[tab>1] #7 doublons #5 le 23/05/2017
 names_doublonsbl <- names(tab)[tab>1]
 #rep
 #(on ne peut pas savoir si doublons rep car base repetees, on e ne peut que voir les duplicatats)
@@ -932,7 +1028,7 @@ names_doublonssla <- names(tab)[tab>1]
 names_doublons <- unique(c(names_doublonsbl, names_doublonsdates, names_doublonssla))
 
 
-#Je supprime ces 3 doublons de la base repetee, de la base baseline et de la base vnisla et bdd_dates
+#Je supprime ces doublons de la base repetee, de la base baseline et de la base vnisla et bdd_dates
 dr <- dr[!dr$PATIENT %in% names_doublons, ]
 bl <- bl[!bl$PATIENT %in% names_doublons, ]
 vnisla <- vnisla[!vnisla$PATIENT %in% names_doublons, ]
@@ -966,6 +1062,14 @@ for (i in pat_pb){
 for (i in pat_pb[! pat_pb %in% fin_vni$PATIENT ]){
   dr[dr$PATIENT==i , "fin_vni"] <- max(dr[dr$PATIENT==i, "date"])
 }
+
+
+#retrait des patients qui ne sont pas dans la base de suivi neuro (ou n'ayant pas de date de DC)
+bl <- bl[bl$PATIENT %in% bdd9$PATIENT | bl$PATIENT %in% DC_2.df$PATIENT | !is.na(bl$date_dc), ]
+dr <- dr[dr$PATIENT %in% bdd9$PATIENT | dr$PATIENT %in% DC_2.df$PATIENT | !is.na(dr$date_dc), ]
+bdd_dates <- bdd_dates[bdd_dates$PATIENT %in% bdd9$PATIENT | bdd_dates$PATIENT %in% DC_2.df$PATIENT | !is.na(bdd_dates$date_dc), ]
+#retrait des patients dr qui ne sont pas dans bl (car pas dans vnisla=> comprendre comment ils ont pu avoir une date de vni)
+dr <- dr[dr$PATIENT %in% bl$PATIENT, ]
 
 #tableau sans doublons :
 saveRDS(dr, "data/df_rep.rds")
