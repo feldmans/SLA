@@ -1,7 +1,13 @@
 source("src/libraries_SLA.R")
-source("src/fonctions_SLA.R")
+source("src/02-fonctions_SLA.R")
 source("src/objects_SLA.R")
 
+bdds <- paste0("bdd",1:9)
+
+for (i in bdds){
+  data <- readRDS(paste0("data/bdds/", i, ".rds"))
+  assign(i,data)
+}
 
 #-----------------------------
 #-----------------------------
@@ -589,7 +595,8 @@ saveRDS(df_rep_pneumo, "data/df_rep_pneumo.rds")
 #var pneumo rep sans bl
 
 #J'utilise le tableau de toutes les var pneumo (après nettoyage) pour obtenir le tableau repete
-vpr <- read.csv2("data/variables_suivi_pneumo_clean.csv")
+#vpr <- read.csv2("data/variables_suivi_pneumo_clean.csv")
+vpr <- read.csv2("data/variables_suivi_pneumo_clean2.csv")
 vpr <- data.frame(lapply(vpr, as.character), stringsAsFactors=FALSE)
 vpr <- vpr[is.na(vpr$variables_PV) & !is.na(vpr$variables_SV), ]
 vpr$variables_SV <- str_sub(vpr$variables_SV, 1, -4)
@@ -690,7 +697,8 @@ saveRDS(tmp2, "data/df_rep_nobl_pneumo_imput.rds")
 #var pneumo bl indep vni
 
 #J'utilise le tableau de toutes les var pneumo (après nettoyage) pour obtenir le tableau repete  
-vpr <- read.csv2("data/variables_suivi_pneumo_clean.csv")
+#vpr <- read.csv2("data/variables_suivi_pneumo_clean.csv")
+vpr <- read.csv2("data/variables_suivi_pneumo_clean2.csv")
 vpr <- data.frame(lapply(vpr, as.character), stringsAsFactors=FALSE)
 vpr$variables_PV <- str_sub(vpr$variables_PV, 1, -4)
 vpr$variables_SV <- str_sub(vpr$variables_SV, 1, -4)
@@ -708,7 +716,8 @@ saveRDS(df_bl_pneumo, "data/df_bl_pneumo.rds")
 
 
 #J'utilise le tableau de toutes les var pneumo (après nettoyage) pour obtenir le tableau repete  
-vpr <- read.csv2("data/variables_suivi_pneumo_clean.csv")
+#vpr <- read.csv2("data/variables_suivi_pneumo_clean.csv")
+vpr <- read.csv2("data/variables_suivi_pneumo_clean2.csv")
 vpr <- data.frame(lapply(vpr, as.character), stringsAsFactors=FALSE)
 vpr$variables_PV <- str_sub(vpr$variables_PV, 1, -4)
 vpr$variables_SV <- str_sub(vpr$variables_SV, 1, -4)
@@ -762,7 +771,8 @@ write.table(print(vn), file="clipboard", sep="\t", row.names=F )
 #Je nettoye ce tableau dans excel, je le sauvegarde sous csv : "data/variables_suivi_neuro_clean.csv"
 
 #J'utilise ce tableau pour obtenir le tableau repete  
-vrbis <- read.csv2("data/variables_suivi_neuro_clean.csv")
+#vrbis <- read.csv2("data/variables_suivi_neuro_clean.csv")
+vrbis <- read.csv2("data/variables_suivi_neuro_clean2.csv")
 vrbis$var_bdd6 <- as.character(vrbis$var_bdd6)
 vrbis$var_bdd9 <- as.character(vrbis$var_bdd9)
 vrbis$var_possibles <- as.character(vrbis$var_possibles)
@@ -786,24 +796,25 @@ tab_rep_neuro <- do.call(rbind, .l)
 #OK
 
 
-#rajout variables variations de poids : par rapport à poids de forme et par rapport à poids du debut de vni
-var_poids <- tab_rep_neuro %>% filter(qui=="WEIGHT_NUTRI") 
-var_poids <- merge(var_poids, bdd6[, c("PATIENT", "WEIGHT_WB", "WEIGHT_REF")], by="PATIENT", all=F)
-var_poids <- var_poids[!(is.na(var_poids$WEIGHT_WB) & is.na(var_poids$WEIGHT_REF)), ]
-var_poids$WEIGHT_WB <- as.numeric(as.character(var_poids$WEIGHT_WB))
-var_poids$WEIGHT_REF <- as.numeric(as.character(var_poids$WEIGHT_REF))
-var_poids$x <- ifelse (!is.na(var_poids$WEIGHT_WB), var_poids$x - var_poids$WEIGHT_WB, var_poids$x - var_poids$WEIGHT_REF)
-var_poids$qui <- "DELTA_WEIGHT_REF"
-var_poids_ref <- var_poids[ , names(var_poids) %in% colnames(tab_rep_neuro)]
+# #rajout variables variations de poids : par rapport à poids de forme et par rapport à poids du debut de vni
+# var_poids <- tab_rep_neuro %>% filter(qui=="WEIGHT_NUTRI") 
+# var_poids <- merge(var_poids, bdd6[, c("PATIENT", "WEIGHT_WB", "WEIGHT_REF")], by="PATIENT", all=F)
+# var_poids <- var_poids[!(is.na(var_poids$WEIGHT_WB) & is.na(var_poids$WEIGHT_REF)), ]
+# var_poids$WEIGHT_WB <- as.numeric(as.character(var_poids$WEIGHT_WB))
+# var_poids$WEIGHT_REF <- as.numeric(as.character(var_poids$WEIGHT_REF))
+# var_poids$x <- ifelse (!is.na(var_poids$WEIGHT_WB), var_poids$x - var_poids$WEIGHT_WB, var_poids$x - var_poids$WEIGHT_REF)
+# var_poids$qui <- "DELTA_WEIGHT_REF"
+# var_poids_ref <- var_poids[ , names(var_poids) %in% colnames(tab_rep_neuro)]
+# 
+# var_poids <- tab_rep_neuro %>% filter(qui=="WEIGHT_NUTRI")
+# poidsDEBVNI <- var_poids[var_poids$f==0, c("PATIENT", "x")] ; colnames(poidsDEBVNI)[2] <- "poids_pv"
+# var_poids <- merge (var_poids, poidsDEBVNI, by="PATIENT", all=F)
+# var_poids$x <- var_poids$poids_pv - var_poids$x
+# var_poids$qui <- "DELTA_WEIGHT_DEBVNI"
+# var_poids_debvni <- var_poids[ , names(var_poids) %in% colnames(tab_rep_neuro)]
 
-var_poids <- tab_rep_neuro %>% filter(qui=="WEIGHT_NUTRI")
-poidsDEBVNI <- var_poids[var_poids$f==0, c("PATIENT", "x")] ; colnames(poidsDEBVNI)[2] <- "poids_pv"
-var_poids <- merge (var_poids, poidsDEBVNI, by="PATIENT", all=F)
-var_poids$x <- var_poids$poids_pv - var_poids$x
-var_poids$qui <- "DELTA_WEIGHT_DEBVNI"
-var_poids_debvni <- var_poids[ , names(var_poids) %in% colnames(tab_rep_neuro)]
-
-df_rep_neuro <- rbind(tab_rep_neuro, var_poids_ref, var_poids_debvni)
+#df_rep_neuro <- rbind(tab_rep_neuro, var_poids_ref, var_poids_debvni)
+df_rep_neuro <- tab_rep_neuro
 saveRDS(df_rep_neuro, "data/df_rep_neuro.rds")
 
 #-----------
@@ -811,7 +822,8 @@ saveRDS(df_rep_neuro, "data/df_rep_neuro.rds")
 #var neuro baseline
 
 #version tableau csv 
-vrbis <- read.csv2("data/variables_suivi_neuro_clean.csv")
+#vrbis <- read.csv2("data/variables_suivi_neuro_clean.csv")
+vrbis <- read.csv2("data/variables_suivi_neuro_clean2.csv")
 vrbis$var_bdd6 <- as.character(vrbis$var_bdd6)
 vrbis$var_bdd9 <- as.character(vrbis$var_bdd9)
 vrbis$var_possibles <- as.character(vrbis$var_possibles)
@@ -939,9 +951,9 @@ df_bl_neuro$DOB <- manage_date_ND(df_bl_neuro$DOB)
 df_bl_neuro <- merge(df_bl_neuro, bdd2[ ,c("PATIENT", "DOB")], by="PATIENT", all.x=T, all.y=F)
 df_bl_neuro$DOB.y <- manage_date_ND(df_bl_neuro$DOB.y)
 df_bl_neuro$DOB <- as_date(ifelse(is.na(df_bl_neuro$DOB.x), df_bl_neuro$DOB.y, df_bl_neuro$DOB.x))
-df_bl_neuro <- df_bl_neuro[ ,colnames(df_bl_neuro)[!colnames(df_bl_neuro)%in%c("AT_FAMIL", "ATCD_FAMIL_L1", "ATCD_FAMIL_L2", "ATCD_FAMIL_L3",
-                                                                               "ATCD_FAMIL_L4", "ATCD_FAMIL_L5", "ATCD_FAMIL_L6", "SOD1", "TYPESOD1",
-                                                                               "CAUSDCDPERE", "DCD_PERE_NEURO", "CAUSDCDMERE", "DCD_MERE_NEURO","DOB.y",
+df_bl_neuro <- df_bl_neuro[ ,colnames(df_bl_neuro)[!colnames(df_bl_neuro)%in%c("ATCD_FAMIL_L1", "ATCD_FAMIL_L2", "ATCD_FAMIL_L3",
+                                                                               "ATCD_FAMIL_L4", "ATCD_FAMIL_L5", "ATCD_FAMIL_L6", "SOD1", 
+                                                                               "DCD_PERE_NEURO",  "DCD_MERE_NEURO","DOB.y",
                                                                                "DOB.x", "DEBRILU", "FINRILU")]]
 
 df_bl_neuro$agevni <-  round(as.numeric(df_bl_neuro$datevni - df_bl_neuro$DOB)/365.25,0) #age en annee
@@ -1012,7 +1024,7 @@ dr <- readRDS("data/df_rep_avecdoublons.rds")
 
 #bl
 table(tab <- table(bl$PATIENT))
-names(tab)[tab>1] #7 doublons #5 le 23/05/2017
+names(tab)[tab>1] #7 doublons #5 le 23/05/2017 #6 le 25/05/2017
 names_doublonsbl <- names(tab)[tab>1]
 #rep
 #(on ne peut pas savoir si doublons rep car base repetees, on e ne peut que voir les duplicatats)
@@ -1064,12 +1076,15 @@ for (i in pat_pb[! pat_pb %in% fin_vni$PATIENT ]){
 }
 
 
-#retrait des patients qui ne sont pas dans la base de suivi neuro (ou n'ayant pas de date de DC)
+#On garde les patients qui ont un suivi neuro ou dont la trace a ete retrouvee par JG ou ayant une date de deces
 bl <- bl[bl$PATIENT %in% bdd9$PATIENT | bl$PATIENT %in% DC_2.df$PATIENT | !is.na(bl$date_dc), ]
 dr <- dr[dr$PATIENT %in% bdd9$PATIENT | dr$PATIENT %in% DC_2.df$PATIENT | !is.na(dr$date_dc), ]
 bdd_dates <- bdd_dates[bdd_dates$PATIENT %in% bdd9$PATIENT | bdd_dates$PATIENT %in% DC_2.df$PATIENT | !is.na(bdd_dates$date_dc), ]
 #retrait des patients dr qui ne sont pas dans bl (car pas dans vnisla=> comprendre comment ils ont pu avoir une date de vni)
 dr <- dr[dr$PATIENT %in% bl$PATIENT, ]
+
+table(vnisla$PATIENT %in% bdd_dates$PATIENT) #Ce sont les 12 sans suivi neuro, ni date de deces, ni trace recuperee par JG
+vnisla <- vnisla[vnisla$PATIENT %in% bdd_dates$PATIENT, ]
 
 #tableau sans doublons :
 saveRDS(dr, "data/df_rep.rds")
