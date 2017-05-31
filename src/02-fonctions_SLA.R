@@ -2357,99 +2357,99 @@ cut_rep <- function(var, b, recode){
 
 
 
-Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=TRUE, dep_temps = FALSE, .transf=NULL, vec_time=NULL) {
-  
-  s <- data
-  s$a <- s[ ,var]
-  s$evt <- s[ ,.evt]
-  #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-  s$tps <- (s[ ,.time]/365.25*12) + 0.001 
-  s <- s[!is.na(s$a),]
-  if (type== "quanti" & recode==TRUE) {
-    cat("Loglinearity Hypothesis is not verified, quantitative variable cut at the median \n")
-    #cat(paste0("a = ", var))
-    #cat("\ns$a_recode <- ifelse (s$a < median(s$a), 0, 1)")
-    s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
-    cat(paste0("median of ", var, " = ", median(s$a),"\n"))
-    
-  } else {
-    if (type=="quanti" & recode==FALSE) cat("Loglinearity Hypothesis is assumed verified \n")
-    #cat(paste0("a = ", var))
-    s$a_recode <- s$a
-    #cat("\ns$a_recode <- s$a\n")
-  }
-  
-  
-  #TEST DU SCORE ET HR [95%IC]
-  
-  if (dep_temps==TRUE){ #NON RESPECT DES RISQUES PROP=> ajout variable dependant du temps
-    cat("Proportionality Hypothesis is not verified ")
-    ti <- sort(unique(c(0,s$tps[s$evt==1])))
-    slat <- s
-    slat$start <- 0
-    slat$stop <- slat$tps
-    slat$evt <- slat$evt
-    slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
-    
-    transf <- .transf
-    cat(paste0("=> transformation function of time is added. \nTransformation = ",transf))
-    
-    if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
-    if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
-    if (transf=="*t")slat$at<-slat$a_recode*(slat$stop)
-    if (transf=="/t")slat$at<-slat$a_recode/(slat$stop)
-    if (transf=="*t^2") slat$at <-slat$a_recode*(slat$stop^2)
-    if (transf=="*t^0.7") slat$at <-slat$a_recode*(slat$stop^0.7)
-    if (transf=="*t^3") slat$at <-slat$a_recode*(slat$stop^3)
-    
-    mod <- coxph(Surv(tps, evt) ~ a_recode + at , data = slat)
-    test <- summary (mod)
-    
-    S <- vcov(mod)
-    b <- coef(mod)
-    t <- vec_time #choisir le temps en mois
-    if (transf=="*t^0.7") t_t <- t^0.7
-    if (transf=="log") t_t <- log(t)
-    if (transf=="*t^2") t_t <- t^2 
-    if (transf=="*t") t_t <- t
-    if (transf=="*t^3") t_t <- t^3
-    
-    variance <- S[1,1]+S[2,2]*(t_t)^2+2*S[1,2]*(t_t)
-    m <- b[1]+b[2]*(t_t) #coef de l'HR
-    
-    
-    cat("\n\nmod <- coxph(Surv(tps, evt) ~ ", var, " + ", var, "(time), data)")
-    cat(paste0("\n\nScore test: ", round(test$sctest["pvalue"],3)))
-    HR <- round(exp(m),3)
-    IC <- round(exp(m + qnorm(0.975)*sqrt(variance) * c(-1,1)),3)
-    #cat(paste0("\nHR[95%CI] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" ))
-    cat(paste0("\nHR[95%CI] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " months" ))
-    param <- round(test$coefficients[,1],4)
-    cat(paste0("\ncoefficient of ", c(var,paste0(var, "(time)")), ": ", param))
-    
-  } else { #RESPECT DE L'HYP DES RISQUES PROP
-    cat("Proportionality Hypothesis is assumed verified")
-    mod <- coxph(Surv(tps, evt) ~ a_recode + cluster (PATIENT), data = s)
-    test <- summary (mod)
-    cat("\n\nmod <- coxph(Surv(tps, evt) ~ ", var, ", data)")
-    cat(paste0("\n\nScore test: ", round(test$sctest["pvalue"],3)))
-    HRIC <- round(test$conf.int,2)
-    param <- round(test$coefficients[,1],4)
-    
-    
-    if(type=="quali2"){
-      lev <- levels(s$a_recode)
-      cat("\nref=",lev[1],"\n\n")
-      for (i in 1:(length(levels(s$a_recode))-1)){
-        cat(paste0("\nHR[95%CI] ", "of class ", lev[i+1]," = ", HRIC[i, 1] , " [", HRIC[i, 3], "-", HRIC[i, 4], "] (if PHH verified)" ))
-        cat(paste0("\ncoefficient of ", lev[i+1],": ", param[i]))
-      }
-    } else {
-      cat(paste0("\nHR[95%CI] = ",HRIC[1] , " [", HRIC[3], "-", HRIC[4], "] (if PHH verified)" ))
-      cat(paste0("\ncoefficient of ", var,": ", param))
-    }
-    
-  }
-}
-
-
+# Test_score_HR_IC <- function(var="SNIP_perc_pred", data=sla, .time="time.vni", .evt="evt", type="quanti", recode=TRUE, dep_temps = FALSE, .transf=NULL, vec_time=NULL) {
+#   
+#   s <- data
+#   s$a <- s[ ,var]
+#   s$evt <- s[ ,.evt]
+#   #s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+#   s$tps <- (s[ ,.time]/365.25*12) + 0.001 
+#   s <- s[!is.na(s$a),]
+#   if (type== "quanti" & recode==TRUE) {
+#     cat("Loglinearity Hypothesis is not verified, quantitative variable cut at the median \n")
+#     #cat(paste0("a = ", var))
+#     #cat("\ns$a_recode <- ifelse (s$a < median(s$a), 0, 1)")
+#     s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
+#     cat(paste0("median of ", var, " = ", median(s$a),"\n"))
+#     
+#   } else {
+#     if (type=="quanti" & recode==FALSE) cat("Loglinearity Hypothesis is assumed verified \n")
+#     #cat(paste0("a = ", var))
+#     s$a_recode <- s$a
+#     #cat("\ns$a_recode <- s$a\n")
+#   }
+#   
+#   
+#   #TEST DU SCORE ET HR [95%IC]
+#   
+#   if (dep_temps==TRUE){ #NON RESPECT DES RISQUES PROP=> ajout variable dependant du temps
+#     cat("Proportionality Hypothesis is not verified ")
+#     ti <- sort(unique(c(0,s$tps[s$evt==1])))
+#     slat <- s
+#     slat$start <- 0
+#     slat$stop <- slat$tps
+#     slat$evt <- slat$evt
+#     slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)
+#     
+#     transf <- .transf
+#     cat(paste0("=> transformation function of time is added. \nTransformation = ",transf))
+#     
+#     if (transf=="log") slat$at<-slat$a_recode*log(slat$stop)
+#     if (transf=="sqrt")slat$at<-slat$a_recode*sqrt(slat$stop)
+#     if (transf=="*t")slat$at<-slat$a_recode*(slat$stop)
+#     if (transf=="/t")slat$at<-slat$a_recode/(slat$stop)
+#     if (transf=="*t^2") slat$at <-slat$a_recode*(slat$stop^2)
+#     if (transf=="*t^0.7") slat$at <-slat$a_recode*(slat$stop^0.7)
+#     if (transf=="*t^3") slat$at <-slat$a_recode*(slat$stop^3)
+#     
+#     mod <- coxph(Surv(tps, evt) ~ a_recode + at , data = slat)
+#     test <- summary (mod)
+#     
+#     S <- vcov(mod)
+#     b <- coef(mod)
+#     t <- vec_time #choisir le temps en mois
+#     if (transf=="*t^0.7") t_t <- t^0.7
+#     if (transf=="log") t_t <- log(t)
+#     if (transf=="*t^2") t_t <- t^2 
+#     if (transf=="*t") t_t <- t
+#     if (transf=="*t^3") t_t <- t^3
+#     
+#     variance <- S[1,1]+S[2,2]*(t_t)^2+2*S[1,2]*(t_t)
+#     m <- b[1]+b[2]*(t_t) #coef de l'HR
+#     
+#     
+#     cat("\n\nmod <- coxph(Surv(tps, evt) ~ ", var, " + ", var, "(time), data)")
+#     cat(paste0("\n\nScore test: ", round(test$sctest["pvalue"],3)))
+#     HR <- round(exp(m),3)
+#     IC <- round(exp(m + qnorm(0.975)*sqrt(variance) * c(-1,1)),3)
+#     #cat(paste0("\nHR[95%CI] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " an" ))
+#     cat(paste0("\nHR[95%CI] = ",HR, " [", IC[1], "-", IC[2], "] ", "pour t = ", t, " months" ))
+#     param <- round(test$coefficients[,1],4)
+#     cat(paste0("\ncoefficient of ", c(var,paste0(var, "(time)")), ": ", param))
+#     
+#   } else { #RESPECT DE L'HYP DES RISQUES PROP
+#     cat("Proportionality Hypothesis is assumed verified")
+#     mod <- coxph(Surv(tps, evt) ~ a_recode + cluster (PATIENT), data = s)
+#     test <- summary (mod)
+#     cat("\n\nmod <- coxph(Surv(tps, evt) ~ ", var, ", data)")
+#     cat(paste0("\n\nScore test: ", round(test$sctest["pvalue"],3)))
+#     HRIC <- round(test$conf.int,2)
+#     param <- round(test$coefficients[,1],4)
+#     
+#     
+#     if(type=="quali2"){
+#       lev <- levels(s$a_recode)
+#       cat("\nref=",lev[1],"\n\n")
+#       for (i in 1:(length(levels(s$a_recode))-1)){
+#         cat(paste0("\nHR[95%CI] ", "of class ", lev[i+1]," = ", HRIC[i, 1] , " [", HRIC[i, 3], "-", HRIC[i, 4], "] (if PHH verified)" ))
+#         cat(paste0("\ncoefficient of ", lev[i+1],": ", param[i]))
+#       }
+#     } else {
+#       cat(paste0("\nHR[95%CI] = ",HRIC[1] , " [", HRIC[3], "-", HRIC[4], "] (if PHH verified)" ))
+#       cat(paste0("\ncoefficient of ", var,": ", param))
+#     }
+#     
+#   }
+# }
+# 
+# 
