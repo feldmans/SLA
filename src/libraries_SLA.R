@@ -3,7 +3,7 @@ library(dplyr)
 library(lubridate)
 library(car)
 library(survival)
-library(ReporteRs)
+#library(ReporteRs)
 # if(!require(devtools)) install.packages("devtools")
 # devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
 library(survminer)#fonction ggcoxzph pour ploter résidus de schoenfeld 
