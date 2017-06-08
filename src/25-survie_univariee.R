@@ -1836,6 +1836,7 @@ missbl.df <- readRDS("data/missingbl.rds")
 missrep.df <- readRDS("data/missingrep.rds")
 
 #df1
+#df1
 data <- df1
 data <- data[ , c("variable", "recode", "RP", "transf", "tps_clinique", "HRIC", "pvalue", "beta")]
 #mise en ligne des coefficients
@@ -1858,7 +1859,8 @@ data$missing <- paste0(data$missing, " (", data$missing_perc, ")")
 data$missing_perc <- NULL
 data$recode <- NULL
 data <- data[order(data$pvalue), ]
-data <- data[data$pvalue<0.05, ]
+#data <- data[data$pvalue<0.05, ]
+data <- data[data$pvalue<0.2, ]
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
 #df2
@@ -1884,7 +1886,8 @@ data <- merge(missbl.df, data,  by = "variable", all.x = FALSE, all.y = TRUE)
 data$missing <- paste0(data$missing, " (", data$missing_perc, ")")
 data$missing_perc <- NULL
 data <- data[order(data$pvalue), ]
-data <- data[data$pvalue<0.05, ]
+#data <- data[data$pvalue<0.05, ]
+data <- data[data$pvalue<0.2, ]
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
 #df3
@@ -1912,7 +1915,8 @@ namevar.df <- read.csv2("data/variables et signification.csv")
 namevar.df <- namevar.df[ , c("X", "variable")]
 data <- merge(namevar.df, data, by="variable", all.x=F, all.y=T)
 data <- data[order(data$pvalue), ]
-data <- data[data$pvalue<0.05, ]
+#data <- data[data$pvalue<0.05, ]
+data <- data[data$pvalue<0.2, ]
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
 
@@ -1924,6 +1928,7 @@ data <- merge(missbl.df, data,  by = "variable", all.x = FALSE, all.y = TRUE)
 data$missing <- paste0(data$missing, " (", data$missing_perc, ")")
 data$missing_perc <- NULL
 data <- data[order(data$pvalue), ]
+data <- data[data$pvalue<0.2, ]
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
 
@@ -1931,6 +1936,7 @@ write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 data <- df4
 data <- merge(missrep.df, data, by = "variable", all.x = FALSE, all.y = TRUE)
 data <- data[order(data$pvalue), ]
+data <- data[data$pvalue<0.2, ]
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
 #variables à réanalyser en qualitative:
