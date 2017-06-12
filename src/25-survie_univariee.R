@@ -637,11 +637,15 @@ ntot <- length(names(table(d$PATIENT)))
 #npatient avec au moins une valeur (par variable)
 .l <- lapply(var, function (.var){
   nNO <- d %>% filter(qui==.var) %>% count(PATIENT)
-  nNO <- paste0(round((ntot - length(names(table(nNO$PATIENT))))/ntot , 2)* 100, "%")
+  nNO <- ntot - length(names(table(nNO$PATIENT)))
+  #nNO <- paste0(round((ntot - length(names(table(nNO$PATIENT))))/ntot , 2)* 100, "%")
 })
-perc_pat <- unlist(.l)
+#perc_pat <- unlist(.l)
+N_pat_missing <- unlist(.l)
+perc_pat
 
-missingrep <- data.frame(variable = var, perc_var, perc_pat)
+missingrep <- data.frame(variable = var, perc_var, N_pat_missing)
+missingrep$perc_pat <- paste0(round(missingrep$N_pat_missing/ntot , 2)* 100, "%")
 
 saveRDS(missingrep, "data/missingrep.rds")
 #   
@@ -2154,109 +2158,6 @@ for (i in 1:(nrow(z$table)-1)){
 }
 
 
-#-----------------
-une petite séparation pour ne pas se perdre
-#construire la base pour l'analyse multivariée et faire pas à pas 
-
-
-ti<-0:max(d$time.vni)
-length(ti)
-
-y<-d[d$qui=="DYSPN_SOUSVENT_SV",]
-
-y<-y[order(y$PATIENT, y$del),]
-z<-tapply(y$del, y$PATIENT, c)
-zf<-tapply(y$time.vni, y$PATIENT, c)
-zm<-mapply(function(x,y) c(x[-1], y[1]), z, zf)
-names(z)[1:3]
-zm[[1]]
-
-z<-tapply(y$evt, y$PATIENT, c)
-fct<-function (x) {
-  x[-length(x)]<-0
-  return(x)
-}
-ze<-sapply(z, fct)
-
-y$delapres<-unlist(zm)
-y$evt2<-unlist(ze)
-
-
-head(y)
-yt<-y
-yt$start<-yt$del
-yt$stop<-yt$delapres
-yt$etat<-yt$evt2
-yt<-survSplit(yt, end="stop", start="start", cut=ti, event="etat")
-yt<-yt[order(yt$PATIENT, yt$start),]
-
-#des sujets meurt le jour de la visite
-yt[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni,]
-yt$etat[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni]<-1
-yt$dyspnee<-yt$x
-
-
-Yt<-yt[, c("PATIENT", "start", "stop", "etat", "dyspnee")]
-
-#ajouter une variable répétée
-y<-d[d$qui=="CEPHAL_PP",]
-
-y<-y[order(y$PATIENT, y$del),]
-z<-tapply(y$del, y$PATIENT, c)
-zf<-tapply(y$time.vni, y$PATIENT, c)
-zm<-mapply(function(x,y) c(x[-1], y[1]), z, zf)
-names(z)[1:3]
-zm[[1]]
-z<-tapply(y$evt, y$PATIENT, c)
-fct<-function (x) {
-  x[-length(x)]<-0
-  return(x)
-}
-ze<-sapply(z, fct)
-y$delapres<-unlist(zm)
-y$evt2<-unlist(ze)
-yt<-y
-yt$start<-yt$del
-yt$stop<-yt$delapres
-yt$etat<-yt$evt2
-yt<-survSplit(yt, end="stop", start="start", cut=ti, event="etat")
-yt<-yt[order(yt$PATIENT, yt$start),]
-#des sujets meurt le jour de la visite
-yt[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni,]
-yt$etat[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni]<-1
-
-yt$cephal<-yt$x
-
-dim(Yt)
-Yt<-merge(Yt, yt[, c("PATIENT", "start", "cephal")], by=c("PATIENT", "start"), all=T)
-dim(Yt)
-
-head(Yt)
-
-#mettre les variables initiales
-y0<-bl[,  c("PATIENT", "SEX")]
-
-dim(Yt)
-Yt<-merge(Yt, y0, by="PATIENT", all.x=T, all.y=F)
-dim(Yt)
-
-
-yt<-na.omit(Yt)
-coxt<-coxph(Surv(start, stop, etat)~SEX+dyspnee+cephal+cluster(PATIENT), data=yt)
-summary(coxt)
-
-
-coxt0<-coxph(Surv(start, stop, etat)~SEX+dyspnee+cluster(PATIENT), data=yt)
-#cephal
-nbpar<-1
-init<-c(coef(coxt0), rep(0, nbpar))
-coxt1<-coxph(Surv(start, stop, etat)~SEX+dyspnee+cephal+cluster(PATIENT), data=yt, init=init)
-summary(coxt1)
-
-
-coxt$rscore
-sc<-coxt1$rscore
-c(score=sc, p=1-pchisq(sc, nbpar))
 
 
 
