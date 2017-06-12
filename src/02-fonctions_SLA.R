@@ -549,6 +549,7 @@ get_var_blf0_suivif1_neuro_date <- function(Ws1, Ws2){
   #je rassemble les tableaux baseline(yn) et suivi(yp)
   y<-rbind(yp, yn)
   y<-y[order(y$PATIENT, y$del),]
+  #browser()
   head(y)
   return(y)
 }

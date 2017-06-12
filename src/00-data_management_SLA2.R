@@ -1,6 +1,6 @@
 source("src/libraries_SLA.R")
 source("src/02-fonctions_SLA.R")
-source("src/objects_SLA.R")
+#source("src/objects_SLA.R")
 
 bdds <- paste0("bdd",1:9)
 
@@ -457,13 +457,14 @@ bdd_dates$ddn <- pmax(bdd_dates$ddn, bdd_dates$ddn2, na.rm=T) #ddn2 : patient in
 bdd_dates$ddn2 <- NULL
 
 #evt et date de fin 
-bdd_dates$evt <- ifelse (!is.na(bdd_dates$date_dc) | !is.na(bdd_dates$date_trach) | !is.na(bdd_dates$date_evt), 1, 0)
+bdd_dates$evt <- ifelse (!is.na(bdd_dates$date_dc) | !is.na(bdd_dates$date_trach) | !is.na(bdd_dates$date_evt), 1, 0) #date_evt est dateDC ou date trach remplie manuellent par JG
 bdd_dates$dfin <- pmin(bdd_dates$fin_vni, bdd_dates$ddn, bdd_dates$date_trach, bdd_dates$date_dc, bdd_dates$date_evt, na.rm=T)
 
 #si arrêt de vni moins de 2 mois avant le décès, on considère que c'est un décès (mais à la date de fin de vni)
-bdd_dates %>% filter(bdd_dates$date_dc < bdd_dates$fin_vni + 30.25*2) #c'est déjà le cas
-bdd_dates [(bdd_dates$date_dc < bdd_dates$fin_vni + 30.25*2) & !is.na(bdd_dates$date_dc) & !is.na(bdd_dates$fin_vni), "dfin"] <- bdd_dates [(bdd_dates$date_dc < bdd_dates$fin_vni + 30.25*2) & !is.na(bdd_dates$date_dc) & !is.na(bdd_dates$fin_vni), "date_dc"]
-#si arrêt de vni plus de mois avant décès alors c'est evt=0 
+bdd_dates %>% filter(bdd_dates$date_dc < bdd_dates$fin_vni + 30.25*2) #certains décès très proche de la date de fin de vni
+bdd_dates %>% filter(bdd_dates$date_dc < bdd_dates$fin_vni ) #pas d'aberration : jamais de dc avant fin vni
+bdd_dates [(bdd_dates$date_dc < bdd_dates$fin_vni + 30.25*2) & !is.na(bdd_dates$date_dc) & !is.na(bdd_dates$fin_vni), "dfin"] <- bdd_dates [(bdd_dates$date_dc < bdd_dates$fin_vni + 30.25*2) & !is.na(bdd_dates$date_dc) & !is.na(bdd_dates$fin_vni), "fin_vni"]
+#si arrêt de vni plus de 2 mois avant décès alors c'est evt=0 
 bdd_dates %>% filter(bdd_dates$date_dc >= bdd_dates$fin_vni + 30.25*2) 
 bdd_dates [bdd_dates$date_dc >= bdd_dates$fin_vni + 30.25*2 & !is.na(bdd_dates$date_dc) & !is.na(bdd_dates$fin_vni), "evt"] <- 0 
 
@@ -1085,6 +1086,14 @@ dr <- dr[dr$PATIENT %in% bl$PATIENT, ]
 
 table(vnisla$PATIENT %in% bdd_dates$PATIENT) #Ce sont les 12 sans suivi neuro, ni date de deces, ni trace recuperee par JG
 vnisla <- vnisla[vnisla$PATIENT %in% bdd_dates$PATIENT, ]
+
+#--------------------------------
+#retrait des consultations posterieures a dfin 
+head(bl)
+head(dr)
+head(dr[dr$date>dr$dfin,] )
+dr <- dr[dr$date<= dr$dfin, ] 
+
 
 #tableau sans doublons :
 saveRDS(dr, "data/df_rep.rds")
