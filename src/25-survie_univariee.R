@@ -185,8 +185,9 @@ df_dept$curve <- TRUE
 #Decoupe du temps pour les variables dont on n'a pas trouvé la bonne transformation:
 tmp <- binNRP [!binNRP %in% binNRPt$variable]
 #b <- c(6,18,50) #ok on garde 6 18 50 pour toutes les variables non corrigées par transformation du temps
-b <- c(4,18,50) ##tout est ok avec 6 18 50 sauf crit1 sauf crit1 qui est mieux avec 4 18 50 (les auters sont ok aussi)
-#b <- c(6, 18, 36)
+#b <- c(4,18,50) ##tout est ok avec 6 18 50 sauf crit1 sauf crit1 qui est mieux avec 4 18 50 (les auters sont ok aussi)
+b <- c(6, 18, 36)
+#b <- c(6, 18, 36, 48)#pas mieux que 6 18 36
 pdf(paste0("data/analyses/RP_bin_decoup_", paste(b, collapse='-'), ".pdf"))
 .l <- lapply(tmp, function(i){
   add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = FALSE, var=i, vec_cut = b)
@@ -269,7 +270,7 @@ pdf(paste0("data/analyses/RP_quanti_bl_transft.pdf"))
 df_quant <- do.call(rbind, .l)
 dev.off()
 dim(df_quant[df_quant$beta_at==TRUE & df_quant$param == "at",])
-#aucun ne convient 30/05/2017
+#aucun ne convient(pvalue de at >0.05=> aucune courbe tracee) 30/05/2017 12062017
 
 # #Je ne regarde que les transformations pour lesquelles la pvalue de at est inférieure à 0.05 (beta_at = TRUE) (la courbe n'est de toute façon pas tracée quand sup à 0.05)
 # 
@@ -309,6 +310,7 @@ pdf(paste0("data/analyses/RP_quanti_bl_decoup_", paste(b, collapse='-'), ".pdf")
 df_quanti_cutt <- do.call(rbind, .l)
 dev.off()
 QN_RPcut <- unique(df_quanti_cutt[ ,c("variable", "recode", "transf")])
+#tout est ok sauf 48 et plus pour age debut
 
 #####
 #J'ajoute une colonne transf NA pour les variables ok
