@@ -983,20 +983,20 @@ rNRP_cut <- rNok[is.na(rNok$transf), ]
 # b <- c(5, 7)
 #b <- c(7,17,34)
 b <- c(6, 18, 36, 60) #e (6, 18, 36,48 marche aussi mais plus long)
-for (i in 1:5) {cut_rep(rNRP_cut$var[i], b, rNRP_cut$recode[i])}
+for (i in seq_along(rNRP_cut$var)) {cut_rep(rNRP_cut$var[i], b, rNRP_cut$recode[i])}
 # dev.off()
 #
 # dfrepcut <- do.call(rbind, .l)
 # rNRP_cut <- dfrepcut
 
 #rNRP_cut$transf <- "7-17-34"
-rNRP_cut$transf <- "6-18-36-60"
+rNRP_cut$transf <- paste(b, collapse = "-")
 rNRP_cut$variable <- rNRP_cut$var
 rNRP_cut <- rNRP_cut[ , c("variable", "recode", "transf")]
 #binNRPcut <- unique(df_bint[ ,c("variable", "transf")])
 
+#pour renommer var de RPok en variable mais je laisse ça ici car p-e pb de code si je le déplace
 rRPok$variable <- rRPok$var
-
 rRPok <- rRPok[ , c("variable", "recode", "transf")]
 #-------------------------
 #analyses
@@ -1265,7 +1265,7 @@ ti <- sort(unique(yt$stop[yt$etat==1]))
 yt<-survSplit(yt, end="stop", start="start", cut=ti, event="etat")
 yt<-yt[order(yt$PATIENT, yt$start),]
 
-#des sujets meurt le jour de la visite
+#des sujets meurt le jour de la visite, et cette visite a été retirée (par la boucle ou le survsplit)=> on indique que le patient est bien mort au stop
 yt[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni,]
 yt$etat[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni]<-1
 
@@ -1312,38 +1312,28 @@ for (i in 1:4) {
 
 #decoupage du temps
 
-# 
-# yt$x2t1<-ifelse(yt$stop<=6, yt$x2, 0)
-# yt$x2t2<-ifelse(yt$stop>6 & yt$stop<=18, yt$x2, 0)
-# yt$x2t3<-ifelse(yt$stop>18 & yt$stop<=36, yt$x2, 0)
-# yt$x2t4<-ifelse(yt$stop>36, yt$x2, 0)
-# yt$x3t1<-ifelse(yt$stop<=6, yt$x3, 0)
-# yt$x3t2<-ifelse(yt$stop>6 & yt$stop<=18, yt$x3, 0)
-# yt$x3t3<-ifelse(yt$stop>18 & yt$stop<=36, yt$x3, 0)
-# yt$x3t4<-ifelse(yt$stop>36, yt$x3, 0)
-# 
-m<-365.25/12 #pour transformer en mois
-yt$x2t1<-ifelse(yt$stop<=6*m, yt$x2, 0)
-yt$x2t2<-ifelse(yt$stop>6*m & yt$stop<=18*m, yt$x2, 0)
-yt$x2t3<-ifelse(yt$stop>18*m & yt$stop<=36*m, yt$x2, 0)
-yt$x2t4<-ifelse(yt$stop>36*m, yt$x2, 0)
-yt$x3t1<-ifelse(yt$stop<=6*m, yt$x3, 0)
-yt$x3t2<-ifelse(yt$stop>6*m & yt$stop<=18*m, yt$x3, 0)
-yt$x3t3<-ifelse(yt$stop>18*m & yt$stop<=36*m, yt$x3, 0)
-yt$x3t4<-ifelse(yt$stop>36*m, yt$x3, 0)
-#summary(yt)
-coxt<-coxph(Surv(start, stop, etat)~x2t1+x2t2+x2t3+x2t4+x3t1+x3t2+x3t3+x3t4+cluster(PATIENT), data=yt)
-summary(coxt)
-bt<-coef(coxt)
-ztr<-cox.zph(coxt, "rank")
-zti<-cox.zph(coxt, "identity")
-ztr
-#par(mfrow=c(3,3))
-for (i in 1:8) {
-  plot(zti[i])
-  title(names(bt)[i])
-  abline(h=bt[i])
-}
+# m<-365.25/12 #pour transformer en mois
+# yt$x2t1<-ifelse(yt$stop<=6*m, yt$x2, 0)
+# yt$x2t2<-ifelse(yt$stop>6*m & yt$stop<=18*m, yt$x2, 0)
+# yt$x2t3<-ifelse(yt$stop>18*m & yt$stop<=36*m, yt$x2, 0)
+# yt$x2t4<-ifelse(yt$stop>36*m, yt$x2, 0)
+# yt$x3t1<-ifelse(yt$stop<=6*m, yt$x3, 0)
+# yt$x3t2<-ifelse(yt$stop>6*m & yt$stop<=18*m, yt$x3, 0)
+# yt$x3t3<-ifelse(yt$stop>18*m & yt$stop<=36*m, yt$x3, 0)
+# yt$x3t4<-ifelse(yt$stop>36*m, yt$x3, 0)
+# #summary(yt)
+# coxt<-coxph(Surv(start, stop, etat)~x2t1+x2t2+x2t3+x2t4+x3t1+x3t2+x3t3+x3t4+cluster(PATIENT), data=yt)
+# summary(coxt)
+# bt<-coef(coxt)
+# ztr<-cox.zph(coxt, "rank")
+# zti<-cox.zph(coxt, "identity")
+# ztr
+# #par(mfrow=c(3,3))
+# for (i in 1:8) {
+#   plot(zti[i])
+#   title(names(bt)[i])
+#   abline(h=bt[i], col="blue")
+# }
 
 #####
 #avec boucle 
@@ -1367,9 +1357,8 @@ vat <- vat [vat %in% names(yt)]
 x<-yt[, vat]
 sx<-colSums(x) #interval de temps sans evt
 wat<-vat[sx>0] #on supprime interval de temps quand pas d'evenement
-f<-paste("Surv(start, stop, etat) ~ ", paste(wat, collapse="+")," + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
+#f<-paste("Surv(start, stop, etat) ~ ", paste(wat, collapse="+")," + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
 f<-paste("Surv(start, stop, etat) ~ ", paste(wat, collapse="+")," + x2 + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
-#f<-paste("Surv(start, stop, etat) ~ ", paste(vat, collapse="+")," + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
 
 #model
 coxt <- coxph(as.formula(f), data=yt)
@@ -1379,10 +1368,10 @@ bt<-coef(coxt)
 ztr<-cox.zph(coxt, "rank")
 zti<-cox.zph(coxt, "identity")
 ztr
-for (i in 1:8) {
+for (i in seq_along(bt)) {
   plot(zti[i])
   title(names(bt)[i])
-  abline(h=bt[i])
+  abline(h=bt[i], col="blue")
 }
 
 #interpretation
@@ -1398,10 +1387,8 @@ HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
 
 df <- data.frame(param = name_param, beta = coefbeta)
 df <- df[order(df$param),]
-len <- length(name_param)/2
-mySeq <- seq_along(df$param)
-myParam <- rbind(paste(df$param[mySeq<=len], sep="", collapse="; "), paste(df$param[mySeq>len], sep="", collapse="; "))
-mybeta <- rbind(paste(df$beta[mySeq<=len], sep="", collapse="; "), paste(df$beta[mySeq>len], sep="", collapse="; "))
+myParam <- rbind(paste(df$param[grepl("x2",df$param)], sep="", collapse="; "), paste(df$param[grepl("x3",df$param)], sep="", collapse="; "))
+mybeta <- rbind(paste(df$beta[grepl("x2",df$param)], sep="", collapse="; "), paste(df$beta[grepl("x3",df$param)], sep="", collapse="; "))
 df1 <- data.frame(variable = var, recode = FALSE, RP = FALSE, transf, tps_clinique = tps_clinique, HRIC, test = "robust",
                   statistic = stat, pvalue = pval, param = myParam, beta = mybeta)
 
@@ -1449,7 +1436,6 @@ yt$x<-factor(yt$x) # dans ce tableau s_i[s_i$qui==var,] x est la valeur de var
 myLev <- levels(yt$x)
 mySeqLev <- seq_along(myLev)[-1]
 myVar <- paste0("x",myLev)[mySeqLev]
-myVar
 for (i in myLev){
   yt[ ,paste0("x",i)] <-ifelse(yt$x==i, 1, 0)
 }
@@ -1467,18 +1453,21 @@ for (i in seq_along(mySeqLev)){
 }
 
 #transformation du temps
-# yt$x2t<-1/(yt$stop)*yt$x2
+ yt$x2t<-1/(yt$stop)*yt$x2
+ yt$x2t<-(yt$stop)*yt$x2
+ yt$x2t<-(yt$stop)^0.3*yt$x2
 # yt$x3t<-1/(yt$stop)*yt$x3
 yt$x2t<-log(yt$stop)*yt$x2
-yt$x3t<-log(yt$stop)*yt$x3
-coxt<-coxph(Surv(start, stop, etat)~x2+x2t+x3+x3t+cluster(PATIENT), data=yt)
+#yt$x3t<-log(yt$stop)*yt$x3
+#coxt<-coxph(Surv(start, stop, etat)~x2+x2t+x3+x3t+cluster(PATIENT), data=yt)
+coxt<-coxph(Surv(start, stop, etat)~x2+x2t+x3+cluster(PATIENT), data=yt)
 summary(coxt)
 bt<-coef(coxt)
 ztr<-cox.zph(coxt, "rank")
 ztr
 zti<-cox.zph(coxt, "identity")
 #par(mfrow=c(2,2))
-for (i in 1:4) {
+for (i in seq_along(bt)) {
   plot(zti[i], resid = FALSE)
   title(names(bt)[i])
   abline(h=bt[i])
@@ -1489,25 +1478,31 @@ for (i in 1:4) {
 #decoupage du temps
 #####
 #avec boucle 
-transf <- "6-18-36"
+transf <- "4-18-36"
 b <- as.numeric(unlist(strsplit(transf, "-")))
 rank_interv <- seq_len(length(b)+1)
 name_cut <- transf
-m<-365.25/12 #pour transformer mois en jours
-for (j in myVar){
+#m<-365.25/12 #pour transformer mois en jours
+#for (j in myVar){
+for (j in "x2"){
   for (i in rank_interv){
-    if (i == 1) tmp <-  ifelse(yt$stop<=b[1]*m, yt[ ,j], 0)
-    if(i <= length(b) & i!= 1) tmp <-ifelse(yt$stop>b[i-1]*m & yt$stop<=b[i]*m, yt[ ,j], 0)
-    if(i == (length(b)+1)) tmp <-  ifelse(yt$stop>b[i-1]*m, yt[ ,j], 0)
+    if (i == 1) tmp <-  ifelse(yt$stop<=b[1], yt[ ,j], 0)
+    if(i <= length(b) & i!= 1) tmp <-ifelse(yt$stop>b[i-1] & yt$stop<=b[i], yt[ ,j], 0)
+    if(i == (length(b)+1)) tmp <-  ifelse(yt$stop>b[i-1], yt[ ,j], 0)
+    # if (i == 1) tmp <-  ifelse(yt$stop<=b[1]*m, yt[ ,j], 0)
+    # if(i <= length(b) & i!= 1) tmp <-ifelse(yt$stop>b[i-1]*m & yt$stop<=b[i]*m, yt[ ,j], 0)
+    # if(i == (length(b)+1)) tmp <-  ifelse(yt$stop>b[i-1]*m, yt[ ,j], 0)
     yt[ ,paste0(j,"t",i)] <- tmp
   } 
 }
 
-vat <- apply(expand.grid(list(myVar,"t", rank_interv)), 1, paste, collapse="")
-x <- yt[, vat]
-sx <- colSums(x) #interval de temps sans evt
-wat <- vat[sx>0] #on supprime interval de temps quand pas d'evenement
-f <- paste("Surv(start, stop, etat) ~ ", paste(wat, collapse=" + ")," + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
+vat<-apply(expand.grid(list("x", 2:3,"t",  1:(length(b)+1))),1, paste, collapse="")
+vat <- vat [vat %in% names(yt)]
+x<-yt[, vat]
+sx<-colSums(x) #interval de temps sans evt
+wat<-vat[sx>0] #on supprime interval de temps quand pas d'evenement
+#f<-paste("Surv(start, stop, etat) ~ ", paste(wat, collapse="+")," + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
+f<-paste("Surv(start, stop, etat) ~ ", paste(wat, collapse="+")," + x3 + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
 
 #model
 coxt <- coxph(as.formula(f), data=yt)
@@ -1535,14 +1530,13 @@ i <- findInterval(tps_clinique, b) + 1 #findInterval commence à 0...
 HRIC <- round(exp(cbind(coef(coxt)[i], qnorm(0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])), qnorm(1-0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])))),3)
 HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
 
+
 df <- data.frame(param = name_param, beta = coefbeta)
 df <- df[order(df$param),]
-len <- length(name_param)/2 #nb le nb de param final n'est pas forcément le meme que le nombre d'interval demandé au départ
-mySeq <- seq_along(df$param)
-myParam <- rbind(paste(df$param[mySeq<=len], sep="", collapse="; "), paste(df$param[mySeq>len], sep="", collapse="; "))
-mybeta <- rbind(paste(df$beta[mySeq<=len], sep="", collapse="; "), paste(df$beta[mySeq>len], sep="", collapse="; "))
+myParam <- rbind(paste(df$param[grepl("x2",df$param)], sep="", collapse="; "), paste(df$param[grepl("x3",df$param)], sep="", collapse="; "))
+mybeta <- rbind(paste(df$beta[grepl("x2",df$param)], sep="", collapse="; "), paste(df$beta[grepl("x3",df$param)], sep="", collapse="; "))
 df <- data.frame(variable = var, recode = FALSE, RP = FALSE, transf, tps_clinique = tps_clinique, HRIC, test = "robust",
-                 statistic = stat, pvalue = pval, param = myParam, beta = mybeta)
+                  statistic = stat, pvalue = pval, param = myParam, beta = mybeta)
 
 df1 <- rbind(df1, df)
 
@@ -1622,10 +1616,8 @@ HRIC <- paste0(HRIC[,1], "[", HRIC[,2], "-", HRIC[,3], "]")
 
 df <- data.frame(param = name_param, beta = coefbeta)
 df <- df[order(df$param),]
-len <- length(name_param)/2 #nb le nb de param final n'est pas forcément le meme que le nombre d'interval demandé au départ
-mySeq <- seq_along(df$param)
-myParam <- rbind(paste(df$param[mySeq<=len], sep="", collapse="; "), paste(df$param[mySeq>len], sep="", collapse="; "))
-mybeta <- rbind(paste(df$beta[mySeq<=len], sep="", collapse="; "), paste(df$beta[mySeq>len], sep="", collapse="; "))
+myParam <- rbind(paste(df$param[grepl("x2",df$param)], sep="", collapse="; "), paste(df$param[grepl("x3",df$param)], sep="", collapse="; "))
+mybeta <- rbind(paste(df$beta[grepl("x2",df$param)], sep="", collapse="; "), paste(df$beta[grepl("x3",df$param)], sep="", collapse="; "))
 df <- data.frame(variable = var, recode = FALSE, RP = TRUE, transf, tps_clinique = tps_clinique, HRIC, test = "robust",
                  statistic = stat, pvalue = pval, param = myParam, beta = mybeta)
 
@@ -1841,7 +1833,7 @@ df5 <- readRDS("data/analyses/HRIC_quali_bl.rds")
 missbl.df <- readRDS("data/missingbl.rds")
 missrep.df <- readRDS("data/missingrep.rds")
 
-#df1
+#df1 : baseline binaire
 #df1
 data <- df1
 data <- data[ , c("variable", "recode", "RP", "transf", "tps_clinique", "HRIC", "pvalue", "beta")]
@@ -1869,7 +1861,7 @@ data <- data[order(data$pvalue), ]
 data <- data[data$pvalue<0.2, ]
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
-#df2
+#df2 : quanti baseline
 data <- df2
 data <- data[ , c("variable", "recode", "RP", "transf", "tps_clinique", "HRIC", "pvalue", "beta")]
 #mise en ligne des coefficients
@@ -1896,11 +1888,11 @@ data <- data[order(data$pvalue), ]
 data <- data[data$pvalue<0.2, ]
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
-#df3
+#df3 : var repetees quanti et binaire melangees
 data <- df3
 data <- data[ , c("variable", "recode", "RP", "transf", "tps_clinique", "HRIC", "pvalue", "beta")]
 #mise en ligne des coef
-data$beta <- ifelse(data$beta > -0.001 & data$beta <0, "-0.001<beta<0", as.character(round(data$beta, 2)))
+data$beta <- ifelse(data$beta > -0.001 & data$beta <0, "-0.001<beta<0", as.character(round(data$beta, 3)))
 a <- tapply(data$beta, data$variable, paste, collapse = "; ")
 a <- data.frame(variable = names(a), beta = a)
 a$variable <- as.character(a$variable)
@@ -1945,13 +1937,6 @@ data <- data[order(data$pvalue), ]
 data <- data[data$pvalue<0.2, ]
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
-#variables à réanalyser en qualitative:
-c("DYSPN_SOUSVENT_SV", "DYSPN_SVENT_SV", "EVOL_SOMM_VNI_SV", "QUALIT_SOMM_VENT_SV", 
-  "STYLO_RADIAL_D", "STYLO_RADIAL_G", "TRICIPITAL_D", "TRICIPITAL_G")
-
-#quanti ou quali?
-c("MEMBRE_INF", "MEMBRE_SUP", "TRONC")
-
 #variables à binariser
 "OXYM_VNI_SV"
 
@@ -1967,203 +1952,203 @@ write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
 
 #------------------------
-#yann split pour le multivarié (et pour analyse quali, meme si non obligatoire)
-
-#préparation de la base 
-var <- "DYSPN_SOUSVENT_SV"
-y0<-bl[,  c("PATIENT", "SEX")]
-y<-d[d$qui==var,]
-y<-merge(y, y0, by="PATIENT", all.x=T, all.y=F)
-
-#----
-#servira à la fin pour vérifier avec SEX qu'on a bien le bon nombre d'évènements
-id<-unique(y$PATIENT)
-yu<-y[match(id, y$PATIENT),]
-#----
-
-y<-y[order(y$PATIENT, y$del),]
-z<-tapply(y$del, y$PATIENT, c)
-zf<-tapply(y$time.vni, y$PATIENT, c)
-zm<-mapply(function(x,y) c(x[-1], y[1]), z, zf)
-
-z<-tapply(y$evt, y$PATIENT, c)
-fct<-function (x) {
-  x[-length(x)]<-0
-  return(x)
-}
-ze<-sapply(z, fct)
-
-y$delapres<-unlist(zm)
-y$evt2<-unlist(ze)
-
-#y[y$PATIENT=="ID7275", c("del", "delapres", "time.vni")]
-
-ti<-0:max(y$time.vni)
-
-yt<-y
-yt$start<-yt$del
-yt$stop<-yt$delapres
-yt$etat<-yt$evt2
-yt<-survSplit(yt, end="stop", start="start", cut=ti, event="etat")
-yt<-yt[order(yt$PATIENT, yt$start),]
-
-
-#des sujets meurt le jour de la visite
-yt[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni,]
-yt$etat[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni]<-1
-
-
-
-#on vérifie avec la variable non dépendante du temps qu'on a bien le bon nombre d'évènement
-cox<-coxph(Surv(time.vni, evt)~SEX, data=yu)
-coxt<-coxph(Surv(start, stop, etat)~SEX, data=yt)
-cox
-coxt
-#ok c'est bon les résultats sont identiques, on a découpé sans encombre
-
-
-#---------------
-#analyse var qual(version Yann) 
-yt$x<-factor(yt$x)
-
-table(yt$x)
-yt$x1<-ifelse(yt$x=="1", 1, 0)
-yt$x2<-ifelse(yt$x=="2", 1, 0)
-yt$x3<-ifelse(yt$x=="3", 1, 0)
-
-
-cox<-coxph(Surv(start, stop, etat)~x2+x3+cluster(PATIENT), data=yt) #on ne met que 2 des 3 niveaux. le niveaux 1 est la ref
-summary(cox)
-b<-coef(cox)
-zr<-cox.zph(cox, "rank")
-zi<-cox.zph(cox, "identity")
-zr
-
-plot(zi[1])
-abline(h=b[1], col = "blue")
-plot(zi[2])
-abline(h=b[2], col= "blue")
-
-#transformation du temps
-yt$x2t<-log(yt$stop)*yt$x2
-yt$x3t<-log(yt$stop)*yt$x3
-coxt<-coxph(Surv(start, stop, etat)~x2+x2t+x3+x3t+cluster(PATIENT), data=yt)
-summary(coxt)
-bt<-coef(coxt)
-ztr<-cox.zph(coxt, "rank")
-zti<-cox.zph(coxt, "identity")
-ztr
-par(mfrow=c(2,2))
-for (i in 1:4) {
-  plot(zti[i])
-  title(names(bt)[i])
-  abline(h=bt[i])
-}
-
-#decoupage du temps
-m<-31.25 #pour transformer en mois
-yt$x2t1<-ifelse(yt$stop<=7*m, yt$x2, 0)
-yt$x2t2<-ifelse(yt$stop>7*m & yt$stop<=17*m, yt$x2, 0)
-yt$x2t3<-ifelse(yt$stop>17*m & yt$stop<=34*m, yt$x2, 0)
-yt$x2t4<-ifelse(yt$stop>34*m, yt$x2, 0)
-yt$x3t1<-ifelse(yt$stop<=7*m, yt$x3, 0)
-yt$x3t2<-ifelse(yt$stop>7*m & yt$stop<=17*m, yt$x3, 0)
-yt$x3t3<-ifelse(yt$stop>17*m & yt$stop<=34*m, yt$x3, 0)
-yt$x3t4<-ifelse(yt$stop>34*m, yt$x3, 0)
-#summary(yt)
-coxt<-coxph(Surv(start, stop, etat)~x2t1+x2t2+x2t3+x2t4+x3t1+x3t2+x3t3+x3t4+cluster(PATIENT), data=yt)
-summary(coxt)
-bt<-coef(coxt)
-ztr<-cox.zph(coxt, "rank")
-zti<-cox.zph(coxt, "identity")
-ztr
-par(mfrow=c(3,3))
-for (i in 1:8) {
-  plot(zti[i])
-  title(names(bt)[i])
-  abline(h=bt[i])
-}
-
-#-----------------------
-#version Sarah
-#préparation de la base 
-var <- "DYSPN_SOUSVENT_SV"
-y0<-bl[,  c("PATIENT", "SEX")]
-y<-d[d$qui==var,]
-y<-merge(y, y0, by="PATIENT", all.x=T, all.y=F)
-y<-y[order(y$PATIENT, y$del),]
-z<-tapply(y$del, y$PATIENT, c)
-zf<-tapply(y$time.vni, y$PATIENT, c)
-zm<-mapply(function(x,y) c(x[-1], y[1]), z, zf)
-
-z<-tapply(y$evt, y$PATIENT, c)
-fct<-function (x) {
-  x[-length(x)]<-0
-  return(x)
-}
-ze<-sapply(z, fct)
-
-y$delapres<-unlist(zm)
-y$evt2<-unlist(ze)
-ti<-0:max(y$time.vni)
-
-yt<-y
-yt$start<-yt$del
-yt$stop<-yt$delapres
-yt$etat<-yt$evt2
-yt<-survSplit(yt, end="stop", start="start", cut=ti, event="etat")
-yt<-yt[order(yt$PATIENT, yt$start),]
-
-#des sujets meurt le jour de la visite
-yt[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni,]
-yt$etat[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni]<-1
-
-#analyse var qual 
-yt$x<-factor(yt$x)
-yt[,var] <- yt$x
-q2b <- get_binaires(var, yt)
-vec <- grep(var, names(q2b))
-n1 <- names(q2b)[vec[-1]]
-ref <- names(table(yt[,var]))[1]
-f <- paste0("Surv(start, stop, etat) ~ ", paste(n1, collapse=" + "), "+cluster(PATIENT)")
-mod <- coxph(as.formula(f), data = q2b)
-.title <- paste0("RP of ", n1)
-#Test de Harrell
-z <- cox.zph(mod, transform = "rank")
-pval <- round(z$table[,3],3)[-nrow(z$table)]
-#résidus de Shoenfeld
-z <- cox.zph(mod, transf="identity")
-for (i in 1:(nrow(z$table)-1)){
-  plot(zi[i], main=paste0(.title[i], "\nref = ", ref, "\nHarrell test p = ",pval[i]), resid = FALSE, ylab = paste0("Beta(t) for ", n1[i]))
-  abline(h=0, col="red")
-  abline(h=coef(mod)[i], col="blue")
-}
-
-#modification en transformant le temps
-for (i in 1:length(n1)){
-  q2b[ ,paste0(n1[i], "t")] <-log(q2b$stop)*q2b[ ,n1[i]]
-}
-f <- paste0("Surv(start, stop, etat) ~ ", paste(n1, collapse=" + "),
-            " + ", paste(paste0(n1, "t"), collapse=" + "), 
-            " + cluster(PATIENT)")
-coxt<-coxph(as.formula(f), data=q2b)
-summary(coxt)
-#Test de Harrell
-z <- cox.zph(coxt, transform = "rank")
-pval <- round(z$table[,3],3)[-nrow(z$table)]
-#résidus de Shoenfeld
-zi <- cox.zph(coxt, transf="identity")
-for (i in 1:(nrow(z$table)-1)){
-  plot(zi[i], main=paste0(rownames(zi$table)[i], "\nHarrell test p = ",pval[i]), resid = FALSE, ylab = paste0("Beta(t) for ", rownames(zi$table)[i]))
-  abline(h=0, col="red")
-  abline(h=coef(coxt)[i], col="blue")
-}
-
-
-
-
-
-
+# #yann split pour le multivarié (et pour analyse quali, meme si non obligatoire)
+# 
+# #préparation de la base 
+# var <- "DYSPN_SOUSVENT_SV"
+# y0<-bl[,  c("PATIENT", "SEX")]
+# y<-d[d$qui==var,]
+# y<-merge(y, y0, by="PATIENT", all.x=T, all.y=F)
+# 
+# #----
+# #servira à la fin pour vérifier avec SEX qu'on a bien le bon nombre d'évènements
+# id<-unique(y$PATIENT)
+# yu<-y[match(id, y$PATIENT),]
+# #----
+# 
+# y<-y[order(y$PATIENT, y$del),]
+# z<-tapply(y$del, y$PATIENT, c)
+# zf<-tapply(y$time.vni, y$PATIENT, c)
+# zm<-mapply(function(x,y) c(x[-1], y[1]), z, zf)
+# 
+# z<-tapply(y$evt, y$PATIENT, c)
+# fct<-function (x) {
+#   x[-length(x)]<-0
+#   return(x)
+# }
+# ze<-sapply(z, fct)
+# 
+# y$delapres<-unlist(zm)
+# y$evt2<-unlist(ze)
+# 
+# #y[y$PATIENT=="ID7275", c("del", "delapres", "time.vni")]
+# 
+# ti<-0:max(y$time.vni)
+# 
+# yt<-y
+# yt$start<-yt$del
+# yt$stop<-yt$delapres
+# yt$etat<-yt$evt2
+# yt<-survSplit(yt, end="stop", start="start", cut=ti, event="etat")
+# yt<-yt[order(yt$PATIENT, yt$start),]
+# 
+# 
+# #des sujets meurt le jour de la visite
+# yt[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni,]
+# yt$etat[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni]<-1
+# 
+# 
+# 
+# #on vérifie avec la variable non dépendante du temps qu'on a bien le bon nombre d'évènement
+# cox<-coxph(Surv(time.vni, evt)~SEX, data=yu)
+# coxt<-coxph(Surv(start, stop, etat)~SEX, data=yt)
+# cox
+# coxt
+# #ok c'est bon les résultats sont identiques, on a découpé sans encombre
+# 
+# 
+# #---------------
+# #analyse var qual(version Yann) 
+# yt$x<-factor(yt$x)
+# 
+# table(yt$x)
+# yt$x1<-ifelse(yt$x=="1", 1, 0)
+# yt$x2<-ifelse(yt$x=="2", 1, 0)
+# yt$x3<-ifelse(yt$x=="3", 1, 0)
+# 
+# 
+# cox<-coxph(Surv(start, stop, etat)~x2+x3+cluster(PATIENT), data=yt) #on ne met que 2 des 3 niveaux. le niveaux 1 est la ref
+# summary(cox)
+# b<-coef(cox)
+# zr<-cox.zph(cox, "rank")
+# zi<-cox.zph(cox, "identity")
+# zr
+# 
+# plot(zi[1])
+# abline(h=b[1], col = "blue")
+# plot(zi[2])
+# abline(h=b[2], col= "blue")
+# 
+# #transformation du temps
+# yt$x2t<-log(yt$stop)*yt$x2
+# yt$x3t<-log(yt$stop)*yt$x3
+# coxt<-coxph(Surv(start, stop, etat)~x2+x2t+x3+x3t+cluster(PATIENT), data=yt)
+# summary(coxt)
+# bt<-coef(coxt)
+# ztr<-cox.zph(coxt, "rank")
+# zti<-cox.zph(coxt, "identity")
+# ztr
+# par(mfrow=c(2,2))
+# for (i in 1:4) {
+#   plot(zti[i])
+#   title(names(bt)[i])
+#   abline(h=bt[i])
+# }
+# 
+# #decoupage du temps
+# m<-31.25 #pour transformer en mois
+# yt$x2t1<-ifelse(yt$stop<=7*m, yt$x2, 0)
+# yt$x2t2<-ifelse(yt$stop>7*m & yt$stop<=17*m, yt$x2, 0)
+# yt$x2t3<-ifelse(yt$stop>17*m & yt$stop<=34*m, yt$x2, 0)
+# yt$x2t4<-ifelse(yt$stop>34*m, yt$x2, 0)
+# yt$x3t1<-ifelse(yt$stop<=7*m, yt$x3, 0)
+# yt$x3t2<-ifelse(yt$stop>7*m & yt$stop<=17*m, yt$x3, 0)
+# yt$x3t3<-ifelse(yt$stop>17*m & yt$stop<=34*m, yt$x3, 0)
+# yt$x3t4<-ifelse(yt$stop>34*m, yt$x3, 0)
+# #summary(yt)
+# coxt<-coxph(Surv(start, stop, etat)~x2t1+x2t2+x2t3+x2t4+x3t1+x3t2+x3t3+x3t4+cluster(PATIENT), data=yt)
+# summary(coxt)
+# bt<-coef(coxt)
+# ztr<-cox.zph(coxt, "rank")
+# zti<-cox.zph(coxt, "identity")
+# ztr
+# par(mfrow=c(3,3))
+# for (i in 1:8) {
+#   plot(zti[i])
+#   title(names(bt)[i])
+#   abline(h=bt[i])
+# }
+# 
+# #-----------------------
+# #version Sarah
+# #préparation de la base 
+# var <- "DYSPN_SOUSVENT_SV"
+# y0<-bl[,  c("PATIENT", "SEX")]
+# y<-d[d$qui==var,]
+# y<-merge(y, y0, by="PATIENT", all.x=T, all.y=F)
+# y<-y[order(y$PATIENT, y$del),]
+# z<-tapply(y$del, y$PATIENT, c)
+# zf<-tapply(y$time.vni, y$PATIENT, c)
+# zm<-mapply(function(x,y) c(x[-1], y[1]), z, zf)
+# 
+# z<-tapply(y$evt, y$PATIENT, c)
+# fct<-function (x) {
+#   x[-length(x)]<-0
+#   return(x)
+# }
+# ze<-sapply(z, fct)
+# 
+# y$delapres<-unlist(zm)
+# y$evt2<-unlist(ze)
+# ti<-0:max(y$time.vni)
+# 
+# yt<-y
+# yt$start<-yt$del
+# yt$stop<-yt$delapres
+# yt$etat<-yt$evt2
+# yt<-survSplit(yt, end="stop", start="start", cut=ti, event="etat")
+# yt<-yt[order(yt$PATIENT, yt$start),]
+# 
+# #des sujets meurt le jour de la visite
+# yt[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni,]
+# yt$etat[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni]<-1
+# 
+# #analyse var qual 
+# yt$x<-factor(yt$x)
+# yt[,var] <- yt$x
+# q2b <- get_binaires(var, yt)
+# vec <- grep(var, names(q2b))
+# n1 <- names(q2b)[vec[-1]]
+# ref <- names(table(yt[,var]))[1]
+# f <- paste0("Surv(start, stop, etat) ~ ", paste(n1, collapse=" + "), "+cluster(PATIENT)")
+# mod <- coxph(as.formula(f), data = q2b)
+# .title <- paste0("RP of ", n1)
+# #Test de Harrell
+# z <- cox.zph(mod, transform = "rank")
+# pval <- round(z$table[,3],3)[-nrow(z$table)]
+# #résidus de Shoenfeld
+# z <- cox.zph(mod, transf="identity")
+# for (i in 1:(nrow(z$table)-1)){
+#   plot(zi[i], main=paste0(.title[i], "\nref = ", ref, "\nHarrell test p = ",pval[i]), resid = FALSE, ylab = paste0("Beta(t) for ", n1[i]))
+#   abline(h=0, col="red")
+#   abline(h=coef(mod)[i], col="blue")
+# }
+# 
+# #modification en transformant le temps
+# for (i in 1:length(n1)){
+#   q2b[ ,paste0(n1[i], "t")] <-log(q2b$stop)*q2b[ ,n1[i]]
+# }
+# f <- paste0("Surv(start, stop, etat) ~ ", paste(n1, collapse=" + "),
+#             " + ", paste(paste0(n1, "t"), collapse=" + "), 
+#             " + cluster(PATIENT)")
+# coxt<-coxph(as.formula(f), data=q2b)
+# summary(coxt)
+# #Test de Harrell
+# z <- cox.zph(coxt, transform = "rank")
+# pval <- round(z$table[,3],3)[-nrow(z$table)]
+# #résidus de Shoenfeld
+# zi <- cox.zph(coxt, transf="identity")
+# for (i in 1:(nrow(z$table)-1)){
+#   plot(zi[i], main=paste0(rownames(zi$table)[i], "\nHarrell test p = ",pval[i]), resid = FALSE, ylab = paste0("Beta(t) for ", rownames(zi$table)[i]))
+#   abline(h=0, col="red")
+#   abline(h=coef(coxt)[i], col="blue")
+# }
+# 
+# 
+# 
+# 
+# 
+# 
 
 
 
