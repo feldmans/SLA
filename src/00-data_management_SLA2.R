@@ -1087,6 +1087,31 @@ dr <- dr[dr$PATIENT %in% bl$PATIENT, ]
 table(vnisla$PATIENT %in% bdd_dates$PATIENT) #Ce sont les 12 sans suivi neuro, ni date de deces, ni trace recuperee par JG
 vnisla <- vnisla[vnisla$PATIENT %in% bdd_dates$PATIENT, ]
 
+
+#----------------
+#UTIL QUOTIDIENNE
+#----------------
+
+dd <- dr %>% filter(qui == "UTIL_VENTIL_DIURN_SV" | qui == "UTIL_VENTIL_NOCT_SV") %>% 
+  group_by(qui, PATIENT, date) %>%  filter(row_number(x) == 1) %>%  #garde la premiere valeur si 2 valeur pour un meme patient et une  meme date
+  ungroup() %>% 
+  spread(key = qui, value = x, fill=0) %>% 
+  #select(PATIENT, date, del, starts_with("UTIL"))
+  mutate(UTIL_QUOT = UTIL_VENTIL_DIURN_SV + UTIL_VENTIL_NOCT_SV,
+         qui = "UTIL_QUOT",
+         x = UTIL_QUOT) 
+sel <- match(names(dr), names(dd))
+dd <- dd %>%  select(sel)
+
+# dr %>% filter((qui == "UTIL_VENTIL_DIURN_SV" | qui == "UTIL_VENTIL_NOCT_SV" )& PATIENT =="ID1122") %>% 
+#   select(PATIENT, date, del, qui, x)
+#dr %>% filter((qui == "UTIL_VENTIL_DIURN_SV" | qui == "UTIL_VENTIL_NOCT_SV" )& del ==0) %>%
+#select(PATIENT, date, del, qui, x) # on a imputer utilisation a baseline = 0min et 0h
+
+# merge avec d
+dr <- rbind(dr, dd)
+
+
 #--------------------------------
 #retrait des consultations posterieures a dfin 
 head(bl)

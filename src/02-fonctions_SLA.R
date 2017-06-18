@@ -1988,6 +1988,17 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
     gt$layout$clip[gt$layout$name=="panel"] <- "off"
     grid.draw(gt)
     return(gt)
+  } else{
+    .l <- lapply(1:length(km$strata), function(i){
+      .km <- survfit(Surv(tps, evt)~a, data=s[s$a==levels(s$a)[i], ], conf.int=.95)
+      sv <- summary(.km, time=vec_time_IC)
+      df <- data.frame(group = levels(s$a)[i], time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+      df[,3:5] <- round(df[,3:5], 0)
+      df0 <- df  
+    })
+    df <- do.call(rbind, .l)
+    df <- cbind(variable =var, df)
+    return(df)
   }
 }
 

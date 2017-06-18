@@ -96,13 +96,12 @@ vr1 <- as.character(unique(df3 %>% filter(pvalue<0.2 & N_pat_missing <= n)  %>% 
 df4 <- merge(missrep.df, df4, by="variable")
 vr2 <- as.character(unique(df4 %>% filter(pvalue<0.2 & N_pat_missing <= n)  %>% select(variable))$variable)
 
- c(vb1, vb2, vb3, vr1, vr2)
+c(vb1, vb2, vb3, vr1, vr2)
 
 #------------------------
-#yann split pour le multivarié 
-
-#préparation de la base 
+#nb de bl et suivi manquant pour les variables repetees
 .l <- lapply(c(vr1, vr2), function(.var){
+  #var <- vr1[1]
   var <- .var
   y0 <- bl[,  c("PATIENT", vb1, vb2, vb3)]
   y<-d[d$qui==var,]
@@ -136,10 +135,47 @@ vr2 <- as.character(unique(df4 %>% filter(pvalue<0.2 & N_pat_missing <= n)  %>% 
   summary(npos0)
   tab <- table(bl=npos0$n0, nbval=pmin(npos0$n,2)) #bl: 0=pas de baseline, 1=il y a baseline. nbval: 1=1 seule cs (baseline ou suivi), 2= au moins 2 cs(baseline ou suivi)
   #les patients qui nous intéressent sont ceux avec une baseline et une suivi au moins soit bl=1 et nbval=2
-  res <- tab [2,2]
+  res <- sum(tab[1,]) #pas de baseline 
 })
 .l <- unlist(.l)
 bl_suiv.df <- data.frame(variable = c(vr1, vr2), n_bl_suiv = .l)
+bl_suiv.df
+
+
+#---------------------
+#recuperer les baseline
+
+#pour ALS
+
+full_join(
+  #pour les dates
+  bdd7 %>% select(PATIENT, DATE_RESP_PP, starts_with("DATE_PREVENT")) %>%
+    mutate_at(vars(DATE_RESP_PP, starts_with("DATE_PREVENT")), manage_date_ND) %>% 
+    gather(key = var_date, value=date,DATE_RESP_PP, starts_with("DATE_PREVENT")) %>%
+    extract(
+      col = var_date,
+      into = c("type_cs", "num_cs"),
+      regex = ".{1,}_.{1,}_([A-Z]{2})_*F*([0-9]*)"
+    ) %>%
+    mutate(num_cs = ifelse (num_cs == "",0, num_cs))
+  , 
+  #pour les variables
+  bdd7 %>% select(PATIENT,starts_with("ALS_TOT_RESP")) %>% 
+    gather(key = qui, value = x, starts_with("ALS_TOT_RESP")) %>%
+    extract(
+      col = qui,
+      into = c("qui", "type_cs", "num_cs"),
+      regex = "(ALS_TOT_RESP)_([A-Z]{2})_*F*([0-9]*)"
+    ) %>%
+    mutate(num_cs = ifelse (num_cs=="",0, num_cs))
+  ,
+  by = c("PATIENT", "num_cs") #type_cs est problematique car pas meme nomenclature entre les dates et les variables
+) %>% head
+
+#recuperer date de vni : merge by patient
+#selectionner date anterieur a date de vni
+#merger avec dr
+
 
 #----
 #servira à la fin pour vérifier avec SEX qu'on a bien le bon nombre d'évènements
@@ -313,3 +349,53 @@ summary(coxt1)
 coxt$rscore
 sc<-coxt1$rscore
 c(score=sc, p=1-pchisq(sc, nbpar))
+
+dd<-d[d$qui %in% c(vr1, vr2), ]
+
+yd<-dd
+m<-tapply(yd$del, list(yd$PATIENT, as.character(yd$qui)), min, na.rm=T)
+M<-tapply(yd$del, list(yd$PATIENT, as.character(yd$qui)), max, na.rm=T)
+mp<-tapply(yd$del, list(yd$PATIENT, as.character(yd$qui)), function(x) min(x[x>0], na.rm=T))
+head(mp)
+
+#nb sujet avec au moins une valeur : par variable
+
+n<-ifelse(is.na(m), 0, 1)
+N<-dim(n)
+nbv<-N[2];N<-N[1]
+
+sn<-rowSums(n)
+table(sn)
+colSums(n)
+
+#avoir une bl
+nbl<-ifelse(!is.na(m) & m<=0, 1, 0)
+snbl<-rowSums(nbl)
+prop.table(table(c(0:nbv, snbl))-1)
+colSums(nbl)/N
+
+snbl<-rowSums(nbl[, -14])
+prop.table(table(c(0:nbv, snbl))-1)
+
+#avoir une rép
+nr<-ifelse(!is.na(M) & M>0, 1, 0)
+snr<-rowSums(nr)
+table(snr)
+colSums(nr)/N
+
+#avoir une rép et bl
+nblr<-ifelse(!is.na(m) & m<=0 & !is.na(M) & M>0, 1, 0)
+snblr<-rowSums(nblr)
+table(snblr)
+colSums(nblr)/N
+
+#sans bl avec r : del minimum
+x<-ifelse(is.finite(mp), mp, 99999)
+nsblr<-ifelse(!is.na(m) & m>0 & !is.na(M) & M>0, 1, 0)
+x<-x*nsblr
+x[x==0]<-99999
+head(x)
+snsblr<-rowSums(nsblr)
+table(snsblr)
+colSums(nblr)/N
+

@@ -363,6 +363,12 @@ quali<-"LIEUDEB_recode"
 ml <- marrangeGrob(.l,ncol=1,nrow=1,top = NULL)
 ggsave(file="data/analyses/courbes/courbe_survie_qualisup2_bl.pdf", ml)
 
+#survie
+df_surv_q_bl <- draw_surv_qualisup2(var="LIEUDEB_recode", data = d, .time = "time.vni", .evt = "evt", vec_time_IC = 1 , surv_only=TRUE, pvalue=TRUE)
+df_surv_q_bl$survIC <- paste0(df_surv_q_bl$survival, " [", df_surv_q_bl$LCI, "-", df_surv_q_bl$UCI, "]")
+df_surv_q_bl <- df_surv_q_bl[ , c("variable", "group", "time", "survIC")]
+saveRDS(df_surv_q_bl, "data/analyses/df_surv_q_bl.rds")
+
 #Yann
 d$t<-d$time.vni/(365.25/12)
 cox<-coxph(Surv(t, evt)~LIEUDEB_recode, data=d)
@@ -574,6 +580,7 @@ saveRDS(df_HR_quali_bl, "data/analyses/HRIC_quali_bl.rds")
 #variables dont la valeur dépendant du temps
 d <- readRDS("data/df_rep.rds")
 d <- d[d$PATIENT %in% bl$PATIENT, ]
+
 
 #----------------
 #selection des variables
@@ -1813,6 +1820,8 @@ saveRDS(df1, "data/analyses/HRIC_rep_quali.rds")
 
 paste0(missrep[missrep$variable %in% qualir, "n_patNA"], "(",missrep[missrep$variable %in% qualir, "perc_NA"], ")") 
 
+
+
 #=========================
 #=========================
 #MISE EN FORME RESULTATS
@@ -1820,6 +1829,7 @@ paste0(missrep[missrep$variable %in% qualir, "n_patNA"], "(",missrep[missrep$var
 
 s1 <- readRDS("data/analyses/df_surv_bl.rds")
 s2 <- readRDS("data/analyses/df_surv_quanti_bl.rds")
+s5 <- readRDS("data/analyses/df_surv_q_bl.rds")
 write.table(print(s2), file="clipboard", sep= "\t", row.names = FALSE)
 
 #HRIC
@@ -1833,17 +1843,21 @@ df5 <- readRDS("data/analyses/HRIC_quali_bl.rds")
 missbl.df <- readRDS("data/missingbl.rds")
 missrep.df <- readRDS("data/missingrep.rds")
 
+n <- 0.3*nrow(bl)
+
 #df1 : baseline binaire
 #df1
 data <- df1
-data <- data[ , c("variable", "recode", "RP", "transf", "tps_clinique", "HRIC", "pvalue", "beta")]
+data <- data %>% filter(!(variable == "ENC_BRONCHIQ" & transf == "log10")) %>% filter(!(variable == "FERM_BOUCHE" & transf == "log10"))
+data <- data[ , c("variable", "recode", "RP", "transf", "param", "beta", "tps_clinique", "HRIC", "pvalue")]
 #mise en ligne des coefficients
 data$beta <- ifelse(data$beta > -0.001 & data$beta <0, "-0.001<beta<0", as.character(round(data$beta, 2)))
-a <- tapply(data$beta, data$variable, paste, collapse = "; ")
-a <- data.frame(variable = names(a), beta = a)
+a1 <- tapply(data$beta, data$variable, paste, collapse = "; ")
+a2 <- tapply(data$param, data$variable, paste, collapse = "; ")
+a <- data.frame(variable = names(a1), param = a2, beta = a1)
 a$variable <- as.character(a$variable)
-data <- data[match(unique(data$variable), data$variable), ]#garder uniquement première ligne de chaque variable
-data <- merge(data[ , - ncol(data)], a, by="variable")
+data <- data[match(unique(data$variable), data$variable), ]#uniquement première ligne
+data <- merge(data[ , !names(data) %in% c("param","beta")], a, by="variable")
 #merge avec la survie et mise en ligne
 data2 <- s1
 data2$survIC <- paste0(data2$group, " : ", data2$survIC)
@@ -1853,24 +1867,27 @@ a$variable <- as.character(a$variable)
 data <- merge(data, a, by="variable")
 #merge avec missing value
 data <- merge(missbl.df, data,  by = "variable", all.x = FALSE, all.y = TRUE)
-data$missing <- paste0(data$missing, " (", data$missing_perc, ")")
-data$missing_perc <- NULL
-data$recode <- NULL
+#data$missing <- paste0(data$missing, " (", data$missing_perc, ")")
+#data$missing_perc <- NULL
+data$recode <- NA
 data <- data[order(data$pvalue), ]
 #data <- data[data$pvalue<0.05, ]
+data <- data[data$missing<=n, ]
 data <- data[data$pvalue<0.2, ]
+data_bin <- data
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
 #df2 : quanti baseline
 data <- df2
-data <- data[ , c("variable", "recode", "RP", "transf", "tps_clinique", "HRIC", "pvalue", "beta")]
+data <- data[ , c("variable", "recode", "RP", "transf", "param", "beta", "tps_clinique", "HRIC", "pvalue")]
 #mise en ligne des coefficients
 data$beta <- ifelse(data$beta > -0.001 & data$beta <0, "-0.001<beta<0", as.character(round(data$beta, 2)))
-a <- tapply(data$beta, data$variable, paste, collapse = "; ")
-a <- data.frame(variable = names(a), beta = a)
+a1 <- tapply(data$beta, data$variable, paste, collapse = "; ")
+a2 <- tapply(data$param, data$variable, paste, collapse = "; ")
+a <- data.frame(variable = names(a1), param = a2, beta = a1)
 a$variable <- as.character(a$variable)
-data <- data[match(unique(data$variable), data$variable), ]#garder uniquement première ligne de chaque variable
-data <- merge(data[ , - ncol(data)], a, by="variable")
+data <- data[match(unique(data$variable), data$variable), ]#uniquement première ligne
+data <- merge(data[ , !names(data) %in% c("param","beta")], a, by="variable")
 #merge avec la survie et mise en ligne
 data2 <- s2
 data2 <- data2[match(unique(paste0(data2$variable, data2$group)), paste0(data2$variable, data2$group)), ]
@@ -1881,23 +1898,54 @@ a$variable <- as.character(a$variable)
 data <- merge(data, a, by="variable", all.x=TRUE, all.y=FALSE)
 #merge avec missing value
 data <- merge(missbl.df, data,  by = "variable", all.x = FALSE, all.y = TRUE)
-data$missing <- paste0(data$missing, " (", data$missing_perc, ")")
-data$missing_perc <- NULL
+#data$missing <- paste0(data$missing, " (", data$missing_perc, ")")
+#data$missing_perc <- NULL
 data <- data[order(data$pvalue), ]
 #data <- data[data$pvalue<0.05, ]
+data <- data[data$missing<=n, ]
 data <- data[data$pvalue<0.2, ]
+data_Q <- data
+
+#df5 : quali bl
+data <- df5
+data <- data[ , c("variable", "recode", "RP", "transf", "param", "beta", "tps_clinique", "HRIC", "pvalue")]
+#merge avec missing value
+data <- merge(missbl.df, data,  by="variable", all.x = FALSE, all.y = TRUE)
+data$variable <- as.character(data$variable)
+data$param <- as.character(data$param)
+# #merge qvec survie
+# s5$param <- s5$group
+# s5$variable <- as.character(s5$variable)
+# s5$param <- as.character(s5$param) # les niveaux de data ne sont pas les meme que survie
+# data <- merge(data, s5, by = c("variable", "param"), all.x=TRUE, all.y=FALSE)
+#data$missing <- paste0(data$missing, " (", data$missing_perc, ")")
+#data$missing_perc <- NULL
+data$recode <- NA
+data <- data[order(data$pvalue), ]
+#data <- data[data$pvalue<0.05, ]
+data <- data[data$missing<=n, ]
+data <- data[data$pvalue<0.2, ]
+data$survie <- NA
+data <- data[ , names(data_bin)]
+data_q <- data
+
+
+data <- rbind(data_bin, data_Q, data_q)
+data <- data[order(data$pvalue), ]
+
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
 #df3 : var repetees quanti et binaire melangees
 data <- df3
-data <- data[ , c("variable", "recode", "RP", "transf", "tps_clinique", "HRIC", "pvalue", "beta")]
+data <- data[ , c("variable", "recode", "RP", "transf", "tps_clinique", "HRIC", "pvalue", "param", "beta")]
 #mise en ligne des coef
 data$beta <- ifelse(data$beta > -0.001 & data$beta <0, "-0.001<beta<0", as.character(round(data$beta, 3)))
-a <- tapply(data$beta, data$variable, paste, collapse = "; ")
-a <- data.frame(variable = names(a), beta = a)
+a1 <- tapply(data$beta, data$variable, paste, collapse = "; ")
+a2 <- tapply(data$param, data$variable, paste, collapse = "; ")
+a <- data.frame(variable = names(a1), param = a2, beta = a1)
 a$variable <- as.character(a$variable)
 data <- data[match(unique(data$variable), data$variable), ]#uniquement première ligne
-data <- merge(data[ , - ncol(data)], a, by="variable")
+data <- merge(data[ , !names(data) %in% c("param","beta")], a, by="variable")
 #merge avec missing value
 #data <- merge(missrep[ ,c("variable", "n_patNA", "perc_NA"), ], data, by = "variable", all.x = FALSE, all.y = TRUE)
 #data$n_patNA <- paste0(data$n_patNA, " (", data$perc_NA, ")")
@@ -1908,33 +1956,32 @@ data <- merge(missrep.df, data, by = "variable", all.x = FALSE, all.y = TRUE)
 #retirer var quali qui ont ete analysees comme des quanti
 #data <- data[! data$variable %in% c("DYSPN_SOUSVENT_SV", "DYSPN_SVENT_SV", "EVOL_SOMM_VNI_SV", "QUALIT_SOMM_VENT_SV", 
 #                                   "STYLO_RADIAL_D", "STYLO_RADIAL_G", "TRICIPITAL_D", "TRICIPITAL_G"), ]
-#merge avec les noms
-namevar.df <- read.csv2("data/variables et signification.csv")
-namevar.df <- namevar.df[ , c("X", "variable")]
-data <- merge(namevar.df, data, by="variable", all.x=F, all.y=T)
+# #merge avec les noms
+# namevar.df <- read.csv2("data/variables et signification.csv")
+# namevar.df <- namevar.df[ , c("X", "variable")]
+# data <- merge(namevar.df, data, by="variable", all.x=F, all.y=T)
 data <- data[order(data$pvalue), ]
+data <- data[data$N_pat_missing <= n, ]
 #data <- data[data$pvalue<0.05, ]
 data <- data[data$pvalue<0.2, ]
+dataQbin <- data
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
-
-
-#quali bl
-data <- df5
-data <- data[ , c("variable", "level", "ref", "recode", "RP", "transf", "tps_clinique", "HRIC", "pvalue", "beta")]
-#merge avec missing value
-data <- merge(missbl.df, data,  by = "variable", all.x = FALSE, all.y = TRUE)
-data$missing <- paste0(data$missing, " (", data$missing_perc, ")")
-data$missing_perc <- NULL
-data <- data[order(data$pvalue), ]
-data <- data[data$pvalue<0.2, ]
-write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
-
 
 #quali rep 
 data <- df4
 data <- merge(missrep.df, data, by = "variable", all.x = FALSE, all.y = TRUE)
+data$variable <- as.character(data$variable)
+data$param <- as.character(data$param)
 data <- data[order(data$pvalue), ]
+#data <- data[data$pvalue<0.05, ]
 data <- data[data$pvalue<0.2, ]
+data <- data[data$N_pat_missing <= n, ]
+data <- data[ , names(dataQbin)]
+data_q <- data
+
+data <- rbind(dataQbin, data_q)
+data <- data[order(data$pvalue), ]
+
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
 #variables à binariser
