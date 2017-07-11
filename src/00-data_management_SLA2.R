@@ -1000,7 +1000,7 @@ saveRDS(dr,"data/df_rep_avecdoublons.rds")
 
 #vnisla
 vnisla1 <- readRDS( "data/vnisla_sans_modif.rds") #contient les doublons de bl et les incohérence de vni de bdd_dates
-vnisla2 <- readRDS("data/vnisla_sansvniinco.rds") #contient les doublons mais pas les incohérences de vni
+vnisla <- readRDS("data/vnisla_sansvniinco.rds") #contient les doublons mais pas les incohérences de vni
 #toutes les dates (vni, dc etc..)
 bdd_dates <- readRDS("data/bdd_dates_avecdoublons.rds")
 #toutes les baseline :
