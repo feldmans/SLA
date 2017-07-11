@@ -1255,7 +1255,7 @@ check_RP <- function(var, data, .time, .evt, quali = FALSE, recode = FALSE){
     
     #résidus de Shoenfeld
     z <- cox.zph(mod, transf="identity")
-    plot(z, main=paste0(.title, "\nHarrell test p = ",pval), resid = FALSE, ylab = paste0("Beta(t) for ", var),
+    plot(z, main=paste0(.title, "\nHarrell test p = ",pval), resid = TRUE, ylab = paste0("Beta(t) for ", var),
          xlab = "Time, months")
     abline(h=0, col="red")
     abline(h=coef(mod), col="blue")

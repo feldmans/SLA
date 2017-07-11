@@ -145,19 +145,34 @@ bl_suiv.df
 #---------------------
 #recuperer les baseline
 
-#pour ALS
+bdd7 %>% select(PATIENT, DATE_RESP_PP, starts_with("DATE_PREVENT")) %>% colnames
+bdd7 %>% select(PATIENT,starts_with("ALS_TOT_RESP")) %>%colnames
 
+#pour recuperer les dates preventil de pneumo 
+my_date <- bdd7 %>% select(PATIENT, DATE_RESP_PP, starts_with("DATE_PREVENT")) %>%
+  mutate_at(vars(DATE_RESP_PP, starts_with("DATE_PREVENT")), manage_date_ND) %>% 
+  gather(key = var_date, value=date,DATE_RESP_PP, starts_with("DATE_PREVENT")) %>%
+  extract(
+    col = var_date,
+    into = c("type_cs", "num_cs"),
+    regex = ".{1,}_.{1,}_([A-Z]{2})_*F*([0-9]*)"
+  ) %>%
+  mutate(num_cs = ifelse (num_cs == "",0, num_cs))
+
+#pour recuperer les dates preventil de neuro 
+my_date <- bdd7 %>% select(PATIENT, DATE_RESP_PP, starts_with("DATE_PREVENT")) %>%
+  mutate_at(vars(DATE_RESP_PP, starts_with("DATE_PREVENT")), manage_date_ND) %>% 
+  gather(key = var_date, value=date,DATE_RESP_PP, starts_with("DATE_PREVENT")) %>%
+  extract(
+    col = var_date,
+    into = c("type_cs", "num_cs"),
+    regex = ".{1,}_.{1,}_([A-Z]{2})_*F*([0-9]*)"
+  ) %>%
+  mutate(num_cs = ifelse (num_cs == "",0, num_cs))
+
+#ALS_TOT_RESP
 full_join(
-  #pour les dates
-  bdd7 %>% select(PATIENT, DATE_RESP_PP, starts_with("DATE_PREVENT")) %>%
-    mutate_at(vars(DATE_RESP_PP, starts_with("DATE_PREVENT")), manage_date_ND) %>% 
-    gather(key = var_date, value=date,DATE_RESP_PP, starts_with("DATE_PREVENT")) %>%
-    extract(
-      col = var_date,
-      into = c("type_cs", "num_cs"),
-      regex = ".{1,}_.{1,}_([A-Z]{2})_*F*([0-9]*)"
-    ) %>%
-    mutate(num_cs = ifelse (num_cs == "",0, num_cs))
+  my_date
   , 
   #pour les variables
   bdd7 %>% select(PATIENT,starts_with("ALS_TOT_RESP")) %>% 
@@ -170,10 +185,94 @@ full_join(
     mutate(num_cs = ifelse (num_cs=="",0, num_cs))
   ,
   by = c("PATIENT", "num_cs") #type_cs est problematique car pas meme nomenclature entre les dates et les variables
-) %>% head
+) %>% 
+  #merge avec bdd_dates
+  inner_join(bdd_dates) %>% 
+  #ne garder que les baselines
+  mutate(del = datevni - date,
+         f = ifelse(del<=0, 0, 1)) %>% 
+  filter(!is.na(x) & f==0)
+#pas de bl a rajouter
 
-#recuperer date de vni : merge by patient
-#selectionner date anterieur a date de vni
+#ALS_RESP
+full_join(
+  my_date
+  , 
+  #pour les variables
+  bdd7 %>% select(PATIENT,starts_with("ALS_RESP")) %>% 
+    gather(key = qui, value = x, starts_with("ALS_RESP")) %>% 
+    extract(
+      col = qui,
+      into = c("qui", "type_cs", "num_cs"),
+      regex = "(ALS_RESP)_([A-Z]{2})_*F*([0-9]*)"
+    ) %>%
+    mutate(num_cs = ifelse (num_cs=="",0, num_cs)) 
+  ,
+  by = c("PATIENT", "num_cs") #type_cs est problematique car pas meme nomenclature entre les dates et les variables
+)%>%  
+  #merge avec bdd_dates (doit etre present dans les deux)
+  inner_join(bdd_dates) %>% 
+  #ne garder que les baselines
+  mutate(del = datevni - date,
+         f = ifelse(del<=0, 0, 1)) %>% 
+  filter(!is.na(x) & f==0)
+  #pas de bl a rajouter
+
+
+#BMI_PP
+full_join(
+  my_date
+  , 
+  #pour les variables
+  bdd7 %>% select(PATIENT,starts_with("BMI")) %>% 
+    mutate_at(vars(starts_with("BMI")), function(x) as.numeric(as.character(x))) %>% 
+    gather(key = qui, value = x, starts_with("BMI")) %>% 
+    extract(
+      col = qui,
+      into = c("qui", "type_cs", "num_cs"),
+      regex = "(BMI)_([A-Z]{2})_*F*([0-9]*)"
+    ) %>%
+    mutate(num_cs = ifelse (num_cs=="",0, num_cs)) 
+  ,
+  by = c("PATIENT", "num_cs") #type_cs est problematique car pas meme nomenclature entre les dates et les variables
+)%>%  
+  #merge avec bdd_dates (doit etre present dans les deux)
+  inner_join(bdd_dates) %>% 
+  #ne garder que les baselines
+  mutate(del = datevni - date,
+         f = ifelse(del<=0, 0, 1)) %>% 
+  filter(!is.na(x) & f==0)
+#qq bl a rajouter
+
+
+#BMI_CL1 : vient de bdd6
+
+#a la fin prendre la plus recente des 2 dates bdd6 et bdd7
+full_join(
+  
+  , 
+  #pour les variables
+  bdd7 %>% select(PATIENT,starts_with("BMI_CL1")) %>% 
+    mutate_at(vars(starts_with("BMI")), function(x) as.numeric(as.character(x))) %>% 
+    gather(key = qui, value = x, starts_with("BMI")) %>% 
+    extract(
+      col = qui,
+      into = c("qui", "type_cs", "num_cs"),
+      regex = "(BMI)_([A-Z]{2})_*F*([0-9]*)"
+    ) %>%
+    mutate(num_cs = ifelse (num_cs=="",0, num_cs)) 
+  ,
+  by = c("PATIENT", "num_cs") #type_cs est problematique car pas meme nomenclature entre les dates et les variables
+)%>%  
+  #merge avec bdd_dates (doit etre present dans les deux)
+  inner_join(bdd_dates) %>% 
+  #ne garder que les baselines
+  mutate(del = datevni - date,
+         f = ifelse(del<=0, 0, 1)) %>% 
+  filter(!is.na(x) & f==0)
+#qq bl a rajouter
+
+
 #merger avec dr
 
 
