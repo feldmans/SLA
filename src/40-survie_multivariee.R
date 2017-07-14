@@ -118,7 +118,7 @@ c(vb1, vb2, vb3, vr1, vr2)
     ypos %>% group_by(PATIENT) %>% summarise(npos=n())
   ) %>% 
     mutate(n0 = ifelse(is.na(n0), 0, n0),
-           n0 = pmin(n0), 
+           #n0 = pmin(n0,1), #inutile car n0 vaut deja 0 ou 1 car aucun patient ne peut aavoir plusieurs baseline 
            npos = ifelse(is.na(npos), 0, npos), 
            n = npos + n0)
   
@@ -133,14 +133,19 @@ c(vb1, vb2, vb3, vr1, vr2)
   # npos0$n<-npos0$npos+npos0$n0
   
   summary(npos0)
-  tab <- table(bl=npos0$n0, nbval=pmin(npos0$n,2)) #bl: 0=pas de baseline, 1=il y a baseline. nbval: 1=1 seule cs (baseline ou suivi), 2= au moins 2 cs(baseline ou suivi)
+  tab <- table(bl=npos0$n0, nbval=pmin(npos0$n,2)) 
+  #bl: 0=pas de baseline, 1=il y a baseline. 
+  #nbval: 0= impossible(si ni baseline ni suivi, le patient n'est pas dans y) 1=1 seule cs (baseline ou suivi), 2= au moins 2 cs(baseline ou suivi)
   #les patients qui nous intéressent sont ceux avec une baseline et une suivi au moins soit bl=1 et nbval=2
-  res <- sum(tab[1,]) #pas de baseline 
+  res <- sum(tab[1,]) #nb de patients sans baseline (mais avec un suivi)
+  res2 <- sum(tab)
+  res3 <- round(res/res2 *100,2) #% de patients sans baseline (denominateur = patients avec au moins une valeur)
+  res <- data.frame(res2, res, res3 = paste0(res3, "%"))
 })
-.l <- unlist(.l)
-bl_suiv.df <- data.frame(variable = c(vr1, vr2), n_bl_suiv = .l)
+.l <- do.call(rbind,.l)
+bl_suiv.df <- data.frame(variable = c(vr1, vr2), n_bl_suiv = .l$res2, no_bl = .l$res, perc_no_bl = .l$res3)
 bl_suiv.df
-
+write.table(print(bl_suiv.df), file = "clipboard", sep="\t", row.names = FALSE)
 
 #---------------------
 #recuperer les baseline
