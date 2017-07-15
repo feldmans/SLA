@@ -14,52 +14,6 @@ bl <- readRDS("data/bl.rds")
 bdd_dates <- readRDS("data/bdd_dates.rds")
 
 
-#data management
-bl$LIEUDEB_recode <- Recode(as.factor(bl$LIEUDEB), "1 = 'bulbar';2 = 'cervical'; 10:15 = 'lower limb'; 3 = 'respiratory'; 4:9 = 'upper limb'")
-d <- bl #base avec les colonnes qui ne sont pas dans bdd_dates
-match(c("LIEUDEB", "DOB", "FIRSTSYMPTOM"), names(bl))
-dim(bl)
-dim(d)
-d[ ,c("LIEUDEB")] <- NULL
-d[ ,c("DOB")] <- NULL
-d[ ,c("FIRSTSYMPTOM")] <- NULL
-
-#raison de la mise en place de la vni :
-for (i in (1:20)){
-  d[ ,paste0("crit", i)] <- ifelse((d$CRIT_1_VNI==i & !is.na(d$CRIT_1_VNI==i)) | (d$CRIT_2_VNI==i & !is.na(d$CRIT_2_VNI==i)) | (d$CRIT_3_VNI==i & !is.na(d$CRIT_3_VNI==i)), 1, 0)
-}
-d$CRIT_1_VNI <- NULL
-d$CRIT_2_VNI <- NULL
-d$CRIT_3_VNI <- NULL
-d$TYPESOD1 <- NULL
-d$COOPERATION <- NULL
-d$VEMS_OBSV <- NULL
-d$P_TRANS_02 <- NULL
-
-
-#J'impute les NA en 0 pour les variables d'interrogatoire et de clinique qui s'y prete
-#apply(d, 2, table, useNA="a")
-imp_0_vec <- c("BPCO_PP", "ASTHME_PP", "SAS_PREEXIST_PP", "APPAREILLE_PP", "DYSP_EFFORT","DYSP_REPOS", "DYSP_PAROLE", "DYSP_DECUBI", "DYSP_PAROX",
-      "FAUS_ROUTE", "REVEIL_MULTI", "REVEIL_ETOUF", "CAUCHEMAR", "R_MUSCL_ACCES", "RESP_PARADOX", "ENC_BRONCHIQ", "E_PHAR_LAR", "OXY_THERAP")
-d[,imp_0_vec] <- apply(d[,imp_0_vec], 2, function(x) {
-  x[is.na(x)] <- 0 
-  return(x)})
-
-#variable pour lesquelles NA est a imputer par 1
-d[is.na(d$FERM_BOUCHE) ,c("FERM_BOUCHE")] <- 1
-
-#modalites 2 (= non evaluables) :JG dit de mettre a 0 mais je pense qu'il vaut mieux mettre NA
-d[,c("DYSP_EFFORT", "DYSP_PAROX")] <- apply(d[,c("DYSP_EFFORT", "DYSP_PAROX")], 2, function(x) {
-  x[x==2] <- NA 
-  return(x)})
-
-#d$VNI_ON <- NULL
-#d$ECHEC_MEO_VENT <- NULL
-
-d [d$SEX == 1, "SEX"] <- 0
-d [d$SEX == 2, "SEX"] <- 1
-
-
 bl$extraction <- as_date("2015-08-27")
 bl2 <- bl[bl$extraction - bl$datevni >= 365, ]
 
