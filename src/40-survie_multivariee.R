@@ -16,52 +16,6 @@ source("src/02-fonctions_SLA.R")
 bl <- readRDS("data/bl.rds")
 bdd_dates <- readRDS("data/bdd_dates.rds")
 
-#data management
-bl$LIEUDEB_recode <- Recode(as.factor(bl$LIEUDEB), "1 = 'bulbar';2 = 'cervical'; 10:15 = 'lower limb'; 3 = 'respiratory'; 4:9 = 'upper limb'")
-d <- bl #base avec les colonnes qui ne sont pas dans bdd_dates
-match(c("LIEUDEB", "DOB", "FIRSTSYMPTOM"), names(bl))
-dim(bl)
-dim(d)
-d[ ,c("LIEUDEB")] <- NULL
-d[ ,c("DOB")] <- NULL
-d[ ,c("FIRSTSYMPTOM")] <- NULL
-
-#raison de la mise en place de la vni :
-for (i in (1:20)){
-  d[ ,paste0("crit", i)] <- ifelse((d$CRIT_1_VNI==i & !is.na(d$CRIT_1_VNI==i)) | (d$CRIT_2_VNI==i & !is.na(d$CRIT_2_VNI==i)) | (d$CRIT_3_VNI==i & !is.na(d$CRIT_3_VNI==i)), 1, 0)
-}
-d$CRIT_1_VNI <- NULL
-d$CRIT_2_VNI <- NULL
-d$CRIT_3_VNI <- NULL
-d$TYPESOD1 <- NULL
-d$COOPERATION <- NULL
-d$VEMS_OBSV <- NULL
-d$P_TRANS_02 <- NULL
-
-
-#J'impute les NA en 0 pour les variables d'interrogatoire et de clinique qui s'y prete
-#apply(d, 2, table, useNA="a")
-imp_0_vec <- c("BPCO_PP", "ASTHME_PP", "SAS_PREEXIST_PP", "APPAREILLE_PP", "DYSP_EFFORT","DYSP_REPOS", "DYSP_PAROLE", "DYSP_DECUBI", "DYSP_PAROX",
-               "FAUS_ROUTE", "REVEIL_MULTI", "REVEIL_ETOUF", "CAUCHEMAR", "R_MUSCL_ACCES", "RESP_PARADOX", "ENC_BRONCHIQ", "E_PHAR_LAR", "OXY_THERAP")
-d[,imp_0_vec] <- apply(d[,imp_0_vec], 2, function(x) {
-  x[is.na(x)] <- 0 
-  return(x)})
-
-#variable pour lesquelles NA est a imputer par 1
-d[is.na(d$FERM_BOUCHE) ,c("FERM_BOUCHE")] <- 1
-
-#modalites 2 (= non evaluables) :JG dit de mettre a 0 mais je pense qu'il vaut mieux mettre NA
-d[,c("DYSP_EFFORT", "DYSP_PAROX")] <- apply(d[,c("DYSP_EFFORT", "DYSP_PAROX")], 2, function(x) {
-  x[x==2] <- NA 
-  return(x)})
-
-#d$VNI_ON <- NULL
-#d$ECHEC_MEO_VENT <- NULL
-
-d [d$SEX == 1, "SEX"] <- 0
-d [d$SEX == 2, "SEX"] <- 1
-bl <- d
-
 #=======================
 #variables dont la valeur dépendant du temps
 d <- readRDS("data/df_rep.rds")
@@ -76,6 +30,8 @@ df4 <- readRDS("data/analyses/HRIC_rep_quali.rds")
 df5 <- readRDS("data/analyses/HRIC_quali_bl.rds")
 missbl.df <- readRDS("data/missingbl.rds")
 missrep.df <- readRDS("data/missingrep.rds")
+
+
 #=======================
 #=======================
 #sélection des variables
@@ -163,17 +119,14 @@ my_date <- bdd7 %>% select(PATIENT, DATE_RESP_PP, starts_with("DATE_PREVENT")) %
     regex = ".{1,}_.{1,}_([A-Z]{2})_*F*([0-9]*)"
   ) %>%
   mutate(num_cs = ifelse (num_cs == "",0, num_cs))
-
-#pour recuperer les dates preventil de neuro 
-my_date <- bdd7 %>% select(PATIENT, DATE_RESP_PP, starts_with("DATE_PREVENT")) %>%
-  mutate_at(vars(DATE_RESP_PP, starts_with("DATE_PREVENT")), manage_date_ND) %>% 
-  gather(key = var_date, value=date,DATE_RESP_PP, starts_with("DATE_PREVENT")) %>%
-  extract(
-    col = var_date,
-    into = c("type_cs", "num_cs"),
-    regex = ".{1,}_.{1,}_([A-Z]{2})_*F*([0-9]*)"
-  ) %>%
-  mutate(num_cs = ifelse (num_cs == "",0, num_cs))
+#pour recuperer les dates de neuro
+ date_bdd6 <- bdd6 %>% select(PATIENT, DATEXAM) %>% mutate(DATEXAM = manage_date_ND(DATEXAM))
+ date_bdd9 <- bdd9 %>% select(PATIENT, starts_with("DATEXAM")) %>% # %>% mutate(DATEXAM = manage_date_ND(DATEXAM))
+   mutate_at(vars(starts_with("DATEXAM")), manage_date_ND) %>% 
+     gather(key = var_date, value=date, starts_with("DATEXAM")) %>% 
+     mutate(num_cs=str_extract(var_date, "[0-9]*$"))
+    
+   
 
 #ALS_TOT_RESP
 full_join(
@@ -224,8 +177,10 @@ full_join(
   #pas de bl a rajouter
 
 
-#BMI_PP
-full_join(
+#BMI_PP et PV
+#NB : il n'y a pas de BMI_SV(les BMI de suivi viennent du fichier neuro)
+
+bm1 <- full_join(
   my_date
   , 
   #pour les variables
@@ -237,48 +192,61 @@ full_join(
       into = c("qui", "type_cs", "num_cs"),
       regex = "(BMI)_([A-Z]{2})_*F*([0-9]*)"
     ) %>%
-    mutate(num_cs = ifelse (num_cs=="",0, num_cs)) 
+    mutate(num_cs = ifelse (num_cs=="", 0, num_cs)) #PP est num_cs = 0
   ,
-  by = c("PATIENT", "num_cs") #type_cs est problematique car pas meme nomenclature entre les dates et les variables
+  #type_cs est problematique pour merger car pas meme nomenclature entre les dates et les variables(l'un est PP l'qutre PV)
+  #de toutes facon num_cs suffit car pas de SV
+  by = c("PATIENT", "num_cs") 
 )%>%  
   #merge avec bdd_dates (doit etre present dans les deux)
   inner_join(bdd_dates) %>% 
   #ne garder que les baselines
-  mutate(del = datevni - date,
+  mutate(del = date - datevni,
          f = ifelse(del<=0, 0, 1)) %>% 
   filter(!is.na(x) & f==0)
 #qq bl a rajouter
 
 
-#BMI_CL1 : vient de bdd6
+#pour les variables neuro bl
+bm2 <- bdd6 %>% select(PATIENT, DATEXAM, BMI, BMI_CL1) %>% 
+  mutate(DATEXAM = manage_date_ND(DATEXAM)) %>% 
+    mutate_at(vars(starts_with("BMI")), function(x)as.numeric(as.character(x))) %>%
+    gather(key = qui, value = x, starts_with("BMI")) %>% 
+    mutate(date = DATEXAM, DATEXAM = NULL, CL1 = ifelse(qui == "BMI", 0, 1), qui = "BMI", num_cs = as.character(0)) %>% 
+    inner_join(bdd_dates) %>% 
+    #ne garder que les baselines
+    mutate(del = date - datevni,
+           f = ifelse(del<=0, 0, 1)) %>% 
+    filter(!is.na(x) & f==0)
 
-#a la fin prendre la plus recente des 2 dates bdd6 et bdd7
-full_join(
-  
+
+#pour les variables neuro repetees
+bm3 <- full_join(
+  date_bdd9
   , 
-  #pour les variables
-  bdd7 %>% select(PATIENT,starts_with("BMI_CL1")) %>% 
-    mutate_at(vars(starts_with("BMI")), function(x) as.numeric(as.character(x))) %>% 
+  bdd9 %>% select(PATIENT,starts_with("BMI")) %>%
+  mutate_at(vars(starts_with("BMI")), function(x)as.numeric(as.character(x))) %>%
     gather(key = qui, value = x, starts_with("BMI")) %>% 
     extract(
       col = qui,
-      into = c("qui", "type_cs", "num_cs"),
-      regex = "(BMI)_([A-Z]{2})_*F*([0-9]*)"
-    ) %>%
-    mutate(num_cs = ifelse (num_cs=="",0, num_cs)) 
+      into = c("qui", "num_cs", "CL1"),
+      regex = "(BMI)_V_M([0-9]*)_*([CL1]*)"
+    ) %>%  #%>% group_by(CL1) %>% summarise(n())
+    mutate(CL1 = ifelse (CL1=="",0, 1))
   ,
-  by = c("PATIENT", "num_cs") #type_cs est problematique car pas meme nomenclature entre les dates et les variables
-)%>%  
-  #merge avec bdd_dates (doit etre present dans les deux)
-  inner_join(bdd_dates) %>% 
+  by = c("PATIENT","num_cs")
+) %>% 
+    inner_join(bdd_dates) %>% 
   #ne garder que les baselines
-  mutate(del = datevni - date,
+  mutate(del = date - datevni,
          f = ifelse(del<=0, 0, 1)) %>% 
   filter(!is.na(x) & f==0)
 #qq bl a rajouter
 
+#a la fin prendre la plus recente des dates bdd6 bdd9 et bdd7
+bl_bmi <- bind_rows(bm1, bm2, bm3) %>% group_by(PATIENT) %>% arrange(desc(del)) %>% slice(1) %>% mutate(f=0)
 
-#merger avec dr
+saveRDS(bl_bmi, "data/bl_bmi.rds")
 
 
 #----
