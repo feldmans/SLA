@@ -56,6 +56,40 @@ c(vb1, vb2, vb3, vr1, vr2)
 
 #------------------------
 #nb de bl et suivi manquant pour les variables repetees
+
+
+##################
+#version Sarah
+.l <- lapply(c(vr1, vr2), function(.var){
+y<-d[d$qui==.var,]
+ypos<-y[y$del>0, ]
+y0<-y[y$del<=0, ]
+
+npos0 <- full_join(
+  y0 %>% group_by(PATIENT) %>% summarise(n0=n()),
+  ypos %>% group_by(PATIENT) %>% summarise(npos=n())
+) %>% 
+  mutate(n0 = ifelse(is.na(n0), 0, n0),#n0 = pmin(n0,1), #inutile car n0 vaut deja 0 ou 1 car aucun patient ne peut aavoir plusieurs baseline 
+         npos = ifelse(is.na(npos), 0, npos), 
+         n = npos + n0)
+
+tab <- table(bl=npos0$n0, nbval=pmin(npos0$n,2)) 
+#bl: 0=pas de baseline, 1=il y a baseline. 
+#nbval: 0= impossible(si ni baseline ni suivi, le patient n'est pas dans y) 1=1 seule cs (baseline ou suivi), 2= au moins 2 cs(baseline ou suivi)
+#les patients qui nous intéressent sont ceux avec une baseline et une suivi au moins soit bl=1 et nbval=2
+res <- sum(tab[1,]) #nb de patients sans baseline (mais avec un suivi)
+res2 <- sum(tab)
+res3 <- round(res/res2 *100,2) #% de patients sans baseline (denominateur = patients avec au moins une valeur)
+res <- data.frame(res2, res, res3 = paste0(res3, "%"))
+})
+.l <- do.call(rbind,.l)
+bl_suiv.df <- data.frame(variable = c(vr1, vr2), n_bl_suiv = .l$res2, no_bl = .l$res, perc_no_bl = .l$res3)
+bl_suiv.df
+write.table(print(bl_suiv.df), file = "clipboard", sep="\t", row.names = FALSE)
+
+##################
+#version Yann
+
 .l <- lapply(c(vr1, vr2), function(.var){
   #var <- vr1[1]
   var <- .var
@@ -69,24 +103,15 @@ c(vb1, vb2, vb3, vr1, vr2)
   ypos<-y[y$del>0, ]
   y0<-y[y$del<=0, ]
   
-  npos0 <- full_join(
-    y0 %>% group_by(PATIENT) %>% summarise(n0=n()),
-    ypos %>% group_by(PATIENT) %>% summarise(npos=n())
-  ) %>% 
-    mutate(n0 = ifelse(is.na(n0), 0, n0),
-           #n0 = pmin(n0,1), #inutile car n0 vaut deja 0 ou 1 car aucun patient ne peut aavoir plusieurs baseline 
-           npos = ifelse(is.na(npos), 0, npos), 
-           n = npos + n0)
-  
-  # n0<-tapply(y0$PATIENT, y0$PATIENT, length)
-  # npos<-tapply(ypos$PATIENT, ypos$PATIENT, length)
-  # n0<-data.frame(PATIENT=names(n0), n0=as.numeric(n0), stringsAsFactors = F)
-  # npos<-data.frame(PATIENT=names(npos), npos=as.numeric(npos), stringsAsFactors = F)
-  # npos0<-merge(n0, npos, by="PATIENT", all=T)
-  # npos0$n0[is.na(npos0$n0)]<-0
-  # npos0$n0<-pmin(npos0$n0,1)
-  # npos0$npos[is.na(npos0$npos)]<-0
-  # npos0$n<-npos0$npos+npos0$n0
+  n0<-tapply(y0$PATIENT, y0$PATIENT, length)
+  npos<-tapply(ypos$PATIENT, ypos$PATIENT, length)
+  n0<-data.frame(PATIENT=names(n0), n0=as.numeric(n0), stringsAsFactors = F)
+  npos<-data.frame(PATIENT=names(npos), npos=as.numeric(npos), stringsAsFactors = F)
+  npos0<-merge(n0, npos, by="PATIENT", all=T)
+  npos0$n0[is.na(npos0$n0)]<-0
+  npos0$n0<-pmin(npos0$n0,1)
+  npos0$npos[is.na(npos0$npos)]<-0
+  npos0$n<-npos0$npos+npos0$n0
   
   summary(npos0)
   tab <- table(bl=npos0$n0, nbval=pmin(npos0$n,2)) 
@@ -203,7 +228,7 @@ bm1 <- full_join(
   #ne garder que les baselines
   mutate(del = date - datevni,
          f = ifelse(del<=0, 0, 1)) %>% 
-  filter(!is.na(x) & f==0)
+  filter(!is.na(x) & f == 0 & x < 45)
 #qq bl a rajouter
 
 
@@ -217,7 +242,7 @@ bm2 <- bdd6 %>% select(PATIENT, DATEXAM, BMI, BMI_CL1) %>%
     #ne garder que les baselines
     mutate(del = date - datevni,
            f = ifelse(del<=0, 0, 1)) %>% 
-    filter(!is.na(x) & f==0)
+    filter(!is.na(x) & f==0 & x < 45)
 
 
 #pour les variables neuro repetees
@@ -240,7 +265,7 @@ bm3 <- full_join(
   #ne garder que les baselines
   mutate(del = date - datevni,
          f = ifelse(del<=0, 0, 1)) %>% 
-  filter(!is.na(x) & f==0)
+  filter(!is.na(x) & f==0 & x < 45)
 #qq bl a rajouter
 
 #a la fin prendre la plus recente des dates bdd6 bdd9 et bdd7
