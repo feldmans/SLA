@@ -1,4 +1,3 @@
-source("src/libraries_SLA.R")
 source("src/02-fonctions_SLA.R")
 #source("src/objects_SLA.R")
 
@@ -1057,23 +1056,33 @@ dr <- dr[dr$date<as_date("2016-01-01"), ]
 pat_pb <- unique(dr[dr$date>dr$date_dc & !is.na(dr$date_dc), "PATIENT"])
 for (i in pat_pb){
   dr[dr$PATIENT==i, "evt"] <- 0
+  bdd_dates[bdd_dates$PATIENT==i, "evt"] <- 0
   dr[dr$PATIENT==i , "date_dc"] <- NA
+  bdd_dates[bdd_dates$PATIENT==i , "date_dc"] <- NA
   dr[dr$PATIENT==i , "time.vni"] <- as.numeric(max(dr[dr$PATIENT==i, "date"]) - unique(dr[dr$PATIENT==i, "datevni"]))
+  bdd_dates[bdd_dates$PATIENT==i , "time.vni"] <- as.numeric(max(dr[dr$PATIENT==i, "date"]) - unique(dr[dr$PATIENT==i, "datevni"]))
   dr[dr$PATIENT==i , "ddn"] <- as_date(ifelse(max(dr[dr$PATIENT==i, "date"]) <= unique(dr[dr$PATIENT==i, "ddn"]), unique(dr[dr$PATIENT==i , "ddn"]), max(dr[dr$PATIENT==i, "date"])))
+  bdd_dates[bdd_dates$PATIENT==i , "ddn"] <- as_date(ifelse(max(dr[dr$PATIENT==i, "date"]) <= unique(dr[dr$PATIENT==i, "ddn"]), unique(dr[dr$PATIENT==i , "ddn"]), max(dr[dr$PATIENT==i, "date"])))
   dr[dr$PATIENT==i , "dfin"] <- as_date(ifelse(max(dr[dr$PATIENT==i, "date"]) <= unique(dr[dr$PATIENT==i, "ddn"]), unique(dr[dr$PATIENT==i , "ddn"]), max(dr[dr$PATIENT==i, "date"])))
+  bdd_dates[bdd_dates$PATIENT==i , "dfin"] <- as_date(ifelse(max(dr[dr$PATIENT==i, "date"]) <= unique(dr[dr$PATIENT==i, "ddn"]), unique(dr[dr$PATIENT==i , "ddn"]), max(dr[dr$PATIENT==i, "date"])))
 }
 for (i in pat_pb[! pat_pb %in% fin_vni$PATIENT ]){
   dr[dr$PATIENT==i , "fin_vni"] <- max(dr[dr$PATIENT==i, "date"])
+  bdd_dates[bdd_dates$PATIENT==i , "fin_vni"] <- max(dr[dr$PATIENT==i, "date"])
 }
 #si date de visite après ddn(qui n'est pas un décès), je change ddn en date de visite
 pat_pb <- unique(dr[dr$date>dr$ddn, "PATIENT"])
 for (i in pat_pb){
   dr[dr$PATIENT==i , "ddn"] <- max(dr[dr$PATIENT==i, "date"])
+  bdd_dates[bdd_dates$PATIENT==i , "ddn"] <- max(dr[dr$PATIENT==i, "date"])
   dr[dr$PATIENT==i , "dfin"] <- max(dr[dr$PATIENT==i, "date"])
+  bdd_dates[bdd_dates$PATIENT==i , "dfin"] <- max(dr[dr$PATIENT==i, "date"])
   dr[dr$PATIENT==i , "time.vni"] <- as.numeric(max(dr[dr$PATIENT==i, "date"]) - unique(dr[dr$PATIENT==i, "datevni"]))
+  bdd_dates[bdd_dates$PATIENT==i , "time.vni"] <- as.numeric(max(dr[dr$PATIENT==i, "date"]) - unique(dr[dr$PATIENT==i, "datevni"]))
 }
 for (i in pat_pb[! pat_pb %in% fin_vni$PATIENT ]){
   dr[dr$PATIENT==i , "fin_vni"] <- max(dr[dr$PATIENT==i, "date"])
+  bdd_dates[bdd_dates$PATIENT==i , "fin_vni"] <- max(dr[dr$PATIENT==i, "date"])
 }
 
 
@@ -1122,6 +1131,7 @@ dr <- dr[dr$date<= dr$dfin, ]
 
 #--------------------------------
 #datamanagement bl
+
 #data management
 bl$LIEUDEB_recode <- Recode(as.factor(bl$LIEUDEB), "1 = 'bulbar';2 = 'cervical'; 10:15 = 'lower limb'; 3 = 'respiratory'; 4:9 = 'upper limb'")
 d <- bl #base avec les colonnes qui ne sont pas dans bdd_dates
@@ -1166,8 +1176,36 @@ d[,c("DYSP_EFFORT", "DYSP_PAROX")] <- apply(d[,c("DYSP_EFFORT", "DYSP_PAROX")], 
 
 d [d$SEX == 1, "SEX"] <- 0
 d [d$SEX == 2, "SEX"] <- 1
+
+#suppression des criteres de mise en place de vnin selon avis de JG
+d[, paste0("crit", 1:20)] <- NULL
+#suppression de BMI qui est deja dans les var repetees
+d[ ,"BMI"] <- NULL
+
+#supprimer valeurs aberrantes
+lapply(names(bl)[-1], des_all, bl) #permet davoir les histogrammes des valeurs quanti
+d[d$CVF_ASSIS_ESR < 0 & !is.na(d$CVF_ASSIS_ESR), "CVF_ASSIS_ESR"] <- NA
+d[(d$CVF_ERS < 0 | d$CVF_ERS >10) & !is.na(d$CVF_ERS), "CVF_ERS"] <- NA
+
 bl <- d
 
+#--------------------------------
+#datamanagement bl
+d2 <- dr
+nb_pat_byvar <- lapply(tapply(d2$PATIENT, d2$qui, c), function(x)length(unique(x)))
+allx_byvar <- tapply(d2$x, d2$qui, c)
+nrow_byvar <- lapply(allx_byvar, length) #nb de rang par variable
+nval_byvar <- lapply(allx_byvar, function(x)length(unique(x))) #nb de valeurs différentes par variables
+min_level <-  lapply(allx_byvar, function(x)min(as.numeric(table(x)))) #nombre minimum de personnes par catégorie
+ncu <- data.frame(var = names(allx_byvar), nbrow = as.numeric(nrow_byvar), nval = as.numeric(nval_byvar), npat = as.numeric(nb_pat_byvar), min_level=as.numeric(min_level))
+quanti <- as.character(ncu[ncu$nval>4, "var"])
+lapply(quanti, function(var)hist(d2[d2$qui==var, "x"], main = var))
+
+#PaO2 sous oxygène à 773 mmHg, est-ce possible?
+d2[d2$qui=="PAO2_PP_CL1" & d2$x>600, "x"]
+#1 BMI aberrant
+d2[d2$qui=="BMI" & d2$x>50, "x"] <- NA
+dr <- d2
 #---------------------------------------
 
 #tableau sans doublons :
