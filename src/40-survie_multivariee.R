@@ -271,6 +271,9 @@ bm3 <- full_join(
 #a la fin prendre la plus recente des dates bdd6 bdd9 et bdd7
 bl_bmi <- bind_rows(bm1, bm2, bm3) %>% group_by(PATIENT) %>% arrange(desc(del)) %>% slice(1) %>% mutate(f=0)
 
+#NB: on avait nettoyé dr : si consult apres date de deces ce n'est pas un deces et time.vni==date de derniere consult - datevni
+
+
 saveRDS(bl_bmi, "data/bl_bmi.rds")
 
 

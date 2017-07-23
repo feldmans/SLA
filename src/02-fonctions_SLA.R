@@ -1049,7 +1049,8 @@ des_quanti <- function(var, data){
   quant <- round(quantile(data,na.rm=T),2)
   Q1 <- quant[2]
   Q3 <- quant[4]
-  a <- paste0(med," (",Q1,"-",Q3,")")
+  range <- range(data, na.rm=T)
+  a <- paste0(med," (",Q1,"-",Q3,"); ", range)
   #browser()
   
   nNA <- table(is.na(data))
@@ -1131,11 +1132,13 @@ describe_quantitative <- function(vec_var, .data){
       colnames(a) <- c("valeur", "missing values", "range")
       rownames(a) <- i
     } else {
+      hist(data, main = i)
       med <- round(median (data,na.rm=T),2)
       quant <- round(quantile(data,na.rm=T),2)
       Q1 <- quant[2]
       Q3 <- quant[4]
       a <- paste0(med," (",Q1,"-",Q3,")")
+      
       #browser()
       
       nNA <- table(is.na(data))
@@ -1148,7 +1151,7 @@ describe_quantitative <- function(vec_var, .data){
       }
       
       myrange <- round(range(data, na.rm=T),2)
-      myrange <- paste0(myrange[1]," - ",myrange[2])
+      myrange <- paste0(myrange[1]," ; ",myrange[2])
       # a <- rbind (a,nNA)
       # rownames(a)[-nrow(a)] <- paste0(i,"*") 
       a <- cbind (a, nNA, myrange)

@@ -7,7 +7,7 @@ library(survival)
 # if(!require(devtools)) install.packages("devtools")
 # devtools::install_github("kassambara/survminer", build_vignettes = FALSE)
 #library(survminer)#fonction ggcoxzph pour ploter résidus de schoenfeld 
-library(knitr)
+#library(knitr)
 library(gridExtra)
 library(grid)
 library(GGally)#fonction ggsurv
