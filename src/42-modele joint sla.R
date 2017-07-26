@@ -36,22 +36,17 @@ d <- d[d$PATIENT %in% bl$PATIENT, ]
 bl_bmi <- readRDS("data/bl_bmi.rds")
 table(bl_bmi$PATIENT %in% bl$PATIENT)
 #NB: on avait nettoyé dr : si consult apres date de deces ce n'est pas un deces et time.vni==date de derniere consult - datevni
-#il faudra la nettoyer ici
+#il faudra la nettoyer ici#=> ok fait dans 00-datamanaegement
 
 #=========================
 #merge bl et bl_bmi
 
+#Je supprime les BMI superieurs a 45
 d <- d %>% filter(!(qui == "BMI" & x >= 45))
 
-bl_bmi %>% filter(PATIENT =="ID140") %>% select(time.vni) # 597 au lieu de 598 : mais deja comme ca dans bdd_dates => c'est parce qu dr a ete change qd consult ulterieur a date deces, mais pas bdd_dates => je change aussi bdd_dates
+bl_bmi %>% filter(PATIENT =="ID140") %>% select(time.vni) # 597 au lieu de 598 : mais deja comme ca dans bdd_dates => c'est parce qu dr a ete change qd consult ulterieur a date deces, mais pas bdd_dates => je change aussi bdd_dates #ok MAJ dans 00-datamanegement
 
-#a continuer : refaire nettoyage comme pour dr
-bind_rows(d, bl_bmi) %>% select(one_of(colnames(d)))%>% filter(qui == "BMI" & PATIENT%in%c("ID140", "ID107")) %>%
-  group_by(PATIENT) %>% mutate(time.vni2=max(time.vni), evt2 = min(evt), date_dc2 = ifelse(all(!is.na(date_dc))==FALSE, NA, date_dc))%>%  
-  arrange(PATIENT, date) %>% 
-  select(PATIENT,date,x,qui,datevni, del,evt,evt2,time.vni,time.vni2, date_dc, date_dc2)
-
-
+#je fait une nouvelle baseline en fusionnant les baseline de dr et bl_bmi et je prend la date la plus proche de datevni
 bl_bmi2 <- bind_rows(d, bl_bmi) %>% select(one_of(colnames(d))) %>% filter(qui == "BMI" & f==0) %>% 
   group_by(PATIENT) %>% arrange(desc(date)) %>% 
   slice(1)
@@ -64,6 +59,7 @@ bind_rows(d, bl_bmi) %>% select(one_of(colnames(d))) %>% filter(qui == "BMI" & f
   slice(1)
 hist(bl_bmi2$x)
 
+#je merge les nouvelles baseline de BMI avec d
 d <- bind_rows(d %>% filter(!(qui == "BMI" & f==0)), bl_bmi2) %>% filter(x < 80) %>% mutate(del = ifelse(del<0, 0, del))
 
 
@@ -74,10 +70,11 @@ npos0 <- d %>% filter(qui=="BMI") %>% group_by(PATIENT) %>%
 
 tab <- table(bl=npos0$n0, nbval=pmin(npos0$n,2))
 res <- sum(tab[1,]) #nb de patients sans baseline (mais avec un suivi)
-res2 <- sum(tab)
+res2 <- sum(tab) #bl et/ou suivi
 res3 <- round(res/res2 *100,2) #% de patients sans baseline (denominateur = patients avec au moins une valeur)
-res <- data.frame(res2, res, res3 = paste0(res3, "%"))
+data.frame(pat_noNA = res2, F1_noF0 = res, perc = paste0(res3, "%"))
 
+#essqi dplyr (pas fini)
 d %>% filter(qui=="BMI") %>% group_by(PATIENT) %>% 
   summarise(n0 = sum(del<=0), npos = pmin(1, sum(del>0)), n = n0+npos) %>% arrange(PATIENT) 
 
@@ -98,6 +95,12 @@ vardr.vec <- d %>% count(qui) %>% .$qui
 head(bl)
 da <- left_join(d %>% filter(qui=="BMI"), bl) %>% select(PATIENT, time.vni, del, evt, qui, x, one_of(varbl.vec)) %>% na.omit 
 da$del<-da$del/30.4375
+da$time.vni <- da$time.vni/30.4375
+#======================
+#tableau pour cox
+#======================
+
+da2 <- d %>% filter(PATIENT %in% da$PATIENT) %>% mutate(del = del/30.4375, time.vni = time.vni/30.4375)
 #====================================================
 #====================================================
 
@@ -399,10 +402,13 @@ lmeBMI.marg <- lme(fixed = x ~ del + I(del^2) , data = da.grp, random = ~ del + 
 #Modele de survie
 #=======================
 
-da2 <- d %>% filter(PATIENT %in% da$PATIENT) %>% mutate(del = del/30.4375)
 
-ti<-0:max(d$time.vni)
-ti<-0:max(da$time.vni)
+#ces ti ne marchent pas pour les mois, ok pour les jours uniquement!
+# ti<-0:max(d$time.vni)
+# ti<-0:max(da$time.vni)
+# ti<-0:max(da2$time.vni)
+#ti <- sort(unique(da2$time.vni))
+ti <- sort(unique(c(da2$time.vni, da2$del)))
 length(ti)
 
 vardr.vec
@@ -419,6 +425,7 @@ zm<-mapply(function(x,y) c(x[-1], y[1]), z, zf)
 names(z)[1:5] # il manque le 107 a cause du na.omit => c'est normal
 zm[[2]]
 
+
 z<-tapply(y$evt, y$PATIENT, c)
 fct<-function (x) {
   x[-length(x)]<-0
@@ -433,7 +440,7 @@ yt$start<-yt$del
 yt$stop<-yt$delapres
 yt$etat<-yt$evt2
 
-yt<-survSplit(yt, end="stop", start="start", cut=ti, event="etat")
+yt<-survSplit(data = yt, end="stop", start="start", cut=ti, event="etat")
 yt<-yt[order(yt$PATIENT, yt$start),]
 
 #des sujets meurt le jour de la visite (?)
@@ -443,76 +450,9 @@ yt$etat[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni]<-1
 yt[ ,var] <- yt$x
 Yt<-yt[, c("PATIENT", "start", "stop", "etat", var)]
 
-
-
-#version dplyr
-y3 <- da2 %>% filter(qui==var) %>% group_by(PATIENT) %>% arrange(PATIENT, del) %>% 
-  mutate(delapres = lead(del), 
-         delapres = ifelse(is.na(delapres), time.vni, delapres), 
-         rn = row_number(), n = n(), evt2 = ifelse(rn == n, evt, 0)) %>% 
-  mutate(start = del, stop = delapres, etat = evt2) %>% 
-  survSplit(., end="stop", start="start", cut=ti, event="etat") %>% 
-  arrange(PATIENT, start) %>% 
-  mutate(etat = ifelse(evt==1 & etat==0 & stop==time.vni, 1, etat)) %>%
-  select(PATIENT, start, stop, etat, x)
-colnames(y3)[colnames(y3)=="x"] <- var
-
-
-y3[y3$delapres!=y$delapres,]  #tout est ok
-y3[y3$evt2!=y$evt2,]  #tout est ok
-sapply(colnames(Yt), function(x)all(y3[,x] == Yt[,x]))
-
-# y %>% filter(PATIENT =="ID140") %>% select(-(E_PHAR_LAR: APPAREILLE_PP))
-# #le probleme vient des lignes ou time.vni bl n'est pas identique : pb au moment de la creation de time.vni a del = 0
-# #ok pb regle : on navait change date incoherente dans dr mais pas dans bdd_date
-
-
-var <- "ALS"
-y3.2 <- da2 %>% filter(qui==var) %>% group_by(PATIENT) %>% arrange(PATIENT, del) %>% 
-  mutate(delapres = lead(del), 
-         delapres = ifelse(is.na(delapres), time.vni, delapres), 
-         rn = row_number(), n = n(), evt2 = ifelse(rn == n, evt, 0)) %>% 
-  mutate(start = del, stop = delapres, etat = evt2) %>% 
-  survSplit(., end="stop", start="start", cut=ti, event="etat") %>% 
-  arrange(PATIENT, start) %>% 
-  mutate(etat = ifelse(evt==1 & etat==0 & stop==time.vni, 1, etat)) %>%
-  select(PATIENT, start, stop, etat, x)
-colnames(y3.2)[colnames(y3.2)=="x"] <- var
-
-
-get_split <- function(data, var){
-  y3.2 <- data %>% filter(qui==var) %>% group_by(PATIENT) %>% arrange(PATIENT, del) %>% 
-    mutate(delapres = lead(del), 
-           delapres = ifelse(is.na(delapres), time.vni, delapres), 
-           rn = row_number(), n = n(), evt2 = ifelse(rn == n, evt, 0)) %>% 
-    mutate(start = del, stop = delapres, etat = evt2) %>% 
-    survSplit(., end="stop", start="start", cut=ti, event="etat") %>% 
-    arrange(PATIENT, start) %>% 
-    mutate(etat = ifelse(evt==1 & etat==0 & stop==time.vni, 1, etat)) %>%
-    select(PATIENT, start, stop, etat, x)
-  colnames(y3.2)[colnames(y3.2)=="x"] <- var
-  return(y3.2)
-}
-
-
-y <- get_split(da2, vardr.vec[1])
-for (.var in vardr.vec[-1]){
-  y2 <- get_split(da2, .var)
-  y <- full_join(y, y2, by = c("PATIENT", "start", "stop", "etat"))
-  print(head(y))
-} 
-
-
-
-sapply(colnames(y3.3), function(x)all(y3.2[,x] == y3.3[,x]))
-
-sapply(colnames(Yt), function(x)all(y3.2[,x] == Yt[,x]))#apres avoir fait retourner Yt avec ALS
-
-full_join(y3, y3.2, by = c("PATIENT", "start")) %>% head
-
-
 #ajouter une variable répétée
 var <- vr1[2]
+var <- "ALS"
 y<-d[d$qui==var,]
 
 y<-y[order(y$PATIENT, y$del),]
@@ -543,7 +483,8 @@ yt$etat[yt$evt==1 & yt$etat==0 & yt$stop==yt$time.vni]<-1
 yt[,var] <-yt$x
 
 dim(Yt)
-Yt<-merge(Yt, yt[, c("PATIENT", "start", "cephal")], by=c("PATIENT", "start"), all=T)
+Yt<-merge(Yt, yt[, c("PATIENT", "start", var)], by=c("PATIENT", "start"), all=T)
+Yt<-merge(Yt, yt, by=c("PATIENT", "start"), all=T)
 dim(Yt)
 
 head(Yt)
@@ -556,6 +497,162 @@ dim(Yt)
 Yt<-merge(Yt, y0, by="PATIENT", all.x=T, all.y=F)
 dim(Yt)
 
+#--------------------------------------
+#version Sarah
+
+# #version dplyr
+# y3 <- da2 %>% filter(qui==var) %>% group_by(PATIENT) %>% arrange(PATIENT, del) %>% 
+#   mutate(delapres = lead(del), 
+#          delapres = ifelse(is.na(delapres), time.vni, delapres), 
+#          rn = row_number(), n = n(), evt2 = ifelse(rn == n, evt, 0)) %>% 
+#   mutate(start = del, stop = delapres, etat = evt2) %>% 
+#   survSplit(., end="stop", start="start", cut=ti, event="etat") %>% 
+#   arrange(PATIENT, start) %>% 
+#   mutate(etat = ifelse(evt==1 & etat==0 & stop==time.vni, 1, etat)) %>%
+#   select(PATIENT, start, stop, etat, x)
+# colnames(y3)[colnames(y3)=="x"] <- var
+# 
+# 
+# y3[y3$delapres!=y$delapres,]  #tout est ok
+# y3[y3$evt2!=y$evt2,]  #tout est ok
+# sapply(colnames(Yt), function(x)all(y3[,x] == Yt[,x]))
+
+# y %>% filter(PATIENT =="ID140") %>% select(-(E_PHAR_LAR: APPAREILLE_PP))
+# #le probleme vient des lignes ou time.vni bl n'est pas identique : pb au moment de la creation de time.vni a del = 0
+# #ok pb regle : on navait change date incoherente dans dr mais pas dans bdd_date
+
+
+get_split <- function(data, var){
+  #browser()
+  y3.2 <- data %>% filter(qui==var) %>% group_by(PATIENT) %>% arrange(PATIENT, del) %>% 
+    mutate(delapres = lead(del), 
+           delapres = ifelse(is.na(delapres), time.vni, delapres), 
+           rn = row_number(), n = n(), evt2 = ifelse(rn == n, evt, 0)) %>% 
+    mutate(start = del, stop = delapres, etat = evt2) %>% 
+    survSplit(., end="stop", start="start", cut=ti, event="etat") %>% 
+    arrange(PATIENT, start) %>% 
+    mutate(etat = ifelse(evt==1 & etat==0 & stop==time.vni, 1, etat)) %>%
+    #mutate(etat = ifelse(evt==1 & etat==0 & stop==time.vni, 1, etat)) %>%
+    select(PATIENT, start, stop, etat, evt, del, time.vni, x)
+  colnames(y3.2)[colnames(y3.2)=="x"] <- var
+  return(y3.2)
+}
+
+
+y <- get_split(da2, vardr.vec[1])
+for (.var in vardr.vec[-1]){
+#for (.var in vardr.vec[2]){
+  y2 <- get_split(da2, .var)
+  print(head(y2))
+  y <- full_join(y, y2 %>% select(PATIENT, start, stop, del, etat, evt, time.vni, one_of(.var)), by = c("PATIENT", "start", "stop", "etat", "evt", "time.vni"))
+  print(head(y))
+} 
+y %>% filter(PATIENT == "ID101" ) %>% head #pb lignes 3 et 4 : vient du start stop qui est different a partir de MORPHO_PPCHOICE 1 #MAJ : ti en mois en time.vni en mois : plus de pb 
+y %>% filter(PATIENT == "ID101" ) #%>% View #pb lignes 3 et 4 : vient du start stop qui est different a partir de MORPHO_PPCHOICE 1 #MAJ : ti en mois en time.vni en mois : plus de pb 
+y %>% filter(PATIENT == "ID1052" ) %>% head #pb lignes 3 et 4 : vient du start stop qui est different a partir de MORPHO_PPCHOICE 1 #MAJ : ti en mois en time.vni en mois : plus de pb 
+#verif que etat 1 au meme endroit
+get_split(da2, "MORPHO_PP_CHOICE_1") %>% filter(PATIENT == "ID101" ) %>% head
+get_split(da2, "BMI") %>% filter(PATIENT == "ID101" ) %>% head
+da2 %>% filter(PATIENT == "ID101" & qui == "MORPHO_PP_CHOICE_1") 
+da2 %>% filter(PATIENT == "ID101" & qui == "ALS") 
+
+
+#merge dr splitte et bl
+all.cox <- left_join(y, bl) 
+all.cox <- all.cox %>% mutate(all_del = all.cox %>% select(starts_with("del", ignore.case=FALSE)) %>% mutate(all_del = apply(.,1, min, na.rm=T)) %>% .$all_del) %>% 
+  select(-starts_with("del", ignore.case=FALSE)) %>% mutate(del = all_del, all_del = NULL) %>% 
+  select(PATIENT, start, stop, etat, del, time.vni, everything())
+
+saveRDS(all.cox, "data/all.cox_NOtimeTransf20170726.rds")
+
+#-------------------------------------------------
+#PB
+
+#il y a des del evt etime.vni et ALS NA 3=> pb venait de ALS vide au depart pour ces patients. pb resolu en mergeant aussi evt del et time.vni
+all.cox %>% filter(is.na(del) & is.na(evt) & is.na(time.vni)) %>% dim
+all.cox %>% filter(is.na(del) & is.na(evt) & is.na(time.vni) & is.na(ALS)) %>% dim #=> pb vient de ALS
+all.cox %>% filter(is.na(del) & is.na(evt) & is.na(time.vni) & is.na(ALS)) %>% count(PATIENT) #88 patient : c'est bien le nombre de aptient avec NA pour ces variables
+#pb : il ya des start na : c'est parce que nettoyage au niveau de get_split n'est pas complet
+all.cox %>% filter(is.na(start))
+all.cox %>% filter(stop == del) %>% count(start) #quand stop = del alors tjr NA
+all.cox %>% filter(is.na(start) & stop != del)  #start est na alors stop tjr == del
+all.cox %>% filter(is.na(start) & evt==1)  #ID181 uniquement : on lui a bien mis etat == 1 a l'avant derniere ligne mais on a pas supprime derniere ligne
+all.cox %>% filter(is.na(start) & evt==0)  #iD1081, 1208, 126 etc...
+
+#NB MAJ de ti => pb des lignes avec infos supplementaires reglees
+# Etude de ID181: 2 pb : le dernier start est NA mais aussi deux lignes avec des infos complémentaiers pour start = 1.54
+all.cox %>% filter(PATIENT == "ID181" ) %>% View 
+all.cox %>% filter(PATIENT == "ID181" & is.na(start))
+all.cox %>% filter(PATIENT == "ID181" & stop>3)
+#pb desdeux lignes supplémentaires vient du fait que ti prend toutes les valeurs de time.vni(delai entr epose de vni et deces) mais pas de del(qui est le délai entre la pose de vni et la consult)
+
+# Etude de ID1081: 2 pb : le dernier start est NA mais aussi deux lignes avec des infos complémentaiers pour start = 11.92 et 37.22
+all.cox %>% filter(PATIENT == "ID1081" ) %>% View 
+all.cox %>% filter(PATIENT == "ID1081" & is.na(start)) #qd la derniere consult est la date de derniere nouvelle alors la derniere ligne est NA pour start => j'en fais quoi??
+all.cox %>% filter(PATIENT == "ID1081" & stop>40)
+
+# Etude de ID1208: 2 pb : le dernier start est NA mais aussi deux lignes avec des infos complémentaiers pour start = 11.92 et 37.22
+all.cox %>% filter(PATIENT == "ID1208" ) %>% View 
+all.cox %>% filter(PATIENT == "ID1208" & is.na(start)) #qd la derniere consult est la date de derniere nouvelle alors la derniere ligne est NA pour start => j'en fais quoi??
+all.cox %>% filter(PATIENT == "ID1208" & stop>40)
+
+#pb patient sans baseline=> c'est pourquoi pour BMI on a que 395 patients sans NA (alors qu'on a fait un na omit sur da qui est la base repetee BMI, avant split sur tous les evt)
+all.cox %>% filter(is.na(BMI))
+all.cox %>% filter(is.na(BMI) & !is.na(start))
+all.cox %>% filter(PATIENT == "ID4930") #pas de baseline
+all.cox %>% filter(PATIENT == "ID9415" & start>4) #pas de baseline
+all.cox %>% filter(PATIENT == "ID9415" & start<4.66) %>% count(BMI) 
+all.cox %>% filter(PATIENT == "ID1081" & stop >40) #le NA BMI vient de la ligne del = stop (cette consult n'a ete replie que pour certaines variables et les autres sont NA)
+all.cox %>% filter(PATIENT == "ID7877" & stop >15) #le NA BMI vient de la ligne del = stop (cette consult n'a ete replie que pour certaines variables et les autres sont NA)
+#essai pour comparer avec Yann notamment les bug
+y <- get_split(da2, "ALS")
+y2 <- get_split(da2, "BMI")
+full_join(y, y2, by = c("PATIENT", "start", "stop", "etat")) %>% filter(PATIENT =="ID1067") %>% View
+full_join(y, y2, by = c("PATIENT", "start", "stop", "etat")) %>% filter(PATIENT =="ID101") %>% View
+
+
+#-------------------------------------------------
+#Analyse des donnees manquantes
+
+#combien de patient si on fait un NA omit?
+all.cox %>% na.omit %>% count(PATIENT)#3
+
+#combien de NA par variable
+count_na <- function(x) sum(is.na(x))
+any_NA <- function(x) any(is.na(x))
+no_NA_atall <- function(x) all(!is.na(x))
+
+#nb de NA par patient par variable
+all.cox %>% group_by(PATIENT) %>% summarise_all(count_na) 
+
+#pour chaque pqtient et pour chqaue variable, dit s'il y a au moins un NA
+all.cox %>% group_by(PATIENT) %>% summarise_all(any_NA)
+#pour chaque variable, combien de patient avec au moins 1 NA
+all.cox %>% group_by(PATIENT) %>% select(-start) %>% summarise_all(any_NA) %>% #et pas mutate all qui donne TF pr chaque ligne du patient
+  ungroup %>% select(-PATIENT) %>% summarise_all(sum) %>% t
+#pour chaque variable, combien de patient sans NA
+noNA_var <- all.cox %>% group_by(PATIENT) %>% #select(-start) %>%
+  summarise_all(no_NA_atall) %>% #et pas mutate all qui donne TF pr chaque ligne du patient
+  ungroup %>% select(-PATIENT) %>% summarise_all(sum) %>% t
+
+
+#essai de na.omit em retirant des variables (le pb des start ne modifie pas le compte des patienst car na.omit retire des lignes)
+select_var <- noNA_var %>% data.frame(NB=., var=row.names(.), stringsAsFactors = FALSE) %>% filter(NB>300) %>% .$var
+all.cox %>% select(PATIENT, one_of(select_var)) %>% na.omit %>% count(PATIENT)#363 PATTIENT avec un seuil de 300
+noNA_rows <- all.cox %>% select(PATIENT, one_of(select_var)) %>% na.omit #363 PATTIENT avec un seuil de 300
+#Pb ces patients n'ont peut etre pas de baseline
+noNA_rows %>% group_by(PATIENT) %>% summarise(mindel = min(del), minstart = min(start)) %>% filter(minstart!=0) #94 patients sans baseline
+
+# all.cox %>% group_by(PATIENT) %>% summarise_all(any_NA) %>% select(-PATIENT) %>%  apply(.,1,sum)
+# all.cox %>% group_by(PATIENT) %>% summarise_all(any_NA) %>% select(-PATIENT) %>%  summarise_all(sum)
+# all.cox %>% group_by(PATIENT) %>% summarise_all(any_NA) %>% count
+
+
+
+
+
+
+#-----------------------------------------------------------------
 
 yt<-na.omit(Yt)
 coxt<-coxph(Surv(start, stop, etat)~SEX+dyspnee+cephal+cluster(PATIENT), data=yt)
