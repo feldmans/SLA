@@ -1,5 +1,4 @@
 library(stringr)
-library(dplyr)
 library(lubridate)
 library(car)
 library(survival)
@@ -14,3 +13,4 @@ library(GGally)#fonction ggsurv
 library(scales)
 library(ggplot2)
 library(tidyr)
+library(dplyr)
