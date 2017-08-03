@@ -17,7 +17,7 @@ bdd_dates <- readRDS("data/bdd_dates.rds")
 bl$extraction <- as_date("2015-08-27")
 bl2 <- bl[bl$extraction - bl$datevni >= 365, ]
 
-
+d <- bl
 #----------------
 #selection des variables
 d2 <- d[ ,names(d)[!names(d) %in% names(bdd_dates)]] #base avec les colonnes qui ne sont pas dans bdd_dates
