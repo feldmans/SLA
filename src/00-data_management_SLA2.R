@@ -1183,14 +1183,14 @@ d[, paste0("crit", 1:20)] <- NULL
 d[ ,"BMI"] <- NULL
 
 #supprimer valeurs aberrantes
-lapply(names(bl)[-1], des_all, bl) #permet davoir les histogrammes des valeurs quanti
+lapply(names(d)[-1], des_all, bl) #permet davoir les histogrammes des valeurs quanti
 d[d$CVF_ASSIS_ESR < 0 & !is.na(d$CVF_ASSIS_ESR), "CVF_ASSIS_ESR"] <- NA
 d[(d$CVF_ERS < 0 | d$CVF_ERS >10) & !is.na(d$CVF_ERS), "CVF_ERS"] <- NA
 
 bl <- d
 
 #--------------------------------
-#datamanagement bl
+#datamanagement dr
 d2 <- dr
 nb_pat_byvar <- lapply(tapply(d2$PATIENT, d2$qui, c), function(x)length(unique(x)))
 allx_byvar <- tapply(d2$x, d2$qui, c)
@@ -1205,10 +1205,43 @@ lapply(quanti, function(var)hist(d2[d2$qui==var, "x"], main = var))
 d2[d2$qui=="PAO2_PP_CL1" & d2$x>600, "x"]
 #1 BMI aberrant
 d2[d2$qui=="BMI" & d2$x>50, "x"] <- NA
+#A posteriori, apres avoir vu que BMI non loglineaire, je decoupe en classe (selon OMS)
+# d2 <- bind_rows(d2 %>% filter(qui=="BMI") %>% mutate(qui = "BMI_c", 
+#                                                x = ifelse(x<18.5, 1, 
+#                                                           ifelse(x>=18.5 & x<25, 2,
+#                                                                  ifelse(x>=25 & x<30, 3, 4)))), d2) 
+d2 <- bind_rows(d2 %>% filter(qui=="BMI") %>% mutate(qui = "BMI_c3", 
+                                                     x = ifelse(x<18.5, 1, 
+                                                                ifelse(x>=18.5 & x<25, 2, 3))), d2) 
+
+
+#A posteriori util diurn pas loglin non plus, je decoupe en classe (arbitraire)
+d2 <- bind_rows(d2 %>% filter(qui=="UTIL_VENTIL_DIURN_SV") %>% mutate(qui = "UTIL_VENTIL_DIURN_SV_c", 
+                                                     x = ifelse(x==0, 0, 
+                                                                ifelse(x>0 & x<=4, 1,
+                                                                       ifelse(x>4 & x<=8, 2, 3)))), d2) 
+d2$del <- ifelse(d2$del<0, 0, d2$del)
 dr <- d2
+
+#dr sans doublons mais avec les patients sans consultations de base
+saveRDS(dr, "data/df_rep_avecpatssbl.rds")
+saveRDS(bl, "data/bl_avecpatssbl.rds")
+saveRDS(vnisla, "data/vnisla_avecpatssbl.rds")
+saveRDS(bdd_dates, "data/bdd_dates_avecpatssbl.rds")
+
+
+#retrait des patients sans baseline
+dr <- dr %>% group_by(PATIENT) %>% mutate(mindel = min(del, na.rm=T)) %>% filter(mindel==0)
+dr <- data.frame(dr)
+
+bl <- bl[bl$PATIENT %in% dr$PATIENT, ]
+vnisla <- vnisla[vnisla$PATIENT %in% dr$PATIENT, ]
+bdd_dates <- bdd_dates[bdd_dates$PATIENT %in% dr$PATIENT, ]
+
+
 #---------------------------------------
 
-#tableau sans doublons :
+#tableau sans doublons all with bl:
 saveRDS(dr, "data/df_rep.rds")
 saveRDS(bl, "data/bl.rds")
 saveRDS(vnisla, "data/vnisla.rds")

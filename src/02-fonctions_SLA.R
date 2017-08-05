@@ -11,6 +11,28 @@
 # }
 
 
+#--------------------------------------------------------------------------
+#fonction pour recuprer une base splittee a partir de la base longitudinale
+#---------------------------------------------------------------------------
+get_split <- function(data, var, no_name = FALSE){
+  ti <- sort(unique(c(data$time.vni, data$del)))
+  #browser()
+  y3.2 <- data %>% filter(qui==var) %>% group_by(PATIENT) %>% arrange(PATIENT, del) %>% 
+    mutate(delapres = lead(del), 
+           delapres = ifelse(is.na(delapres), time.vni, delapres), 
+           rn = row_number(), n = n(), evt2 = ifelse(rn == n, evt, 0)) %>% 
+    mutate(start = del, stop = delapres, etat = evt2) %>% 
+    survSplit(., end="stop", start="start", cut=ti, event="etat") %>% 
+    arrange(PATIENT, start) %>% 
+    mutate(etat = ifelse(evt==1 & etat==0 & stop==time.vni, 1, etat)) %>%
+    #mutate(etat = ifelse(evt==1 & etat==0 & stop==time.vni, 1, etat)) %>%
+    select(PATIENT, start, stop, etat, evt, del, time.vni, x)
+  if(no_name == FALSE) colnames(y3.2)[colnames(y3.2)=="x"] <- var
+  return(y3.2)
+}
+
+
+
 
 manage_date_ND <- function(vec){ #vec doit être un vecteur avec éléments de la forme 04/04/1989(facteur) ou "04/04/1989"(character)
   if (all(!is.na(as.Date(as.character(vec[!is.na(vec)]), tz = 'UTC', format = '%Y-%m-%d')))){

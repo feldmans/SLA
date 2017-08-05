@@ -600,11 +600,11 @@ med_agevni <- ac %>% filter(!is.na(agevni)) %>% group_by(PATIENT) %>% filter(row
 med_ALS <- ac %>% filter(!is.na(ALS)) %>% group_by(PATIENT) %>% filter(row_number()==1) %>% ungroup %>% summarise(median(ALS)) %>% as.numeric
 med_BMI <- ac %>% filter(!is.na(BMI)) %>% group_by(PATIENT) %>% filter(row_number()==1) %>% ungroup %>% summarise(median(BMI)) %>% as.numeric
  transf %>% filter(recode == TRUE)
-ac <- ac %>% mutate(CVF_ERS_LL = ifelse(CVF_ERS<med_CVF_ERS, 0, 1), 
-                   SLAtillvni_LL = ifelse(SLAtillvni<med_SLAtillvni, 0, 1),
-                   agevni_LL = ifelse(agevni<med_agevni, 0, 1),
-                   ALS_LL = ifelse(ALS < med_ALS, 0, 1),
-                   BMI_LL = ifelse(BMI< med_BMI, 0, 1))
+ac <- ac %>% mutate(CVF_ERS_LL = ifelse(CVF_ERS<=med_CVF_ERS, 0, 1), 
+                   SLAtillvni_LL = ifelse(SLAtillvni<=med_SLAtillvni, 0, 1),
+                   agevni_LL = ifelse(agevni<=med_agevni, 0, 1),
+                   ALS_LL = ifelse(ALS <= med_ALS, 0, 1),
+                   BMI_LL = ifelse(BMI<= med_BMI, 0, 1))
 
 #RISQUES PROPORTIONNELS
 transf %>% filter(RP == FALSE & recode == TRUE) #aucune variable recodee et a transformer 
@@ -799,6 +799,43 @@ res
 tmp.var <- my_var_transf[c(2, 3, 4, 6, 10, 19, 20, 22)]
 all.var <- paste(unlist(tmp.var), collapse = " + ")
 cox_select <- coxph(as.formula(paste0("Surv(start, stop, etat)~",all.var, "+ cluster(PATIENT)")), data = ac) 
+summary(cox_select)
+
+v<-unlist(strsplit(all.var, " + ", fix=T))
+
+id<-unique(ac$PATIENT)
+aci<-ac[match(id, ac$PATIENT),v]
+
+i<-c(1,2)
+new<-aci[i,]
+new[2,]<-new[1,];new[2,1]<-0
+new
+
+
+km0<-survfit(Surv(time.vni/30.4375, evt)~SLAtillvni_LL, data=y)
+
+kmcox<-survfit(cox_select, newdata=new)
+plot(kmcox)
+
+
+
+
+y<-merge(bl, bdd_dates, by="PATIENT", all=T)
+km<-survfit(Surv(time.vni,evt)~ LIEUDEB_recode, data=y)
+summary(km, time=c(3, 6, 12)*30.4375)
+plot(km)
+
+ind<-8:9
+t<-20
+b<-coef(cox_select)
+vb<-cox_select$var
+
+ct<-c(1, log(t))
+mct<-(ct)%*%t(ct)
+
+exp(qnorm(c(0.5, 0.025, 0.975), sum(b[ind]*ct), sqrt(sum(vb[ind,ind]*mct))))
+
+
 
 p.tmp <- sapply(seq(tmp.var), function(i){
   print(i)
@@ -1336,4 +1373,7 @@ getVarCov(lmeBMI.3, type = "marginal")
 
 lmeBMI.marg <- lme(fixed = x ~ del + I(del^2) , data = da.grp, random = ~ del + I(del^2), na.action = na.omit, method = "REML")
 #Pas de variables de groupe de traitement donc on est sûr que la variance est la même pour tout l'échantillon.
+
+
+
 

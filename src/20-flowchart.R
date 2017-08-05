@@ -31,6 +31,9 @@ DC_2.df <- read.csv2("data/date_evt_patientHorsSuiviNeuro.csv")
 DC_2.df$PATIENT <- as.character(DC_2.df$PATIENT)
 DC_2.df <- DC_2.df[DC_2.df$date_evt!="", ]
 
+#dr sans doublons mais avec les patients sans consultations de base
+dr_nodbl_ssbl <-  readRDS("data/df_rep_avecpatssbl.rds")
+
 #bases sans doublon
 vnisla <- readRDS("data/vnisla.rds")
 dr <- readRDS("data/df_rep.rds")
