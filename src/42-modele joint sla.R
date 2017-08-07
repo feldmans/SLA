@@ -260,7 +260,7 @@ all.cox  %>% group_by(PATIENT) %>%
 all.cox  %>% group_by(PATIENT) %>% arrange(PATIENT, start) %>% 
   mutate(rn = row_number(), maxrn = max(rn)) %>%
   #filter(PATIENT =="ID5697") %>% arrange(start) %>% select(start, stop,  rn , maxrn) %>% .$rn
-  filter(is.na(start) & rn != max(rn)) %>% 
+  filter(is.na(start) & rn != max(rn)) %>% #aucune ligne ayant start na qui ne soit pas la derniere ligne
   #filter(is.na(start) & rn == max(rn)) %>% 
   select(PATIENT,start, stop,del, etat, evt, rn , maxrn) 
 #non : 5697 5797 5899 # maj ok : c'est parce que je n'avais pas trié par start
@@ -268,9 +268,11 @@ all.cox  %>% group_by(PATIENT) %>% arrange(PATIENT, start) %>%
 #ok je peux supprimer les start NA
 all.cox <- all.cox %>% filter(!is.na(start))
 
-#Je supprime les patients qui n'ont pas de consultation baseline (c'est a dire delai minimal supereiru a 0) # 747 - 706 = on perd 41 patients
+#Je supprime les patients qui n'ont pas de consultation baseline pour ces variables selectionnees (c'est a dire delai minimal supereiru a 0) # 747 - 706 = on perd 41 patients
 all.cox <- all.cox %>% group_by(PATIENT) %>% mutate(mindel = min(del)) %>% filter(mindel==0)
-
+#"ID4770" "ID6311" "ID7144" "ID8658" n'avaient pas ete supprimes en faisant cette etape a 00-data
+length(unique(y$PATIENT))
+da2_init %>% filter(PATIENT == "ID4770") %>% View
 
 
 

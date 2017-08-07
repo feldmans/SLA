@@ -1467,7 +1467,7 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", quali = 
       HRIC <- paste0(HRIC[1], " [", HRIC[3], " - ", HRIC[4],"]")
       stat <- round(test$sctest["test"],2)
       pval <- round(test$sctest["pvalue"],4)
-      return(data.frame(variable = var, recode = recode, RP = TRUE, transf = NA, tps_clinique = NA, HRIC = HRIC, test = "score", statistic = stat, pvalue = pval, param = "beta", beta = coefbeta))
+      return(data.frame(variable = var, recode = recode, RP = TRUE, transf = NA, tps_clinique = NA, HRIC = HRIC, test = "score", statistic = stat, pvalue = pval, param = "a_recode", beta = coefbeta))
       
     } else { #RP no respectés
       ti <- sort(unique(c(0,s$tps[s$evt==1])))
@@ -1565,7 +1565,7 @@ HR_score <- function(var="SEX", data=sla, .time="time.vni", .evt="evt", quali = 
     HRIC <- paste0(as.numeric(HRIC[,1]), " [", as.numeric(HRIC[,3]), " - ", as.numeric(HRIC[,4]),"]")
     stat <- round(test$sctest["test"],2)
     pval <- round(test$sctest["pvalue"],4)
-    return(data.frame(variable = var, level = n1, ref = ref, recode = recode, RP = TRUE, transf = NA, tps_clinique = NA, HRIC = HRIC, test = "score", statistic = stat, pvalue = pval, param = "beta", beta = coefbeta))
+    return(data.frame(variable = var, level = n1, ref = ref, recode = recode, RP = TRUE, transf = NA, tps_clinique = NA, HRIC = HRIC, test = "score", statistic = stat, pvalue = pval, param = "a_recode", beta = coefbeta))
   }
 
 }
@@ -1813,12 +1813,12 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), recode =
     
   } else {
     sv <- summary(km0, time=vec_time_IC)
-    df <- data.frame(group = 0, time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+    df <- data.frame(param = 0, time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
     df[,3:5] <- round(df[,3:5], 0)
     df0 <- df
     
     sv <- summary(km1, time=vec_time_IC)
-    df <- data.frame(group = 1, time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+    df <- data.frame(param = 1, time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
     df[,3:5] <- round(df[,3:5], 0)
     df1 <- df
     df <- rbind(df0, df1)
@@ -1917,7 +1917,8 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), recode =
 #   
 # }
 #fonction survie quali à plusiuers clkasses(à fusionner avec celle du dessus à l'occasion)
-draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec_time_IC= c(1, 3), surv_only=FALSE, pvalue=TRUE){
+draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec_time_IC= c(6, 12), surv_only=FALSE, pvalue=TRUE){
+  
   print(var)
   s <- data
   s$a <- s[ ,var]
@@ -1925,7 +1926,8 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
   s$a <- as.factor(s$a)
   
   s$evt <- s[ ,.evt]
-  s$tps <- (s[ ,.time]/365.25) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+  #s$tps <- (s[ ,.time]/365.25) + 0.001 # en annee #0.001 au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+  s$tps <- (s[ ,.time]/(365.25/12)) + 0.001 # en mois # 0.001 au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
   
   km <- survfit(Surv(tps,evt)~a, data=s, conf.int=.95)
   
@@ -1937,7 +1939,8 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
     .skmi <- summary(.km, time=vec_time_IC-am)
     assign(paste0("skmi",i), .skmi)
     #pour table de survie
-    .skm <- summary(.km, time=seq(0, 10, by=1))
+    #.skm <- summary(.km, time=seq(0, 10, by=1))# tps en annee
+    .skm <- summary(.km, time=seq(0,max(s$tps),6))# tps en mois
     .skm <- data.frame(time=.skm$time, n.risk=.skm$n.risk)
     assign(paste0("skm",i), .skm)
     
@@ -1960,15 +1963,17 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
     #courbe de survie
     g <- ggsurv(km, CI=FALSE, order.legend = FALSE, surv.col=col, cens.col=col) +
       #changement des axes
-      scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
+      #scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) + #qd tps en annee
+      scale_x_continuous(breaks=seq(0,max(s$tps),6), labels=seq(0,max(s$tps),6)) + #qd tps en mois
       scale_y_continuous(labels=percent) +
-      labs(x="Time of follow-up, year", title=.title) +
+      #labs(x="Time of follow-up, year", title=.title) +
+      labs(x="Time of follow-up, months", title=.title) +
       #changement legende
       guides (linetype = FALSE) +
       scale_colour_discrete( labels = leg) +
       theme(legend.position="right", legend.title=element_blank()) +
       #espace autour du schéma
-      theme(plot.margin = unit(c(0,1,4,2), "cm"), plot.title = element_text(size = 16, face = "bold"),
+      theme(plot.margin = unit(c(1,1,4,2), "cm"), plot.title = element_text(size = 16, face = "bold"),
             axis.title.y = element_text(size = 12), axis.title.x = element_text(size = 12),
             legend.title = element_text(size=14), legend.text = element_text(size=12)) #top, right, bottom, left
     
@@ -1977,6 +1982,7 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
     for (j in 1:length(km$strata)){
       .skmi <- get(paste0(paste0("skmi",j)))
       for (i in 1:2) {
+        #browser()
         g <- g + geom_segment(x = .skmi$time[i], y = .skmi$lower[i], xend = .skmi$time[i], yend = .skmi$upper[i], colour = col[j])
         g <- g + geom_segment(x = .skmi$time[i] - 0.1, y = .skmi$lower[i], xend = .skmi$time[i] + 0.1, yend = .skmi$lower[i], colour = col[j])
         g <- g + geom_segment(x = .skmi$time[i] - 0.1, y = .skmi$upper[i], xend = .skmi$time[i] + 0.1, yend = .skmi$upper[i], colour = col[j])
@@ -1984,8 +1990,8 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
     }
 
     #risk table
-    #position_y <- c(-1.2, -1.5, -1.7, -1.9, -2.1)
-    position_y <- c(-1.4, -1.5, -1.6, -1.7, -1.8)
+    #position_y <- c(-1.2, -1.5, -1.7, -1.9, -2.1) 
+    position_y <- - (1.5 + (0.1 * seq(km$strata)))
     for (j in 1:length(km$strata)){
       .skm <- get(paste0(paste0("skm",j)))
       .pos <- position_y[j]
@@ -1996,7 +2002,8 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
     
     #display group text
     for (j in 1:length(km$strata)){
-      g <- g + annotation_custom(grob = textGrob(leg[j]), xmin = -2.1, xmax = -2.1, ymin = position_y[j])
+      #g <- g + annotation_custom(grob = textGrob(leg[j]), xmin = -2.1, xmax = -2.1, ymin = position_y[j])#year
+      g <- g + annotation_custom(grob = textGrob(leg[j]), xmin = -12, xmax = -12, ymin = position_y[j])
     }
     if (pvalue==TRUE){
       mod <- coxph(Surv(tps, evt) ~ a, data = s)
@@ -2017,7 +2024,7 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
     .l <- lapply(1:length(km$strata), function(i){
       .km <- survfit(Surv(tps, evt)~a, data=s[s$a==levels(s$a)[i], ], conf.int=.95)
       sv <- summary(.km, time=vec_time_IC)
-      df <- data.frame(group = levels(s$a)[i], time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
+      df <- data.frame(param = levels(s$a)[i], time = sv$time, survival = sv$surv*100, LCI = sv$lower*100, UCI = sv$upper*100)
       df[,3:5] <- round(df[,3:5], 0)
       df0 <- df  
     })

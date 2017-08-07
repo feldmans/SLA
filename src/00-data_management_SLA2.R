@@ -615,8 +615,15 @@ saveRDS(df_rep_nobl_pneumo, "data/df_rep_nobl_pneumo.rds") #non utilise ensuite 
 
 
 #imputer bl
+#a deplacer apres creation de dr (car pb pour determiner qui a une baseline)
+
+bl_imput <- c("SATISF_VENTIL_SV", "UTIL_VENTIL_DIURN_SV", "UTIL_VENTIL_NOCT_SV", "DUREE_SOMM_VENT_SV", "QUALIT_SOMM_VENT_SV",
+              "EVOL_SOMM_VNI_SV","REVEIL_VENT_SV", "ORTHOPN_SV", "DYSPN_SVENT_SV", "DYSPN_SOUSVENT_SV", "OXYM_VNI_SV",
+              "FUITE_VNI_SV", "EVT_OBSTR_SV", "ASYNCHR_SV", "MODIF_PARAM_SV", "MODIF_PARAM_ITEMS_1_SV", "MODIF_PARAM_ITEMS_2_SV",
+              "MODIF_PARAM_ITEMS_3_SV", "MODIF_PARAM_ITEMS_4_SV", "MODIF_PARAM_ITEMS_5_SV")
 
 tmp2 <- df_rep_nobl_pneumo %>% 
+  #Je prend la premiere ligne de chaque patient et j'impute une baseline(si le patient n'a pas d'info du tout pour la variable, il n'aura pas de baseline)
   bind_rows(df_rep_nobl_pneumo %>% filter(qui =="SATISF_VENTIL_SV") %>%
               group_by(PATIENT) %>% filter(row_number()== 1) %>% 
               mutate(date = datevni, x = 10, ext = "PV", f = 0, del = 0)) %>% #satisf = 10/10
@@ -659,15 +666,9 @@ tmp2 <- df_rep_nobl_pneumo %>%
   bind_rows(df_rep_nobl_pneumo %>% filter(qui =="ASYNCHR_SV") %>% #asynchronisme 1 oui 0 non
               group_by(PATIENT) %>% filter(row_number()== 1) %>% 
               mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>% #x=0 non
-  bind_rows(df_rep_nobl_pneumo %>% filter(qui =="ASYNCHR_SV") %>% #asynchronisme 1 oui 0 non
-              group_by(PATIENT) %>% filter(row_number()== 1) %>% 
-              mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>% #x=0 non
   bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_SV") %>% #modif param VNI 1 oui 0 non
               group_by(PATIENT) %>% filter(row_number()== 1) %>% 
               mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>% #x=0 non
-  bind_rows(df_rep_nobl_pneumo %>% filter(qui =="POURSUITE_VENT_SV") %>% #poursuite VNI 1 oui 0 non
-              group_by(PATIENT) %>% filter(row_number()== 1) %>%
-              mutate(date = datevni, x = 1, ext = "PV", f = 0, del = 0)) %>%#x=1 oui
   bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_ITEMS_1_SV") %>% #poursuite VNI 1 oui 0 non
               group_by(PATIENT) %>% filter(row_number()== 1) %>%
               mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>%#x = 0 non :l'item n'est pas modifié
@@ -1231,12 +1232,14 @@ saveRDS(bdd_dates, "data/bdd_dates_avecpatssbl.rds")
 
 
 #retrait des patients sans baseline
-dr <- dr %>% group_by(PATIENT) %>% mutate(mindel = min(del, na.rm=T)) %>% filter(mindel==0)
-dr <- data.frame(dr)
+pat_withbl <- dr %>% filter(!qui %in% c(bl_imput, "UTIL_VENTIL_DIURN_SV_c", "UTIL_QUOT")) %>% #il faut dabord retirer les bl imputees...
+  group_by(PATIENT) %>% 
+  mutate(mindel = min(del, na.rm=TRUE)) %>% filter(mindel==0) %>% slice(1) %>% .$PATIENT
 
-bl <- bl[bl$PATIENT %in% dr$PATIENT, ]
-vnisla <- vnisla[vnisla$PATIENT %in% dr$PATIENT, ]
-bdd_dates <- bdd_dates[bdd_dates$PATIENT %in% dr$PATIENT, ]
+dr <- dr[dr$PATIENT %in% pat_withbl, ]
+bl <- bl[bl$PATIENT %in% pat_withbl, ]
+vnisla <- vnisla[vnisla$PATIENT %in% pat_withbl, ]
+bdd_dates <- bdd_dates[bdd_dates$PATIENT %in% pat_withbl, ]
 
 
 #---------------------------------------

@@ -13,9 +13,10 @@ source("src/02-fonctions_SLA.R")
 bl <- readRDS("data/bl.rds")
 bdd_dates <- readRDS("data/bdd_dates.rds")
 
+bl$TOUX_EFFICACE[is.na(bl$TOUX_EFFICACE)] <- 2
 
-bl$extraction <- as_date("2015-08-27")
-bl2 <- bl[bl$extraction - bl$datevni >= 365, ]
+# bl$extraction <- as_date("2015-08-27")
+# bl2 <- bl[bl$extraction - bl$datevni >= 365, ]
 
 d <- bl
 #----------------
@@ -49,7 +50,7 @@ quanti  <- as.character(ncu[ncu$nval > 6, "var"])
 quali <- as.character(ncu[ncu$nval > 2 & ncu$nval <= 6, "var"])
 #MRC est en fait quanti de 1 à 4, seul liuedeb est quali
 quanti <- c(quanti, "MRC") 
-quali <- "LIEUDEB_recode"
+quali <- c("TOUX_EFFICACE", "LIEUDEB_recode")
 
 #=======================
 #description des données manquantes
@@ -60,12 +61,12 @@ missbl.df$missing_perc <- paste0(round(missbl.df$missing/nrow(d),2)*100, "%")
 write.table(print(missbl.df), file="clipboard", sep = "\t", row.names = FALSE)
 saveRDS(missbl.df, "data/missingbl.rds")
 
-# donnees manquantes pour criteres de decision de ventilation (0% est artificiel : on met 0 si critère non coché)
-df1 <- data.frame(apply(bl[ ,c("CRIT_1_VNI", "CRIT_2_VNI", "CRIT_3_VNI")], 2, is.na))
-df1$nbNA <- rowSums(df1)
-df1$allNA <- df1$nbNA == 3
-table(df1$allNA) #236 patient n'ont aucune information concernant le critère de mise en place de la vni
-prop.table(table(df1$allNA))
+# # donnees manquantes pour criteres de decision de ventilation (0% est artificiel : on met 0 si critère non coché)
+# df1 <- data.frame(apply(bl[ ,c("CRIT_1_VNI", "CRIT_2_VNI", "CRIT_3_VNI")], 2, is.na))
+# df1$nbNA <- rowSums(df1)
+# df1$allNA <- df1$nbNA == 3
+# table(df1$allNA) #236 patient n'ont aucune information concernant le critère de mise en place de la vni
+# prop.table(table(df1$allNA))
 #=======================
 #analyses binaires
 
@@ -110,7 +111,8 @@ binNRP <- as.character(rp[!rp$RP, "variable"]) #RP pas ok, il faut rajouter var 
 #transformation du temps
 pdf(paste0("data/analyses/RP_bin_transft.pdf"))
 .l <- lapply(binNRP, function(i){
-  tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"), function(x)add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = FALSE, var=i, .transf=x))
+  #tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"), function(x)add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = FALSE, var=i, .transf=x))
+  tmp <- lapply(c("log", "sqrt", "*t", "/t", "*t^2", "*t^0.3", "*t^3"), function(x)add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = FALSE, var=i, .transf=x))
   #tmp <- lapply(c("log"), function(x)add_vart_and_check(data=d, .time="time.vni", .evt="evt", type="quali", var=i, .transf=x))
   .a <- do.call(rbind, tmp)
 })
@@ -215,7 +217,8 @@ QN_RP <- rp[!rp$RP, ] #RP pas ok, il faut rajouter var dépendante du temps
 #transformation du temps
 pdf(paste0("data/analyses/RP_quanti_bl_transft.pdf"))
 .l <- lapply(1 : nrow(QN_RP), function(i){
-  tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"), function(x){
+  #tmp <- lapply(c("log","sqrt","*t","/t","*t^2","*t^0.7", "log10", "*t^0.3", "*t^3"), function(x){
+  tmp <- lapply(c("log","sqrt","*t","/t","*t^2", "*t^0.3", "*t^3"), function(x){
     #tmp <- lapply(c("log"), function(x){
     add_vart_and_check(data=d, .time="time.vni", .evt="evt", recode = QN_RP$recode[i], var=QN_RP$variable[i], .transf=x)
   })
@@ -224,6 +227,7 @@ pdf(paste0("data/analyses/RP_quanti_bl_transft.pdf"))
 df_quant <- do.call(rbind, .l)
 dev.off()
 dim(df_quant[df_quant$beta_at==TRUE & df_quant$param == "at",])
+#aucun ne convient : courbes moches 06/08/2017 
 #aucun ne convient(pvalue de at >0.05=> aucune courbe tracee) 30/05/2017 12062017
 
 # #Je ne regarde que les transformations pour lesquelles la pvalue de at est inférieure à 0.05 (beta_at = TRUE) (la courbe n'est de toute façon pas tracée quand sup à 0.05)
@@ -311,33 +315,36 @@ df_surv_quant_bl <- df_surv_quant_bl[df_surv_quant_bl$time==1, ]
 #=======================
 #analyses quali plus de 2 classes
 
-quali<-"LIEUDEB_recode"
+
+quali<-c("TOUX_EFFICACE", "LIEUDEB_recode")
 #courbes de survie
-.l <- lapply(quali, function(x) draw_surv_qualisup2(var=x, data = d, .time = "time.vni", .evt = "evt", vec_time_IC = 1 , surv_only=FALSE, pvalue=TRUE))
+.l <- lapply(quali, function(x) draw_surv_qualisup2(var=x, data = d, .time = "time.vni", .evt = "evt", vec_time_IC = 12 , surv_only=FALSE, pvalue=TRUE))
 ml <- marrangeGrob(.l,ncol=1,nrow=1,top = NULL)
 ggsave(file="data/analyses/courbes/courbe_survie_qualisup2_bl.pdf", ml)
 
 #survie
-df_surv_q_bl <- draw_surv_qualisup2(var="LIEUDEB_recode", data = d, .time = "time.vni", .evt = "evt", vec_time_IC = 1 , surv_only=TRUE, pvalue=TRUE)
+df_surv_q_bl <- lapply(quali, function(x) draw_surv_qualisup2(var=x, data = d, .time = "time.vni", .evt = "evt", vec_time_IC = 12 , surv_only=TRUE))
+df_surv_q_bl <- do.call(rbind, df_surv_q_bl)
+#df_surv_q_bl <- draw_surv_qualisup2(var="LIEUDEB_recode", data = d, .time = "time.vni", .evt = "evt", vec_time_IC = 1 , surv_only=TRUE, pvalue=TRUE)
 df_surv_q_bl$survIC <- paste0(df_surv_q_bl$survival, " [", df_surv_q_bl$LCI, "-", df_surv_q_bl$UCI, "]")
-df_surv_q_bl <- df_surv_q_bl[ , c("variable", "group", "time", "survIC")]
+df_surv_q_bl <- df_surv_q_bl[ , c("variable", "param", "time", "survIC")]
 saveRDS(df_surv_q_bl, "data/analyses/df_surv_q_bl.rds")
 
-#Yann
-d$t<-d$time.vni/(365.25/12)
-cox<-coxph(Surv(t, evt)~LIEUDEB_recode, data=d)
-summary(cox)
-b<-coef(cox)
-zr<-cox.zph(cox, "rank")
-zr
-zi<-cox.zph(cox, "identity")
-z<-zi
-par(mfrow=c(2,2))
-for (iz in 1:4) {
-plot(z[iz], col="darkgrey", ylim=c(-4,4))
-abline(h=b[iz], col="red")
-}
-#fin Yann
+# #Yann check RP
+# d$t<-d$time.vni/(365.25/12)
+# cox<-coxph(Surv(t, evt)~LIEUDEB_recode, data=d)
+# summary(cox)
+# b<-coef(cox)
+# zr<-cox.zph(cox, "rank")
+# zr
+# zi<-cox.zph(cox, "identity")
+# z<-zi
+# par(mfrow=c(2,2))
+# for (iz in 1:4) {
+# plot(z[iz], col="darkgrey", ylim=c(-4,4))
+# abline(h=b[iz], col="red")
+# }
+# #fin Yann
 
 
 #check RP
@@ -345,132 +352,179 @@ pdf(paste0("data/analyses/RP_quali_bl.pdf"))
 .l <- lapply(quali, function(x) check_RP(var=x, data=d, .time="time.vni", .evt="evt", quali = TRUE))
 dev.off()
 
-quali2.df <- data.frame(variable = quali2, recode=FALSE, .transf = NA)
+#RP  ok (cerv limite)
 
+
+df1 <- data.frame()
 s <- d
-s$tps <- (s$time.vni/(365.25/12)) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-s <- s[!is.na(s$LIEUDEB_recode),]
+s$tps <- (s$time.vni/(365.25/12)) + 0.001 # au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner]
 
-#modif Non RP : lieudeb recode : a faire
-s$cerv <- ifelse(s$LIEUDEB_recode=="cervical",1,0)
-s$llimb <- ifelse(s$LIEUDEB_recode=="lower limb", 1, 0)
-s$resp <- ifelse(s$LIEUDEB_recode=="respiratory", 1, 0)
-s$ulimb <- ifelse(s$LIEUDEB_recode=="upper limb", 1, 0)
-
-ti <- sort(unique(c(0,s$tps[s$evt==1])))
-slat <- s
-slat$start <- 0
-slat$stop <- slat$tps
-slat <- survSplit(slat, end="stop", event="evt", start="start",cut=ti) #Yann
-#slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)           #Sarah
-
-coxt <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb+cluster(PATIENT), data=slat)
-summary(coxt)$coefficients
-
-# #Yann
-# slat$cerv_t <- slat$cerv * (slat$stop) #non graphe mauvais
-# slat$llimb_t <- slat$llimb * log(slat$stop)*slat$stop^(1/2) #non graphe mauvais
-# slat$llimb_t <- slat$llimb * log(slat$stop) #non graphe mauvais
-# slat$resp_t <- slat$resp * (slat$stop) #non graphe mauvais
-# slat$ulimb_t <- slat$ulimb * (slat$stop) #non graphe mauvais
-# slat$cerv_t2 <- slat$cerv * (slat$stop)^(2) #non graphe mauvais
-# slat$llimb_t2 <- slat$llimb * (slat$stop)^(1/2) #non graphe mauvais
-# slat$resp_t2 <- slat$resp * (slat$stop)^(2) #non graphe mauvais
-# slat$ulimb_t2 <- slat$ulimb * (slat$stop)^(2) #non graphe mauvais
-# 
-# coxt2 <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb+cerv_t + llimb_t + resp_t + ulimb_t+cerv_t2 + llimb_t2 + resp_t2 + ulimb_t2+cluster(PATIENT), data=slat)
-# summary(coxt2)$coefficients
-# #coxt2b <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb+cerv_t + llimb_t + resp_t + ulimb_t+cerv_t2 + llimb_t2 + resp_t2 + ulimb_t2+cluster(PATIENT), 
-# #                data=slat, init=c(coef(coxt), rep(0, 8)))
-# coxt2b <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb+ llimb_t+cluster(PATIENT), 
-#                 data=slat, init=c(coef(coxt), rep(0, 1)))
-# summary(coxt2b)
-# 
-# 
-# b<-coef(coxt)
-# bb<-coef(coxt2b)
-# 
-# ddl<-length(bb)-length(b)
-# 1-pchisq(coxt2b$rscore, ddl)
-# 
-# zr<-cox.zph(coxt2b, "rank")
-# zr
-# zi<-cox.zph(coxt2b, "identity")
-# zi
-# 
-# z<-zi
-# par(mfrow=c(2,2))
-# for (iz in 1:12) {
-# #N  plot(z[iz], col="lightblue", ylim=c(-4,4))
-#   plot(z[iz], col="lightblue")
-#   abline(h=bb[iz], col="red")
-# }
-
-
-# slat$cerv_t <- slat$cerv * (slat$stop^0.7) #non graphe mauvais
-# slat$llimb_t <- slat$llimb * (slat$stop^0.7) #non graphe mauvais
-# slat$resp_t <- slat$resp * (slat$stop^0.7) #non graphe mauvais
-# slat$ulimb_t <- slat$ulimb * (slat$stop^0.7) #non graphe mauvais
-# slat$cerv_t <- slat$cerv * log(slat$stop) #non graphe mauvais
-# slat$llimb_t <- slat$llimb * log(slat$stop) #non graphe mauvais
-# slat$resp_t <- slat$resp * log(slat$stop) #non graphe mauvais
-# slat$resp_t <- slat$resp * (slat$stop)^2 #non graphe mauvais
-# slat$resp_t <- slat$resp * (slat$stop) #non graphe mauvais
-slat$resp_t <- slat$resp / (slat$stop) #beta ok et graphe ok qd seul
-# slat$ulimb_t <- slat$ulimb * log(slat$stop) #non graphe mauvais
-# slat$cerv_t <- slat$cerv * (slat$stop^3) #non graphe mauvais
-# slat$llimb_t <- slat$llimb * (slat$stop^3) #non graphe mauvais
-# slat$resp_t <- slat$resp * (slat$stop^3) #non graphe mauvais
-# slat$ulimb_t <- slat$ulimb * (slat$stop^3) #non graphe mauvais
-# slat$cerv_t <- slat$cerv * sqrt(slat$stop) #non graphe mauvais
-# slat$llimb_t <- slat$llimb * sqrt(slat$stop) #non graphe mauvais
-# slat$resp_t <- slat$resp * sqrt(slat$stop) #non graphe mauvais
-# slat$ulimb_t <- slat$ulimb * sqrt(slat$stop) #non graphe mauvais
-
-#coxt <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb + cerv_t + llimb_t + resp_t + ulimb_t +cluster(PATIENT), data=slat)
-coxt <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb + resp_t +cluster(PATIENT), data=slat)
-test <- summary(coxt)
-test$coefficients
-b<-coef(coxt)
-zi<-cox.zph(coxt, "identity")
-z<-zi
-par(mfrow=c(2,3))
-for (iz in 1:5) {
-  #N  plot(z[iz], col="lightblue", ylim=c(-4,4))
-  plot(z[iz], col="lightblue")
-  abline(h=b[iz], col="red")
-}
-#Correction de resp en 1/t fonctionne
-
-#revoir avec Yann interpretation des quali a plus de 2 classes 
 var <- "LIEUDEB_recode"
-.tps_clinique <- 12
-#HRIC pour les levels non modifiés
-coefbeta <- round(test$coefficients[ ,"coef"], 5)
-stat <- round(test$robscore["test"],2)
-pval <- round(test$robscore["pvalue"],4)
+s$a <- s[ ,var]
+s <- s[!is.na(s$a),]
+cox<-coxph(Surv(tps, evt) ~ a, data=s)
+test <- summary(cox)
+HRIC <- round(test$conf.int,2)
+coefbeta <- round(test$coefficients[,1],4)
+transf <- NA
 tps_clinique <- NA
-HRIC <- round(data.frame(IC=test$conf.int[,1], l=test$conf.int[,3], u=test$conf.int[,4]),3)
-HRIC <-  HRIC[c("cerv", "llimb", "ulimb"), ]
-HR <- HRIC$IC
-HRIC <- paste0(HRIC[,1], "[", HRIC[,2], "-", HRIC[,3], "]")
-df <- data.frame(param = c("cerv", "llimb", "ulimb"), beta = coefbeta[c("cerv", "llimb", "ulimb")], HRIC = HRIC)
+HRIC <- paste0(HRIC[,1], " [", HRIC[,3], " - ", HRIC[,4],"]")
+stat <- round(test$sctest["test"],2)
+pval <- round(test$sctest["pvalue"],4)
+df <- data.frame(variable = var, recode = FALSE, RP = TRUE, transf = NA, tps_clinique = NA, HRIC = HRIC, test = "score",
+                 statistic = stat, pvalue = pval, 
+                 param = gsub(var,"",names(coefbeta)), beta = coefbeta)
+df1 <- rbind(df1,df)
+var <- "TOUX_EFFICACE"
+s$TOUX_EFFICACE <- as.character(s$TOUX_EFFICACE)
+s$a <- s[ ,var]
+s <- s[!is.na(s$a),]
+cox<-coxph(Surv(tps, evt) ~ a, data=s)
+test <- summary(cox)
+HRIC <- round(test$conf.int,2)
+coefbeta <- round(test$coefficients[,1],4)
+transf <- NA
+tps_clinique <- NA
+HRIC <- paste0(HRIC[,1], " [", HRIC[,3], " - ", HRIC[,4],"]")
+stat <- round(test$sctest["test"],2)
+pval <- round(test$sctest["pvalue"],4)
+df <- data.frame(variable = var, recode = FALSE, RP = TRUE, transf = NA, tps_clinique = NA, HRIC = HRIC, test = "score",
+                 statistic = stat, pvalue = pval, 
+                 param = gsub(var,"",names(coefbeta)), beta = coefbeta)
+#Je supprime la ligne a2 qui correspond a la classe NA qu'on ne peut pas interpreter
+df <- df[1,]
+df1 <- rbind(df1,df)
 
-#HRIC pour resp
-S <- vcov(coxt)
-t <- .tps_clinique 
-t_t <- 1/t
-S <- S[grep("resp", rownames(S)), grep("resp", colnames(S))]
-b2 <- b[grep("resp", names(b))]
-variance <- S[1,1]+S[2,2]*t_t^2+2*S[1,2]*t_t
-m <- b2[1]+b2[2]*t_t #coef de l'HR
-HRIC2 <- round(c(exp(m), exp(m + qnorm(0.975)*sqrt(variance) * c(-1,1))),3)
-HRIC2 <- paste0(HRIC2[1], " [", HRIC2[2], " - ", HRIC2[3],"]")
-df <- rbind(df, data.frame(param = "resp; resp t", beta = paste(round(b2,3), collapse = ";"), HRIC = HRIC2))
+#df_HR_quanti_bl <- rbind(df_HR_quanti_bl, MRC)
+saveRDS(df1, "data/analyses/HRIC_quali_bl.rds")
 
-df_HR_quali_bl <-data.frame(variable = "LIEUDEB_recode", recode = FALSE, RP = FALSE, 
-                            transf = c(NA, NA, NA, "/t"), tps_clinique = .tps_clinique, HRIC = df$HRIC, test = "robust",
-                            statistic = stat, pvalue = pval, param = df$param, beta = df$beta)#HRIC : sans transformation uniquement pour l'instant
+
+# #modif Non RP : lieudeb recode : a faire
+# s$cerv <- ifelse(s$LIEUDEB_recode=="cervical",1,0)
+# s$llimb <- ifelse(s$LIEUDEB_recode=="lower limb", 1, 0)
+# s$resp <- ifelse(s$LIEUDEB_recode=="respiratory", 1, 0)
+# s$ulimb <- ifelse(s$LIEUDEB_recode=="upper limb", 1, 0)
+# 
+# ti <- sort(unique(c(0,s$tps[s$evt==1])))
+# 
+# slat <- s
+# slat$start <- 0
+# slat$stop <- slat$tps
+# slat <- survSplit(slat, end="stop", event="evt", start="start",cut=ti) #Yann
+# #slat <- survSplit(Surv(stop,evt)~.,slat,start="start",cut=ti)           #Sarah
+# 
+# coxt <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb+cluster(PATIENT), data=slat)
+# summary(coxt)$coefficients
+# 
+# # #Yann
+# # slat$cerv_t <- slat$cerv * (slat$stop) #non graphe mauvais
+# # slat$llimb_t <- slat$llimb * log(slat$stop)*slat$stop^(1/2) #non graphe mauvais
+# # slat$llimb_t <- slat$llimb * log(slat$stop) #non graphe mauvais
+# # slat$resp_t <- slat$resp * (slat$stop) #non graphe mauvais
+# # slat$ulimb_t <- slat$ulimb * (slat$stop) #non graphe mauvais
+# # slat$cerv_t2 <- slat$cerv * (slat$stop)^(2) #non graphe mauvais
+# # slat$llimb_t2 <- slat$llimb * (slat$stop)^(1/2) #non graphe mauvais
+# # slat$resp_t2 <- slat$resp * (slat$stop)^(2) #non graphe mauvais
+# # slat$ulimb_t2 <- slat$ulimb * (slat$stop)^(2) #non graphe mauvais
+# # 
+# # coxt2 <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb+cerv_t + llimb_t + resp_t + ulimb_t+cerv_t2 + llimb_t2 + resp_t2 + ulimb_t2+cluster(PATIENT), data=slat)
+# # summary(coxt2)$coefficients
+# # #coxt2b <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb+cerv_t + llimb_t + resp_t + ulimb_t+cerv_t2 + llimb_t2 + resp_t2 + ulimb_t2+cluster(PATIENT), 
+# # #                data=slat, init=c(coef(coxt), rep(0, 8)))
+# # coxt2b <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb+ llimb_t+cluster(PATIENT), 
+# #                 data=slat, init=c(coef(coxt), rep(0, 1)))
+# # summary(coxt2b)
+# # 
+# # 
+# # b<-coef(coxt)
+# # bb<-coef(coxt2b)
+# # 
+# # ddl<-length(bb)-length(b)
+# # 1-pchisq(coxt2b$rscore, ddl)
+# # 
+# # zr<-cox.zph(coxt2b, "rank")
+# # zr
+# # zi<-cox.zph(coxt2b, "identity")
+# # zi
+# # 
+# # z<-zi
+# # par(mfrow=c(2,2))
+# # for (iz in 1:12) {
+# # #N  plot(z[iz], col="lightblue", ylim=c(-4,4))
+# #   plot(z[iz], col="lightblue")
+# #   abline(h=bb[iz], col="red")
+# # }
+# 
+# 
+#  slat$cerv_t <- slat$cerv * (slat$stop^0.7) #non graphe mauvais
+# # slat$llimb_t <- slat$llimb * (slat$stop^0.7) #non graphe mauvais
+# # slat$resp_t <- slat$resp * (slat$stop^0.7) #non graphe mauvais
+# # slat$ulimb_t <- slat$ulimb * (slat$stop^0.7) #non graphe mauvais
+#  slat$cerv_t <- slat$cerv * log(slat$stop) #non graphe mauvais
+#  slat$cerv_t <- slat$cerv * slat$stop #non graphe mauvais
+# # slat$llimb_t <- slat$llimb * log(slat$stop) #non graphe mauvais
+# # slat$resp_t <- slat$resp * log(slat$stop) #non graphe mauvais
+# # slat$resp_t <- slat$resp * (slat$stop)^2 #non graphe mauvais
+# # slat$resp_t <- slat$resp * (slat$stop) #non graphe mauvais
+# slat$resp_t <- slat$resp / (slat$stop) #beta ok et graphe ok qd seul
+# slat$cerv_t <- slat$cerv / (slat$stop) #beta ok et graphe ok qd seul
+# # slat$ulimb_t <- slat$ulimb * log(slat$stop) #non graphe mauvais
+#  slat$cerv_t <- slat$cerv * (slat$stop^3) #non graphe mauvais
+#  slat$cerv_t <- slat$cerv * (slat$stop^0.3) #non graphe mauvais
+#  slat$cerv_t <- slat$cerv * (slat$stop^2) #non graphe mauvais
+# # slat$llimb_t <- slat$llimb * (slat$stop^3) #non graphe mauvais
+# # slat$resp_t <- slat$resp * (slat$stop^3) #non graphe mauvais
+# # slat$ulimb_t <- slat$ulimb * (slat$stop^3) #non graphe mauvais
+# slat$cerv_t <- slat$cerv * sqrt(slat$stop) #non graphe mauvais
+# # slat$llimb_t <- slat$llimb * sqrt(slat$stop) #non graphe mauvais
+# # slat$resp_t <- slat$resp * sqrt(slat$stop) #non graphe mauvais
+# # slat$ulimb_t <- slat$ulimb * sqrt(slat$stop) #non graphe mauvais
+# 
+# #coxt <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb + cerv_t + llimb_t + resp_t + ulimb_t +cluster(PATIENT), data=slat)
+# coxt <- coxph(Surv(start, stop, evt) ~ cerv + llimb + resp + ulimb + resp_t +cluster(PATIENT), data=slat)#corrige mais pourtant resp etait ok
+# coxt <- coxph(Surv(start, stop, evt) ~ cerv + cerv_t + llimb + resp + ulimb + cluster(PATIENT), data=slat)#c'est pire
+# test <- summary(coxt)
+# test$coefficients
+# b<-coef(coxt)
+# zi<-cox.zph(coxt, "identity")
+# z<-zi
+# par(mfrow=c(2,3))
+# for (iz in 1:5) {
+#   #N  plot(z[iz], col="lightblue", ylim=c(-4,4))
+#   plot(z[iz], col="lightblue")
+#   abline(h=b[iz], col="red")
+# }
+# #Correction de resp en 1/t fonctionne
+# 
+# #revoir avec Yann interpretation des quali a plus de 2 classes 
+# var <- "LIEUDEB_recode"
+# .tps_clinique <- 12
+# #HRIC pour les levels non modifiés
+# coefbeta <- round(test$coefficients[ ,"coef"], 5)
+# stat <- round(test$robscore["test"],2)
+# pval <- round(test$robscore["pvalue"],4)
+# tps_clinique <- NA
+# HRIC <- round(data.frame(IC=test$conf.int[,1], l=test$conf.int[,3], u=test$conf.int[,4]),3)
+# HRIC <-  HRIC[c("cerv", "llimb", "ulimb"), ]
+# HR <- HRIC$IC
+# HRIC <- paste0(HRIC[,1], "[", HRIC[,2], "-", HRIC[,3], "]")
+# df <- data.frame(param = c("cerv", "llimb", "ulimb"), beta = coefbeta[c("cerv", "llimb", "ulimb")], HRIC = HRIC)
+# 
+# #HRIC pour resp
+# S <- vcov(coxt)
+# t <- .tps_clinique 
+# t_t <- 1/t
+# S <- S[grep("resp", rownames(S)), grep("resp", colnames(S))]
+# b2 <- b[grep("resp", names(b))]
+# variance <- S[1,1]+S[2,2]*t_t^2+2*S[1,2]*t_t
+# m <- b2[1]+b2[2]*t_t #coef de l'HR
+# HRIC2 <- round(c(exp(m), exp(m + qnorm(0.975)*sqrt(variance) * c(-1,1))),3)
+# HRIC2 <- paste0(HRIC2[1], " [", HRIC2[2], " - ", HRIC2[3],"]")
+# df <- rbind(df, data.frame(param = "resp; resp t", beta = paste(round(b2,3), collapse = ";"), HRIC = HRIC2))
+# 
+# df_HR_quali_bl <-data.frame(variable = "LIEUDEB_recode", recode = FALSE, RP = FALSE, 
+#                             transf = c(NA, NA, NA, "/t"), tps_clinique = .tps_clinique, HRIC = df$HRIC, test = "robust",
+#                             statistic = stat, pvalue = pval, param = df$param, beta = df$beta)#HRIC : sans transformation uniquement pour l'instant
 
 
 # # Decoupe du temps
@@ -525,7 +579,7 @@ df_HR_quali_bl <-data.frame(variable = "LIEUDEB_recode", recode = FALSE, RP = FA
 #   HR_score (var=.var , data = d, .time="time.vni", .evt="evt", quali = TRUE, recode=FALSE, .transf=NA, .tps_clinique=12)
 # })
 # df_HR_quali_bl <- do.call(rbind,.l)
-saveRDS(df_HR_quali_bl, "data/analyses/HRIC_quali_bl.rds")
+# saveRDS(df_HR_quali_bl, "data/analyses/HRIC_quali_bl.rds")
 
 
 
@@ -605,7 +659,7 @@ ntot <- length(names(table(d$PATIENT)))
 })
 #perc_pat <- unlist(.l)
 N_pat_missing <- unlist(.l)
-perc_pat
+
 
 missingrep <- data.frame(variable = var, perc_var, N_pat_missing)
 missingrep$perc_pat <- paste0(round(missingrep$N_pat_missing/ntot , 2)* 100, "%")
@@ -948,7 +1002,7 @@ rNRP_cut <- rNok[is.na(rNok$transf), ]
 # b <- c(5, 7)
 #b <- c(7,17,34)
 b <- c(3, 6, 18, 36, 60) #e (6, 18, 36,48 marche aussi mais plus long)
-b <- c(6, 18, 36, 48) #e (6, 18, 36,48 marche aussi mais plus long)
+b <- c(6, 18, 36, 48) # moins bien que c(3, 6, 18, 36, 60)
 for (i in seq_along(rNRP_cut$var)) {cut_rep(rNRP_cut$var[i], b, rNRP_cut$recode[i])}
 # dev.off()
 #
@@ -1264,30 +1318,72 @@ abline(h=b[1], col = "blue")
 plot(zi[2])
 abline(h=b[2], col= "blue")
 #transformation du temps
-#yt$x2t<-log(yt$stop)*yt$x2
-yt$x3t<-log(yt$stop)*yt$x3
+# yt$x2t<-log(yt$stop)*yt$x2
+# yt$x3t<-log(yt$stop)*yt$x3
 # yt$x2t<-(yt$stop^2)*yt$x2
- yt$x3t<-(yt$stop^2)*yt$x3*yt$stop
+# yt$x3t<-(yt$stop^2)*yt$x3*yt$stop
 # yt$x2t<-(yt$stop)*yt$x2
 # yt$x3t<-(yt$stop)*yt$x3
+# yt$x3t<-(yt$stop)^2*yt$x3
+# yt$x3t<-(yt$stop)^3*yt$x3
+# yt$x3t<-(yt$stop)^0.3*yt$x3
+yt$x3t<-1/(yt$stop)^1.5*yt$x3
 #coxt<-coxph(Surv(start, stop, etat)~x2+x2t+x3+x3t+cluster(PATIENT), data=yt)
 coxt<-coxph(Surv(start, stop, etat)~x2+x3+x3t+cluster(PATIENT), data=yt)
 summary(coxt) #pq var dep du temps non signif mais graphe ok?
-bt<-coef(coxt)
+b<-coef(coxt)
 ztr<-cox.zph(coxt, "rank")
 ztr
 zti<-cox.zph(coxt, "identity")
 par(mfrow=c(2,2))
-for (i in 1:4) {
+for (i in 1:3) {
   plot(zti[i], resid = FALSE)
   title(names(bt)[i])
   abline(h=bt[i], col= "blue")
 }
-#log not ok (at non signif)
+#yt$x3t<-1/(yt$stop)^1.5*yt$x3 fonctionne!
+
+transf <- "1/t^1.5"
+#m_d <- 365.25/12 #pour transformer mois en jours
+tps_clinique <- 12
+S <- vcov(coxt)
+#t <- tps_clinique * m_d #temps en jours
+t <- tps_clinique #temps en mois
+t_t <- 1/(t^1.5)
+
+dfHR <- data.frame()
+for (i in c("x3")){
+  S2 <- S[grep(i, rownames(S)), grep(i, colnames(S))]
+  b2 <- b[grep(i, names(b))]
+  variance <- S2[1,1]+S2[2,2]*t_t^2+2*S2[1,2]*t_t
+  m <- b2[1]+b2[2]*t_t #coef de l'HR
+  HRIC <- round(c(exp(m), exp(m + qnorm(0.975)*sqrt(variance) * c(-1,1))),3)
+  HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
+  dfHR <- rbind(dfHR,data.frame(transf = transf, param = paste0(i, "; ", i,"t"), beta = paste(round(b2,3), collapse = ";"), HRIC = HRIC))
+}
+
+#HRIC pour x2 : RP ok => pas de modif
+test <- summary(coxt)
+coefbeta <- b[grep("x2", names(b))]
+stat <- round(test$robscore["test"],2)
+pval <- round(test$robscore["pvalue"],4)
+
+transf <- NA
+tps_clinique <- NA
+HRIC <- round(data.frame(IC=test$conf.int["x2",1], l=test$conf.int["x2",3], u=test$conf.int["x2",4]),3)
+HR <- HRIC$IC
+HRIC <- paste0(HRIC[,1], "[", HRIC[,2], "-", HRIC[,3], "]")
+dfHR <- rbind(data.frame(transf = NA, param = "x2", beta = paste(round(coefbeta,3), collapse = ";"), HRIC = HRIC), dfHR)
+
+df1 <- data.frame(variable = var, recode = FALSE, RP = FALSE, transf = dfHR$transf, tps_clinique = tps_clinique, HRIC = dfHR$HRIC, test = "robust",
+                 statistic = stat, pvalue = pval, param = dfHR$param, beta = dfHR$beta, stringsAsFactors = FALSE)
 
 
 #decoupage du temps
 
+# #####
+# #sans boucle
+#
 # m<-365.25/12 #pour transformer en mois
 # yt$x2t1<-ifelse(yt$stop<=6*m, yt$x2, 0)
 # yt$x2t2<-ifelse(yt$stop>6*m & yt$stop<=18*m, yt$x2, 0)
@@ -1310,75 +1406,76 @@ for (i in 1:4) {
 #   title(names(bt)[i])
 #   abline(h=bt[i], col="blue")
 # }
-
-#####
-#avec boucle 
-transf <- "6-18-36"
-b <- as.numeric(unlist(strsplit(transf, "-")))
-name_cut <- transf
-
-for (j in 3){
-  for (i in 1:(length(b)+1)){
-    if (i == 1) tmp <-  ifelse(yt$stop<=b[1], yt[ ,paste0("x",j)], 0)
-    if(i <= length(b) & i!= 1) tmp <-ifelse(yt$stop>b[i-1] & yt$stop<=b[i], yt[ ,paste0("x",j)], 0)
-    if(i == (length(b)+1)) tmp <-  ifelse(yt$stop>b[i-1], yt[ ,paste0("x",j)], 0)
-    yt[ ,paste0("x",j,"t",i)] <- tmp
-  } 
-}
-
+#
+# #####
+# #avec boucle 
+#
+# transf <- "6-18-36"
+# b <- as.numeric(unlist(strsplit(transf, "-")))
+# name_cut <- transf
 # 
-# m<-365.25/12 #pour transformer en mois
-# tps_clinique <- 12 #12mois 
-# #for (j in 2:3){
 # for (j in 3){
 #   for (i in 1:(length(b)+1)){
-#     if (i == 1) tmp <-  ifelse(yt$stop<=b[1]*m, yt[ ,paste0("x",j)], 0)
-#     if(i <= length(b) & i!= 1) tmp <-ifelse(yt$stop>b[i-1]*m & yt$stop<=b[i]*m, yt[ ,paste0("x",j)], 0)
-#     if(i == (length(b)+1)) tmp <-  ifelse(yt$stop>b[i-1]*m, yt[ ,paste0("x",j)], 0)
+#     if (i == 1) tmp <-  ifelse(yt$stop<=b[1], yt[ ,paste0("x",j)], 0)
+#     if(i <= length(b) & i!= 1) tmp <-ifelse(yt$stop>b[i-1] & yt$stop<=b[i], yt[ ,paste0("x",j)], 0)
+#     if(i == (length(b)+1)) tmp <-  ifelse(yt$stop>b[i-1], yt[ ,paste0("x",j)], 0)
 #     yt[ ,paste0("x",j,"t",i)] <- tmp
 #   } 
 # }
-
-vat<-apply(expand.grid(list("x", 2:3,"t",  1:(length(b)+1))),1, paste, collapse="")
-vat <- vat [vat %in% names(yt)]
-x<-yt[, vat]
-sx<-colSums(x) #interval de temps sans evt
-wat<-vat[sx>0] #on supprime interval de temps quand pas d'evenement
-#f<-paste("Surv(start, stop, etat) ~ ", paste(wat, collapse="+")," + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
-f<-paste("Surv(start, stop, etat) ~ ", paste(wat, collapse="+")," + x2 + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
-#f<-paste("Surv(start, stop, etat) ~ ", paste(wat, collapse="+")," + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
-
-#model
-coxt <- coxph(as.formula(f), data=yt)
-
-#verif
-bt<-coef(coxt)
-ztr<-cox.zph(coxt, "rank")
-zti<-cox.zph(coxt, "identity")
-ztr
-for (i in seq_along(bt)) {
-  plot(zti[i])
-  title(names(bt)[i])
-  abline(h=bt[i], col="blue")
-}
-
-#interpretation
-test <- summary(coxt)
-coefbeta <- round(test$coefficients[ ,"coef"], 5)
-name_param <- rownames(test$coefficients)
-stat <- round(test$robscore["test"],2)
-pval <- round(test$robscore["pvalue"],4)
-
-i <- findInterval(tps_clinique, b) + 1 #findInterval commence à 0...
-HRIC <- round(exp(cbind(coef(coxt)[i], qnorm(0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])), qnorm(1-0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])))),3)
-HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
-
-df <- data.frame(param = name_param, beta = coefbeta)
-df <- df[order(df$param),]
-myParam <- rbind(paste(df$param[grepl("x2",df$param)], sep="", collapse="; "), paste(df$param[grepl("x3",df$param)], sep="", collapse="; "))
-mybeta <- rbind(paste(df$beta[grepl("x2",df$param)], sep="", collapse="; "), paste(df$beta[grepl("x3",df$param)], sep="", collapse="; "))
-df1 <- data.frame(variable = var, recode = FALSE, RP = FALSE, transf, tps_clinique = tps_clinique, HRIC, test = "robust",
-                  statistic = stat, pvalue = pval, param = myParam, beta = mybeta)
+# 
+# # 
+# # m<-365.25/12 #pour transformer en mois
+# # tps_clinique <- 12 #12mois 
+# # #for (j in 2:3){
+# # for (j in 3){
+# #   for (i in 1:(length(b)+1)){
+# #     if (i == 1) tmp <-  ifelse(yt$stop<=b[1]*m, yt[ ,paste0("x",j)], 0)
+# #     if(i <= length(b) & i!= 1) tmp <-ifelse(yt$stop>b[i-1]*m & yt$stop<=b[i]*m, yt[ ,paste0("x",j)], 0)
+# #     if(i == (length(b)+1)) tmp <-  ifelse(yt$stop>b[i-1]*m, yt[ ,paste0("x",j)], 0)
+# #     yt[ ,paste0("x",j,"t",i)] <- tmp
+# #   } 
+# # }
+# 
+# vat<-apply(expand.grid(list("x", 2:3,"t",  1:(length(b)+1))),1, paste, collapse="")
+# vat <- vat [vat %in% names(yt)]
+# x<-yt[, vat]
+# sx<-colSums(x) #interval de temps sans evt
+# wat<-vat[sx>0] #on supprime interval de temps quand pas d'evenement
+# #f<-paste("Surv(start, stop, etat) ~ ", paste(wat, collapse="+")," + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
+# f<-paste("Surv(start, stop, etat) ~ ", paste(wat, collapse="+")," + x2 + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
+# #f<-paste("Surv(start, stop, etat) ~ ", paste(wat, collapse="+")," + cluster(PATIENT)", sep="")  #on ne met pas x car les at couvre deja  toutes les perdiodes
+# 
+# #model
+# coxt <- coxph(as.formula(f), data=yt)
+# 
+# #verif
+# bt<-coef(coxt)
+# ztr<-cox.zph(coxt, "rank")
+# zti<-cox.zph(coxt, "identity")
+# ztr
+# for (i in seq_along(bt)) {
+#   plot(zti[i])
+#   title(names(bt)[i])
+#   abline(h=bt[i], col="blue")
+# }
+# 
+# #interpretation
+# test <- summary(coxt)
+# coefbeta <- round(test$coefficients[ ,"coef"], 5)
+# name_param <- rownames(test$coefficients)
+# stat <- round(test$robscore["test"],2)
+# pval <- round(test$robscore["pvalue"],4)
+# 
+# i <- findInterval(tps_clinique, b) + 1 #findInterval commence à 0...
+# HRIC <- round(exp(cbind(coef(coxt)[i], qnorm(0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])), qnorm(1-0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])))),3)
+# HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
+# 
+# df <- data.frame(param = name_param, beta = coefbeta)
+# df <- df[order(df$param),]
+# myParam <- rbind(paste(df$param[grepl("x2",df$param)], sep="", collapse="; "), paste(df$param[grepl("x3",df$param)], sep="", collapse="; "))
+# mybeta <- rbind(paste(df$beta[grepl("x2",df$param)], sep="", collapse="; "), paste(df$beta[grepl("x3",df$param)], sep="", collapse="; "))
+# df1 <- data.frame(variable = var, recode = FALSE, RP = FALSE, transf, tps_clinique = tps_clinique, HRIC, test = "robust",
+#                   statistic = stat, pvalue = pval, param = myParam, beta = mybeta)
 
 
 #-------------
@@ -1443,11 +1540,19 @@ for (i in seq_along(mySeqLev)){
 }
 
 #transformation du temps
- yt$x2t<-1/(yt$stop)*yt$x2
- yt$x2t<-(yt$stop)*yt$x2
- yt$x2t<-(yt$stop)^0.3*yt$x2
+# yt$x2t<-1/(yt$stop)*yt$x2
+# yt$x2t<-1/(yt$stop^1.5)*yt$x2
+# yt$x2t<-1/(yt$stop^2)*yt$x2
+# yt$x2t<-(yt$stop)*yt$x2
+# yt$x2t<-(yt$stop)^0.3*yt$x2
+# yt$x2t<-log(yt$stop)*yt$x2
+# yt$x2t<- yt$stop^2*yt$x2
+# yt$x2t<- yt$stop^2.5*yt$x2
+yt$x2t<- yt$stop^4*yt$x2
+# yt$x2t<- sqrt(yt$stop)*yt$x2
+
 # yt$x3t<-1/(yt$stop)*yt$x3
-yt$x2t<-log(yt$stop)*yt$x2
+
 #yt$x3t<-log(yt$stop)*yt$x3
 #coxt<-coxph(Surv(start, stop, etat)~x2+x2t+x3+x3t+cluster(PATIENT), data=yt)
 coxt<-coxph(Surv(start, stop, etat)~x2+x2t+x3+cluster(PATIENT), data=yt)
@@ -1465,7 +1570,7 @@ for (i in seq_along(bt)) {
 #log, sqrt ^2 not ok. 1/t not ok(beta(t) pas signif)
 
 
-#decoupage du temps
+#decoupage du temps pour x2
 #####
 #avec boucle 
 transf <- "3-6-18-36"
@@ -1510,7 +1615,7 @@ for (i in seq_along(bt)) {
 
 #interpretation
 test <- summary(coxt)
-coefbeta <- round(test$coefficients[ ,"coef"], 5)
+coefbeta <- round(test$coefficients[ ,"coef"], 3)
 name_param <- rownames(test$coefficients)
 stat <- round(test$robscore["test"],2)
 pval <- round(test$robscore["pvalue"],4)
@@ -1519,14 +1624,16 @@ tps_clinique <- 12 #12mois
 i <- findInterval(tps_clinique, b) + 1 #findInterval commence à 0...
 HRIC <- round(exp(cbind(coef(coxt)[i], qnorm(0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])), qnorm(1-0.025, coef(coxt)[i], sqrt(diag(vcov(coxt))[i])))),3)
 HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
+dfHR <- data.frame(tps_clinique = tps_clinique, transf = transf, param = paste(name_param[grep("x2", name_param)], collapse = ";"), beta = paste(coefbeta[grep("x2", names(coefbeta))], collapse = ";"), HRIC = HRIC, stringsAsFactors = FALSE)
 
 
-df <- data.frame(param = name_param, beta = coefbeta)
-df <- df[order(df$param),]
-myParam <- rbind(paste(df$param[grepl("x2",df$param)], sep="", collapse="; "), paste(df$param[grepl("x3",df$param)], sep="", collapse="; "))
-mybeta <- rbind(paste(df$beta[grepl("x2",df$param)], sep="", collapse="; "), paste(df$beta[grepl("x3",df$param)], sep="", collapse="; "))
-df <- data.frame(variable = var, recode = FALSE, RP = FALSE, transf, tps_clinique = tps_clinique, HRIC, test = "robust",
-                  statistic = stat, pvalue = pval, param = myParam, beta = mybeta)
+tps_clinique <- NA
+HRIC <- round(data.frame(IC=test$conf.int["x3",1], l=test$conf.int["x3",3], u=test$conf.int["x3",4]),3)
+HRIC <- paste0(HRIC[,1], "[", HRIC[,2], "-", HRIC[,3], "]")
+dfHR <- rbind(dfHR, data.frame(tps_clinique = NA, transf = NA, param = "x3", beta = coefbeta[grep("x3", names(coefbeta))], HRIC = HRIC, stringsAsFactors = FALSE))
+
+df <- data.frame(variable = var, recode = FALSE, RP = FALSE, transf = dfHR$transf, tps_clinique = tps_clinique, HRIC = dfHR$HRIC, test = "robust",
+                  statistic = stat, pvalue = pval, param = dfHR$param, beta = dfHR$beta, stringsAsFactors = FALSE)
 
 df1 <- rbind(df1, df)
 
@@ -1603,7 +1710,6 @@ pval <- round(test$robscore["pvalue"],4)
 transf <- NA
 tps_clinique <- NA
 HRIC <- round(data.frame(IC=test$conf.int[,1], l=test$conf.int[,3], u=test$conf.int[,4]),3)
-HR <- HRIC$IC
 HRIC <- paste0(HRIC[,1], "[", HRIC[,2], "-", HRIC[,3], "]")
 
 df <- data.frame(param = name_param, beta = coefbeta)
@@ -1611,7 +1717,7 @@ df <- df[order(df$param),]
 myParam <- rbind(paste(df$param[grepl("x2",df$param)], sep="", collapse="; "), paste(df$param[grepl("x3",df$param)], sep="", collapse="; "))
 mybeta <- rbind(paste(df$beta[grepl("x2",df$param)], sep="", collapse="; "), paste(df$beta[grepl("x3",df$param)], sep="", collapse="; "))
 df <- data.frame(variable = var, recode = FALSE, RP = TRUE, transf, tps_clinique = tps_clinique, HRIC, test = "robust",
-                 statistic = stat, pvalue = pval, param = myParam, beta = mybeta)
+                 statistic = stat, pvalue = pval, param = myParam, beta = mybeta, stringsAsFactors = FALSE)
 
 df1 <- rbind(df1,df)
 
@@ -1694,7 +1800,7 @@ for (i in 1:4) {
 #HRIC pour resp
 
 transf <- "log"
-m_d <- 365.25/12 #pour transformer mois en jours
+#m_d <- 365.25/12 #pour transformer mois en jours
 tps_clinique <- 12
 S <- vcov(coxt)
 #t <- tps_clinique * m_d #temps en jours
@@ -1717,7 +1823,7 @@ stat <- round(test$robscore["test"],2)
 pval <- round(test$robscore["pvalue"],4)
 
 df <- data.frame(variable = var, recode = FALSE, RP = FALSE, transf, tps_clinique = tps_clinique, HRIC = dfHR$HRIC, test = "robust",
-                 statistic = stat, pvalue = pval, param = dfHR$param, beta = dfHR$beta)
+                 statistic = stat, pvalue = pval, param = dfHR$param, beta = dfHR$beta, stringsAsFactors = FALSE)
 
 df1 <- rbind(df1,df)
 
@@ -1798,7 +1904,7 @@ for (i in 1:4) {
 
 #HRIC pour x2
 transf <- "^2"
-m_d <- 365.25/12 #pour transformer mois en jours
+#m_d <- 365.25/12 #pour transformer mois en jours
 tps_clinique <- 12
 S <- vcov(coxt)
 #t <- tps_clinique * m_d #temps en jours
@@ -1813,7 +1919,7 @@ for (i in "x2"){
   m <- b2[1]+b2[2]*t_t #coef de l'HR
   HRIC <- round(c(exp(m), exp(m + qnorm(0.975)*sqrt(variance) * c(-1,1))),3)
   HRIC <- paste0(HRIC[1], " [", HRIC[2], " - ", HRIC[3],"]")
-  dfHR <- rbind(dfHR,data.frame(param = paste0(i, "; ", i,"t"), beta = paste(round(b2,3), collapse = ";"), HRIC = HRIC))
+  dfHR <- rbind(dfHR, data.frame(transf = transf, param = paste0(i, "; ", i,"t"), beta = paste(round(b2,3), collapse = ";"), HRIC = HRIC, stringsAsFactors = FALSE))
 }
 
 
@@ -1828,10 +1934,10 @@ tps_clinique <- NA
 HRIC <- round(data.frame(IC=test$conf.int["x3",1], l=test$conf.int["x3",3], u=test$conf.int["x3",4]),3)
 HR <- HRIC$IC
 HRIC <- paste0(HRIC[,1], "[", HRIC[,2], "-", HRIC[,3], "]")
-dfHR <- rbind(dfHR,data.frame(param = "x3", beta = paste(round(coefbeta,3), collapse = ";"), HRIC = HRIC))
+dfHR <- rbind(dfHR, data.frame(transf = NA, param = "x3", beta = paste(round(coefbeta,3), collapse = ";"), HRIC = HRIC, stringsAsFactors = FALSE))
 
-df <- data.frame(variable = var, recode = FALSE, RP = FALSE, transf, tps_clinique = tps_clinique, HRIC = dfHR$HRIC, test = "robust",
-                 statistic = stat, pvalue = pval, param = dfHR$param, beta = dfHR$beta)
+df <- data.frame(variable = var, recode = FALSE, RP = FALSE, transf = dfHR$transf, tps_clinique = tps_clinique, HRIC = dfHR$HRIC, test = "robust",
+                 statistic = stat, pvalue = pval, param = dfHR$param, beta = dfHR$beta, stringsAsFactors = FALSE)
 
 df1 <- rbind(df1,df)
 
@@ -1881,14 +1987,8 @@ HRIC <- round(data.frame(IC=test$conf.int[,1], l=test$conf.int[,3], u=test$conf.
 HR <- HRIC$IC
 HRIC <- paste0(HRIC[,1], "[", HRIC[,2], "-", HRIC[,3], "]")
 
-df <- data.frame(param = names(coefbeta), beta = as.numeric(coefbeta))
-df <- df[order(df$param),]
-len <- length(name_param)/2 #nb le nb de param final n'est pas forcément le meme que le nombre d'interval demandé au départ
-mySeq <- seq_along(df$param)
-myParam <- rbind(paste(df$param[mySeq<=len], sep="", collapse="; "), paste(df$param[mySeq>len], sep="", collapse="; "))
-mybeta <- rbind(paste(df$beta[mySeq<=len], sep="", collapse="; "), paste(df$beta[mySeq>len], sep="", collapse="; "))
 df <- data.frame(variable = var, recode = FALSE, RP = TRUE, transf, tps_clinique = tps_clinique, HRIC, test = "robust",
-                 statistic = stat, pvalue = pval, param = myParam, beta = mybeta)
+                 statistic = stat, pvalue = pval, param = names(coefbeta), beta = as.factor(coefbeta), stringsAsFactors = FALSE)
 
 df1 <- rbind(df1,df)
 #-------------
@@ -1922,22 +2022,20 @@ for (i in seq_along(mySeqLev)){
 
 #interpretation
 #RP ok => pas de modif
-coxt <- cox
-test <- summary(coxt)
-coefbeta <- round(test$coefficients[ ,"coef"], 5)
-stat <- round(test$robscore["test"],2)
-pval <- round(test$robscore["pvalue"],4)
-
-transf <- NA
-tps_clinique <- NA
-HRIC <- round(data.frame(IC=test$conf.int[,1], l=test$conf.int[,3], u=test$conf.int[,4]),3)
-HR <- HRIC$IC
-HRIC <- paste0(HRIC[,1], "[", HRIC[,2], "-", HRIC[,3], "]")
-
-df <- data.frame(param = names(coefbeta), beta = as.numeric(coefbeta))
-df <- df[order(df$param),]
-df <- data.frame(variable = var, recode = FALSE, RP = TRUE, transf, tps_clinique = tps_clinique, HRIC, test = "robust",
-                 statistic = stat, pvalue = pval, param = names(coefbeta), beta = factor(coefbeta))
+  coxt <- cox
+  test <- summary(coxt)
+  coefbeta <- round(test$coefficients[ ,"coef"], 5)
+  stat <- round(test$robscore["test"],2)
+  pval <- round(test$robscore["pvalue"],4)
+  
+  transf <- NA
+  tps_clinique <- NA
+  HRIC <- round(data.frame(IC=test$conf.int[,1], l=test$conf.int[,3], u=test$conf.int[,4]),3)
+  HR <- HRIC$IC
+  HRIC <- paste0(HRIC[,1], "[", HRIC[,2], "-", HRIC[,3], "]")
+  
+  df <- data.frame(variable = var, recode = FALSE, RP = TRUE, transf, tps_clinique = tps_clinique, HRIC, test = "robust",
+                   statistic = stat, pvalue = pval, param = names(coefbeta), beta = as.factor(coefbeta), stringsAsFactors = FALSE)
 
 df1 <- rbind(df1,df)
 #-------------
@@ -1956,6 +2054,7 @@ paste0(missrep[missrep$variable %in% qualir, "n_patNA"], "(",missrep[missrep$var
 s1 <- readRDS("data/analyses/df_surv_bl.rds")
 s2 <- readRDS("data/analyses/df_surv_quanti_bl.rds")
 s5 <- readRDS("data/analyses/df_surv_q_bl.rds")
+
 write.table(print(s2), file="clipboard", sep= "\t", row.names = FALSE)
 
 #HRIC
@@ -2038,7 +2137,7 @@ data <- data[ , c("variable", "recode", "RP", "transf", "param", "beta", "tps_cl
 #merge avec missing value
 data <- merge(missbl.df, data,  by="variable", all.x = FALSE, all.y = TRUE)
 data$variable <- as.character(data$variable)
-data$param <- as.character(data$param)
+data$param <- gsub("^a", "", as.character(data$param))
 # #merge qvec survie
 # s5$param <- s5$group
 # s5$variable <- as.character(s5$variable)
@@ -2051,7 +2150,15 @@ data <- data[order(data$pvalue), ]
 #data <- data[data$pvalue<0.05, ]
 data <- data[data$missing<=n, ]
 data <- data[data$pvalue<0.2, ]
-data$survie <- NA
+#merge avec la survie et mise en ligne
+data2 <- s5[s5$variable=="TOUX_EFFICACE" & s5$param != 2, ]
+data2$survIC <- paste0(data2$param, " : ", data2$survIC)
+data2$survIC <- paste(data2$survIC[data2$param==0], data2$survIC[data2$param==1], collapse = " ; ")
+data2 <- rbind(data2[data2$param == 1, ], s5[s5$variable=="LIEUDEB_recode", ])
+data2$variable <- as.character(data2$variable)
+data2$survie <- data2$survIC
+data <- merge(data, data2, by=c("variable", "param"), all = TRUE)
+
 data <- data[ , names(data_bin)]
 data_q <- data
 
@@ -2107,14 +2214,6 @@ data_q <- data
 
 data <- rbind(dataQbin, data_q)
 data <- data[order(data$pvalue), ]
-
-write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
-
-#variables à binariser
-"OXYM_VNI_SV"
-
-min(d[d$qui== "TEST_MUSCUL", "x"])
-
 
 write.table(print(data), file="clipboard", sep= "\t", row.names = FALSE)
 
