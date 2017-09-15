@@ -1,3 +1,8 @@
+#######################
+#   Data management   #
+#######################
+
+
 source("src/02-fonctions_SLA.R")
 #source("src/objects_SLA.R")
 
@@ -1135,13 +1140,20 @@ dr <- dr[dr$date<= dr$dfin, ]
 
 #data management
 bl$LIEUDEB_recode <- Recode(as.factor(bl$LIEUDEB), "1 = 'bulbar';2 = 'cervical'; 10:15 = 'lower limb'; 3 = 'respiratory'; 4:9 = 'upper limb'")
+bl$LIEUDEB_rec2 <- Recode(as.factor(bl$LIEUDEB), "1 = 'bulb'; 2 = 'cerv_ulimb'; 10:15 = 'llimb'; 3 = 'resp'; 4:9 = 'cerv_ulimb'")
 d <- bl #base avec les colonnes qui ne sont pas dans bdd_dates
 match(c("LIEUDEB", "DOB", "FIRSTSYMPTOM"), names(bl))
 dim(bl)
 dim(d)
-d[ ,c("LIEUDEB")] <- NULL
-d[ ,c("DOB")] <- NULL
-d[ ,c("FIRSTSYMPTOM")] <- NULL
+d$LIEUDEB <- NULL
+d$DOB <- NULL
+
+d$E_PHAR_LAR <- NULL #trop subjectif selon JG
+d$AGE_DEBUT <- NULL #redondant avec agevni, JG preconise de garder age vni
+#lechtzin 2002 CHEST : CVF allonge correle mieux avec faiblesse diaphragmatique que CVF assis et chute du CVF entre assis et allonge
+d$SLAtillvni_sup25mo <- ifelse(d$SLAtillvni <= median(d$SLAtillvni, na.rm=TRUE), 0, 1)
+
+
 
 #raison de la mise en place de la vni :
 for (i in (1:20)){
@@ -1152,14 +1164,13 @@ d$CRIT_2_VNI <- NULL
 d$CRIT_3_VNI <- NULL
 d$TYPESOD1 <- NULL
 d$COOPERATION <- NULL
-d$VEMS_OBSV <- NULL
 d$P_TRANS_02 <- NULL
 
 
 #J'impute les NA en 0 pour les variables d'interrogatoire et de clinique qui s'y prete
 #apply(d, 2, table, useNA="a")
 imp_0_vec <- c("BPCO_PP", "ASTHME_PP", "SAS_PREEXIST_PP", "APPAREILLE_PP", "DYSP_EFFORT","DYSP_REPOS", "DYSP_PAROLE", "DYSP_DECUBI", "DYSP_PAROX",
-               "FAUS_ROUTE", "REVEIL_MULTI", "REVEIL_ETOUF", "CAUCHEMAR", "R_MUSCL_ACCES", "RESP_PARADOX", "ENC_BRONCHIQ", "E_PHAR_LAR", "OXY_THERAP")
+               "FAUS_ROUTE", "REVEIL_MULTI", "REVEIL_ETOUF", "CAUCHEMAR", "R_MUSCL_ACCES", "RESP_PARADOX", "ENC_BRONCHIQ", "OXY_THERAP")
 d[,imp_0_vec] <- apply(d[,imp_0_vec], 2, function(x) {
   x[is.na(x)] <- 0 
   return(x)})
@@ -1184,7 +1195,7 @@ d[, paste0("crit", 1:20)] <- NULL
 d[ ,"BMI"] <- NULL
 
 #supprimer valeurs aberrantes
-lapply(names(d)[-1], des_all, bl) #permet davoir les histogrammes des valeurs quanti
+#lapply(names(d)[-1], des_all, bl) #permet davoir les histogrammes des valeurs quanti
 d[d$CVF_ASSIS_ESR < 0 & !is.na(d$CVF_ASSIS_ESR), "CVF_ASSIS_ESR"] <- NA
 d[(d$CVF_ERS < 0 | d$CVF_ERS >10) & !is.na(d$CVF_ERS), "CVF_ERS"] <- NA
 
@@ -1200,7 +1211,7 @@ nval_byvar <- lapply(allx_byvar, function(x)length(unique(x))) #nb de valeurs di
 min_level <-  lapply(allx_byvar, function(x)min(as.numeric(table(x)))) #nombre minimum de personnes par catégorie
 ncu <- data.frame(var = names(allx_byvar), nbrow = as.numeric(nrow_byvar), nval = as.numeric(nval_byvar), npat = as.numeric(nb_pat_byvar), min_level=as.numeric(min_level))
 quanti <- as.character(ncu[ncu$nval>4, "var"])
-lapply(quanti, function(var)hist(d2[d2$qui==var, "x"], main = var))
+#lapply(quanti, function(var)hist(d2[d2$qui==var, "x"], main = var))
 
 #PaO2 sous oxygène à 773 mmHg, est-ce possible?
 d2[d2$qui=="PAO2_PP_CL1" & d2$x>600, "x"]
@@ -1222,6 +1233,9 @@ d2 <- bind_rows(d2 %>% filter(qui=="UTIL_VENTIL_DIURN_SV") %>% mutate(qui = "UTI
                                                                 ifelse(x>0 & x<=4, 1,
                                                                        ifelse(x>4 & x<=8, 2, 3)))), d2) 
 d2$del <- ifelse(d2$del<0, 0, d2$del)
+dim(d2)
+d2 <- d2 %>% filter(!is.na(x))
+dim(d2)
 dr <- d2
 
 #dr sans doublons mais avec les patients sans consultations de base
@@ -1232,6 +1246,13 @@ saveRDS(bdd_dates, "data/bdd_dates_avecpatssbl.rds")
 
 
 #retrait des patients sans baseline
+bl_imput <- c("SATISF_VENTIL_SV", "UTIL_VENTIL_DIURN_SV", "UTIL_VENTIL_NOCT_SV", "DUREE_SOMM_VENT_SV", "QUALIT_SOMM_VENT_SV",
+              "EVOL_SOMM_VNI_SV","REVEIL_VENT_SV", "ORTHOPN_SV", "DYSPN_SVENT_SV", "DYSPN_SOUSVENT_SV", "OXYM_VNI_SV",
+              "FUITE_VNI_SV", "EVT_OBSTR_SV", "ASYNCHR_SV", "MODIF_PARAM_SV", "MODIF_PARAM_ITEMS_1_SV", "MODIF_PARAM_ITEMS_2_SV",
+              "MODIF_PARAM_ITEMS_3_SV", "MODIF_PARAM_ITEMS_4_SV", "MODIF_PARAM_ITEMS_5_SV")
+
+vartodel <- c()
+
 pat_withbl <- dr %>% filter(!qui %in% c(bl_imput, "UTIL_VENTIL_DIURN_SV_c", "UTIL_QUOT")) %>% #il faut dabord retirer les bl imputees...
   group_by(PATIENT) %>% 
   mutate(mindel = min(del, na.rm=TRUE)) %>% filter(mindel==0) %>% slice(1) %>% .$PATIENT
@@ -1246,7 +1267,7 @@ bdd_dates <- bdd_dates[bdd_dates$PATIENT %in% pat_withbl, ]
 
 #tableau sans doublons all with bl:
 saveRDS(dr, "data/df_rep.rds")
-saveRDS(bl, "data/bl.rds")
+saveRDS(bl, "data/bl_b.rds")
 saveRDS(vnisla, "data/vnisla.rds")
 saveRDS(bdd_dates, "data/bdd_dates.rds")
 # #ddn
@@ -1254,6 +1275,14 @@ saveRDS(bdd_dates, "data/bdd_dates.rds")
 # ddn <- sup_bdd %>% group_by(PATIENT) %>% arrange(desc(date)) %>% summarise(max(date))
 # dim(sup_bdd %>% group_by(PATIENT) %>% arrange(desc(date)) %>% summarise(max(date))) #meme dimension que vnisla
 
+
+
+bl$CVF_ASSIS_ESR <- NULL
+bl$CHUTE_CV <- NULL
+bl$VEMS_OBSV <- NULL
+d$FIRSTSYMPTOM <- NULL
+saveRDS(bl, "data/bl.rds")
+#c("VEMS_OBSV", "CVF_ASSIS_ESR", "CHUTE_CV")
 
 
 

@@ -1,3 +1,7 @@
+##################
+#   Fonctions    #
+##################
+
 # anonymate_sla <- function(x) {
 #   if(is.factor(x)) {
 #     y <- ceiling(length(levels(x))/26)
@@ -412,17 +416,17 @@ get_repet_var_fun <- function (data2,string1, string2=NULL, string3=NULL) {
         data[,i] <- as.character(data[,i])
         data[,i] <- ifelse(data[,i]=="",NA,data[,i])
       }
-
-        #browser()
-        is.datenonNA <- apply(data,2,function(.x)!is.na(.x)) #si true = non NA
-        COLDATEnonNA <- colnames(is.datenonNA)[apply(is.datenonNA,2,sum)>0]
-        #COLDATEnonNA <- COLDATEnonNA[!COLDATEnonNA %in% "PATIENT"]
-        
-        data$PATIENT <- as.character(data2$PATIENT)
-        which_nonNA <- data[apply(apply(data[,-which(colnames(data) %in% "PATIENT")],2,function(x)!is.na(x)),1,sum)>0, c("PATIENT",COLDATEnonNA)]
-        n_row_nonNA <- nrow(data[apply(apply(data[,-which(colnames(data) %in% "PATIENT")],2,function(x)!is.na(x)),1,sum)>0, c("PATIENT",COLDATEnonNA)])
-        which_colnonNA <- data[ , c("PATIENT",COLDATEnonNA)]
-        return(list(all_data_rept_var = data[ ,c("PATIENT",colnamesDAT)], col_nonNA = which_colnonNA, col_and_row_nonNA = which_nonNA, nrow_nonNA = n_row_nonNA, which_col_withcolNA = colnamesDAT, which_col_nonNA = COLDATEnonNA))
+      
+      #browser()
+      is.datenonNA <- apply(data,2,function(.x)!is.na(.x)) #si true = non NA
+      COLDATEnonNA <- colnames(is.datenonNA)[apply(is.datenonNA,2,sum)>0]
+      #COLDATEnonNA <- COLDATEnonNA[!COLDATEnonNA %in% "PATIENT"]
+      
+      data$PATIENT <- as.character(data2$PATIENT)
+      which_nonNA <- data[apply(apply(data[,-which(colnames(data) %in% "PATIENT")],2,function(x)!is.na(x)),1,sum)>0, c("PATIENT",COLDATEnonNA)]
+      n_row_nonNA <- nrow(data[apply(apply(data[,-which(colnames(data) %in% "PATIENT")],2,function(x)!is.na(x)),1,sum)>0, c("PATIENT",COLDATEnonNA)])
+      which_colnonNA <- data[ , c("PATIENT",COLDATEnonNA)]
+      return(list(all_data_rept_var = data[ ,c("PATIENT",colnamesDAT)], col_nonNA = which_colnonNA, col_and_row_nonNA = which_nonNA, nrow_nonNA = n_row_nonNA, which_col_withcolNA = colnamesDAT, which_col_nonNA = COLDATEnonNA))
     }
     
   }
@@ -481,7 +485,7 @@ get_var_blf0_suivif1_neuro_date <- function(Ws1, Ws2){
   print(Ws)
   vs <- c("DATEXAM", "DATEXAM_V")
   extws <- c("base", "suivi")
-
+  
   #base
   v <- c(vs[1], Ws[1])
   w<-c("date", "x")
@@ -493,14 +497,14 @@ get_var_blf0_suivif1_neuro_date <- function(Ws1, Ws2){
   Yv<-y
   # Yv<-Yv[order(Yv$PATIENT, Yv$f),]
   Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
-
-
+  
+  
   #option verif_date :Ws <- c("DATE_NUTRI", "DATE_NUTRI_V") #pour verifier que la date nutri est la même que la date exam
   Yv$x<-as.Date(as.character(Yv$x), "%d/%m/%Y")
-
+  
   # Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
   YYv<-Yv
-
+  
   #suivi
   v <- c(vs[2], Ws[2])
   r<-c("", paste("_M", 1:100, sep=""))
@@ -511,7 +515,7 @@ get_var_blf0_suivif1_neuro_date <- function(Ws1, Ws2){
   vr<-vr[vr$vr%in%names(bdd9),]
   w<-c("date", "x")
   vrs<-split(vr, vr$f)
-
+  
   for (iv in 1:length(vrs)) {
     #browser()
     #print(iv)
@@ -531,11 +535,11 @@ get_var_blf0_suivif1_neuro_date <- function(Ws1, Ws2){
   #browser()
   # Yv<-Yv[order(Yv$PATIENT, Yv$f),]
   Yv$date<-as.Date(as.character(Yv$date), "%d/%m/%Y")
-
-
+  
+  
   #option verif_date :Ws <- c("DATE_NUTRI", "DATE_NUTRI_V")
   Yv$x<-as.Date(as.character(Yv$x), "%d/%m/%Y")
-
+  
   # Yv<-Yv[!is.na(Yv$x) & !is.na(Yv$date),]
   head(Yv)
   YYv<-rbind(YYv, Yv)
@@ -548,13 +552,13 @@ get_var_blf0_suivif1_neuro_date <- function(Ws1, Ws2){
   y$del<-as.numeric(y$date-y$datevni)
   y<-y[!is.na(y$del),]
   y<-y[order(y$PATIENT, y$date),]
-
+  
   #selection des variables de suivi : toutes
   yp<-y[y$del>0,]
   head(yp)
   summary(yp)
   if(nrow(yp)!=0) yp$f<-1 #1 pour suivi (en opposition à baseline)
-
+  
   #selection valeur de baseline
   yn<-y[y$del<=0,]
   head(yn)
@@ -567,7 +571,7 @@ get_var_blf0_suivif1_neuro_date <- function(Ws1, Ws2){
   head(yn)
   summary(yn)
   if(nrow(yn)!=0)yn$f<-0 #0 pour baseline
-
+  
   #je rassemble les tableaux baseline(yn) et suivi(yp)
   y<-rbind(yp, yn)
   y<-y[order(y$PATIENT, y$del),]
@@ -1142,7 +1146,10 @@ describe_qualitative <- function(vec_var, .data){
   table_var_quali <- do.call(rbind,table_var_quali)
   table_var_quali <- data.frame(table_var_quali)
   table_var_quali$range <- NA
-  colnames(table_var_quali) <- c("valeur", "missing values", "range")
+  table_var_quali$n <- length(.data[, vec_var][!is.na(.data[, vec_var])])
+
+  colnames(table_var_quali) <- c("valeur", "missing values", "range", "n")
+  table_var_quali <- table_var_quali[ ,c( "n", "valeur", "missing values", "range")]
   return (table_var_quali)
 }
 
@@ -1150,8 +1157,8 @@ describe_quantitative <- function(vec_var, .data){
   table_var_quanti <- lapply(vec_var, function(i){ #median ou moyenne? (sachant qu'on ne verifie pas normalite des baselines)
     data <- .data[,i]
     if (!is.numeric(data)) {
-      a <- data.frame("not num", "", "") 
-      colnames(a) <- c("valeur", "missing values", "range")
+      a <- data.frame(length(data[!is.na(data)]),"not num", "", "") 
+      colnames(a) <- c("n", "valeur", "missing values", "range")
       rownames(a) <- i
     } else {
       hist(data, main = i)
@@ -1176,9 +1183,10 @@ describe_quantitative <- function(vec_var, .data){
       myrange <- paste0(myrange[1]," ; ",myrange[2])
       # a <- rbind (a,nNA)
       # rownames(a)[-nrow(a)] <- paste0(i,"*") 
-      a <- cbind (a, nNA, myrange)
+      n <- length(data[!is.na(data)])
+      a <- data.frame(n, a, nNA, myrange, stringsAsFactors = FALSE)
       rownames(a) <- paste0(i,"*")
-      colnames(a) <- c("valeur", "missing values", "range")
+      colnames(a) <- c("n", "valeur", "missing values", "range")
     }
     return(a)
   })
@@ -1188,7 +1196,7 @@ describe_quantitative <- function(vec_var, .data){
 
 describe_all <- function(var, data){
   print(var)
-#browser()
+  #browser()
   vec <- data[ ,var]
   if (any(!is.na(as.numeric(as.character(vec)))) & length(levels(as.factor(vec))) != 2) res <- describe_quantitative(var, data)#génère warning si character
   else {
@@ -1222,7 +1230,7 @@ check_loglin <- function(var, data, .time, .evt){
   cox1<-coxph(Surv(tps,evt)~1, data=s)
   r<-residuals(cox1, "martingale")
   lw<-lowess(r~s$a)
-  plot(s$a, r, main=paste0("Loglinearity of ",var), ylab = paste0("residuals"), xlab = "Time, months" )
+  plot(s$a, r, main=paste0("Loglinearity of ",var), ylab = paste0("residuals"), xlab = var)
   lines(lw, lwd= 2)
   
   # 2/ découpe la variable le variable en fonction du temps avec une polynome de degré 2
@@ -1254,7 +1262,7 @@ get_binaires <- function(vec, data){
 
 #HYP DES RISQUES PROP
 #check_RP <- function(var, data, .time, .evt, type="quanti", recode = FALSE){
-check_RP <- function(var, data, .time, .evt, quali = FALSE, recode = FALSE){
+check_RP <- function(var, data, .time, .evt, quali = FALSE, recode = FALSE, resid = TRUE, ylim =  NULL){
   s <- data
   s$a <- s[ ,var]
   s$evt <- s[ ,.evt]
@@ -1280,10 +1288,13 @@ check_RP <- function(var, data, .time, .evt, quali = FALSE, recode = FALSE){
     
     #résidus de Shoenfeld
     z <- cox.zph(mod, transf="identity")
-    plot(z, main=paste0(.title, "\nHarrell test p = ",pval), resid = TRUE, ylab = paste0("Beta(t) for ", var),
-         xlab = "Time, months")
-    abline(h=0, col="red")
-    abline(h=coef(mod), col="blue")
+    plot(z, col="black", main=paste0(.title, "\nHarrell test p = ",pval), resid = resid, ylab = paste0("Beta(t) de ", var),
+    #plot(z, col="black", main=paste0(.title, "\nHarrell test p = ",pval), resid = resid, ylab = paste0("Résidus de Schoenfeld standardisés de ", var),
+         #xlab = "Time, months",
+         xlab = "Temps, mois", lwd = 1,
+         ylim = ylim)
+    abline(h=0, col="red", lwd = 2)
+    abline(h=coef(mod), col="blue", lwd = 2)
     #text(x = (max(s$tps)*1/2), y = z$table[,1]+ 2, labels = paste0("Harrell test p = ", pval))
     return(data.frame(variable=var,pval=pval))
     #non significatif si l'IC contient a tout moment la courbe rouge
@@ -1303,7 +1314,7 @@ check_RP <- function(var, data, .time, .evt, quali = FALSE, recode = FALSE){
     #résidus de Shoenfeld
     z <- cox.zph(mod, transf="identity")
     for (i in 1:(nrow(z$table)-1)){
-      plot(z[i], main=paste0(.title[i], "\nref = ", ref, "\nHarrell test p = ",pval[i]), resid = FALSE, ylab = paste0("Beta(t) for ", n1[i]))
+      plot(z[i], main=paste0(.title[i], "\nref = ", ref, "\nHarrell test p = ",pval[i]), resid = resid, ylab = paste0("Beta(t) for ", n1[i]))
       abline(h=0, col="red")
       abline(h=coef(mod)[i], col="blue")
     }
@@ -1311,12 +1322,12 @@ check_RP <- function(var, data, .time, .evt, quali = FALSE, recode = FALSE){
   }
   
 }
-  
+
 
 
 
 #RECODAGE EN FONCTION DU TEMPS ET VERIF
-add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="log", vec_cut = NULL){
+add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="log", vec_cut = NULL, ylim = NULL, resid = TRUE){
   s <- data
   s$a <- s[ ,var]
   s$evt <- s[ ,.evt]
@@ -1367,8 +1378,8 @@ add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="lo
       #cat(paste0("\n",transf,": at not significant (p>=0.05), ",transf," doesn't fit, don't look at shoenfeld nor Harrell test"))
       return (data.frame(variable = var, recode = recode, param = name_param, transf= .transf, beta = coefbeta, pvalue = pval, beta_at = FALSE, Harrell = NA, 
                          curve = NA, AIC = NA, robust = NA, probust = NA))
-    
-    #peut-être : coef de at est significatif => on test les RP : Les 2 tests doivent être satisfaits
+      
+      #peut-être : coef de at est significatif => on test les RP : Les 2 tests doivent être satisfaits
     } else { 
       .AIC <- round(extractAIC(coxt)[2],2) #le premier paramètre correspond au modèle vide, le deuxième est l'AIC du modèle. Plus l'AIC est petit, plus la vraisemblance est grande comparé au nombre de paramètres et mieux c'est.
       rscore <- round(test$robscore["test"],2)
@@ -1382,7 +1393,9 @@ add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="lo
       zt <- cox.zph(coxt, transf="identity")
       for (i in 1:(nrow(zt$table)-1)){
         iz<-i
-        plot(zt[iz], resid = FALSE, main = paste0("plot shoenfeld for ", var, rownames(zt[iz]$table), " with ",transf," transformation\nHarrell :", Harrell, "\nAIC = ", .AIC))
+        #plot(zt[iz], ylim= c(-0.0002, 0.0002))
+         plot(zt[iz], resid = resid, main = paste0("plot shoenfeld for ", var, rownames(zt[iz]$table), " with ",transf," transformation\nHarrell :", Harrell, "\nAIC = ", .AIC),
+              ylim = ylim)
         abline(h=0, col="red")
         abline(h=coef(coxt)[iz], col="blue")
       }
@@ -1391,9 +1404,9 @@ add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="lo
                          curve = NA,  AIC = .AIC, robust = rscore, probust = prscore))
     }
     
-  #OPTION 2 : découpage du temps
+    #OPTION 2 : découpage du temps
   } else { 
-    #browser()
+    
     print(var)
     b <- vec_cut
     name_cut <- paste(b, collapse = "-")
@@ -1404,14 +1417,14 @@ add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="lo
       if(i == (length(b)+1)) tmp <-  slat$a_recode * ifelse(slat$stop>b[i-1], 1, 0)
       slat[ ,paste0("at",i)] <- tmp
     }
-
+    #browser()
     vat<-paste("at",  1:(length(b)+1), sep="")
     x<-slat[, vat]
     sx<-colSums(x) #interval de temps sans evt
     wat<-vat[sx>0] #on supprime interval de temps quand pas d'evenement
     f<-paste("Surv(start, stop, evt) ~ ", paste(wat, collapse="+"),"+cluster(PATIENT)", sep="")  #on ne met pas a_recode car les at couvre deja  toutes les perdiodes
     
-
+    
     coxt <- coxph(as.formula(f), data=slat)
     test <- summary(coxt)
     pval <-  round(test$coefficients[ ,"Pr(>|z|)"], 3) #on veut la pvalue du test robuste et le rscore et pas la pvalue des coefficients
@@ -1420,13 +1433,14 @@ add_vart_and_check <- function(var, data, .time, .evt, recode=FALSE, .transf="lo
     .AIC <- round(extractAIC(coxt)[2],2)
     rscore <- round(test$robscore["test"],2)
     prscore <- round(test$robscore["pvalue"],4)
-   
+    
     
     #on ne fait que la courbe et pas de test de Harrell pour la découpe du temps
     zt <- cox.zph(coxt, transf="identity")
     for (i in 1:(nrow(zt$table)-1)){
       iz<-i
-      plot(zt[iz], resid = FALSE, main = paste0("plot shoenfeld for", var, " cut ", name_cut, "\nAIC = ", .AIC))
+      plot(zt[iz], resid = resid, main = paste0("plot shoenfeld for", var, " cut ", name_cut, "\nAIC = ", .AIC),
+           ylim = ylim, xlab = "Temps, mois")
       abline(h=0, col="red")
       abline(h=coef(coxt)[iz], col="blue", lty=2)
       abline(v=b)
@@ -1678,6 +1692,7 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), recode =
   s$a <- s[ ,var]
   s <- s[!is.na(s$a),]
   .title <- paste0("Survival by ", var)
+  .title <- var
   
   if (recode == TRUE) {
     s$a_recode <- ifelse (s$a < median(s$a), 0, 1)
@@ -1737,14 +1752,16 @@ draw_surv_bin <- function(var, data, .time, .evt, vec_time_IC= c(1, 3), recode =
       scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) +
       #scale_x_continuous(breaks=seq(0,max(s$tps),12), labels=0:(length(seq(0,max(s$tps),12))-1)) +
       scale_y_continuous(labels=percent) +
-      labs(x="Time of follow-up, year", title=.title) +
+      #labs(x="Time of follow-up, year", title=.title) +
+      labs(x="Durée de suivi, année", y = "Survie, %", title=.title) +
       #labs(x="Time of follow-up, months", title=.title) +
       #changement legende
       guides (linetype = FALSE) +
       scale_colour_discrete( labels = leg) +
-      theme(legend.position="right", legend.title=element_blank(), axis.title = element_text(size=16)) +
+      theme(legend.position="right", legend.title=element_blank(), axis.title = element_text(size=14)) +
       #espace autour du schéma
       theme(plot.margin = unit(c(1,1,3,2), "cm")) #top, right, bottom, left
+      #theme(plot.margin = unit(c(1,1,3,2), "cm")) #top, right, bottom, left
     
     #intervalle de confiance
     for (i in 1:2) {
@@ -1926,8 +1943,8 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
   s$a <- as.factor(s$a)
   
   s$evt <- s[ ,.evt]
-  #s$tps <- (s[ ,.time]/365.25) + 0.001 # en annee #0.001 au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
-  s$tps <- (s[ ,.time]/(365.25/12)) + 0.001 # en mois # 0.001 au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+  s$tps <- (s[ ,.time]/365.25) + 0.001 # en annee #0.001 au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
+  #s$tps <- (s[ ,.time]/(365.25/12)) + 0.001 # en mois # 0.001 au cas ou un temps vaut 0 ce qui empêche survsplit de fonctionner
   
   km <- survfit(Surv(tps,evt)~a, data=s, conf.int=.95)
   
@@ -1939,8 +1956,8 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
     .skmi <- summary(.km, time=vec_time_IC-am)
     assign(paste0("skmi",i), .skmi)
     #pour table de survie
-    #.skm <- summary(.km, time=seq(0, 10, by=1))# tps en annee
-    .skm <- summary(.km, time=seq(0,max(s$tps),6))# tps en mois
+    .skm <- summary(.km, time=seq(0, 10, by=1))# tps en annee
+    #.skm <- summary(.km, time=seq(0,max(s$tps),6))# tps en mois
     .skm <- data.frame(time=.skm$time, n.risk=.skm$n.risk)
     assign(paste0("skm",i), .skm)
     
@@ -1957,20 +1974,29 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
     #preparation legende
     leg<-names(km$strata)
     leg <- str_sub(leg,3,-1)
+    #leg <-c("bulbaire", "cervical/upper limb", "lower limb", "repiratory")
+    #leg <-c(0,1, "NA")
     col <- hue_pal()(length(leg))
-    .title <- paste0("Survival by ", var)
+    #.title <- paste0("Survival by ", var)
+    .title <- var 
+    #.title <- "Lieu de début des symptômes"
+    #.title <- "Toux efficace"
     
     #courbe de survie
+
     g <- ggsurv(km, CI=FALSE, order.legend = FALSE, surv.col=col, cens.col=col) +
       #changement des axes
-      #scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) + #qd tps en annee
-      scale_x_continuous(breaks=seq(0,max(s$tps),6), labels=seq(0,max(s$tps),6)) + #qd tps en mois
+      scale_x_continuous(breaks=seq(0,max(s$tps),1), labels=0:(length(seq(0,max(s$tps),1))-1)) + #qd tps en annee
+      #scale_x_continuous(breaks=seq(0,max(s$tps),6), labels=seq(0,max(s$tps),6)) + #qd tps en mois
       scale_y_continuous(labels=percent) +
       #labs(x="Time of follow-up, year", title=.title) +
-      labs(x="Time of follow-up, months", title=.title) +
+      #labs(x="Time of follow-up, months", title=.title) +
+      labs(x="Durée de suivi, années", y = "Survie, %", title=.title) +
+      
       #changement legende
       guides (linetype = FALSE) +
-      scale_colour_discrete( labels = leg) +
+      scale_colour_discrete(labels = leg) +
+      scale_colour_discrete(labels = leg) +
       theme(legend.position="right", legend.title=element_blank()) +
       #espace autour du schéma
       theme(plot.margin = unit(c(1,1,4,2), "cm"), plot.title = element_text(size = 16, face = "bold"),
@@ -2003,8 +2029,10 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
     #display group text
     for (j in 1:length(km$strata)){
       #g <- g + annotation_custom(grob = textGrob(leg[j]), xmin = -2.1, xmax = -2.1, ymin = position_y[j])#year
-      g <- g + annotation_custom(grob = textGrob(leg[j]), xmin = -12, xmax = -12, ymin = position_y[j])
+      g <- g + annotation_custom(grob = textGrob(leg[j]), xmin = -1.6, xmax = -1.6, ymin = position_y[j])#year
+      #g <- g + annotation_custom(grob = textGrob(leg[j]), xmin = -12, xmax = -12, ymin = position_y[j])
     }
+
     if (pvalue==TRUE){
       mod <- coxph(Surv(tps, evt) ~ a, data = s)
       test <- summary (mod)
@@ -2150,28 +2178,28 @@ draw_surv_qualisup2 <- function(var, data, .time = "time.vni", .evt = "evt", vec
 #   return(pval)
 # }
 
-check_RP_dt <- function(modele, var=NULL, data=NULL, .time=NULL, .evt=NULL, type="quanti", recode = TRUE){
-  mod <- modele
-  .title <- paste0("RP of ", var)
-  
-  #Test de Harrell
-  z <- cox.zph(mod, transform = "rank")
-  cat("Test de Harrell\n\n")
-  print(z)
-  pval <- round(z$table[,3],3)
-  cat(paste0("\nTest de Harrell p value: ", pval))
-  #non signif si p>=0.05
-  
-  #résidus de Shoenfeld
-  z <- cox.zph(mod, transf="identity")
-  plot(z, main=paste0(.title, "\nHarrell test p = ", pval), resid = FALSE, ylab = paste0("Beta(t) for ", var),
-       xlab = "Time, days")
-  abline(h=0, col="red")
-  abline(h=coef(mod), col="blue")
-  #non significatif si l'IC contient a tout moment la courbe rouge
-  
-  return(pval)
-}
+# check_RP_dt <- function(modele, var=NULL, data=NULL, .time=NULL, .evt=NULL, type="quanti", recode = TRUE){
+#   mod <- modele
+#   .title <- paste0("RP of ", var)
+#   
+#   #Test de Harrell
+#   z <- cox.zph(mod, transform = "rank")
+#   cat("Test de Harrell\n\n")
+#   print(z)
+#   pval <- round(z$table[,3],3)
+#   cat(paste0("\nTest de Harrell p value: ", pval))
+#   #non signif si p>=0.05
+#   
+#   #résidus de Shoenfeld
+#   z <- cox.zph(mod, transf="identity")
+#   plot(z, main=paste0(.title, "\nHarrell test p = ", pval), resid = FALSE, ylab = paste0("Beta(t) for ", var),
+#        xlab = "Time, days")
+#   abline(h=0, col="red")
+#   abline(h=coef(mod), col="blue")
+#   #non significatif si l'IC contient a tout moment la courbe rouge
+#   
+#   return(pval)
+# }
 
 
 #RECODAGE EN FONCTION DU TEMPS ET VERIF
@@ -2264,6 +2292,7 @@ add_vart_and_check_dt <- function(data_split=NULL, var, data=NULL, title = .titl
     x<-slat[, vat]
     sx<-colSums(x) #interval de temps sans evt
     wat<-vat[sx>0] #on supprime interval de temps quand pas d'evenement
+    
     f<-paste("Surv(start, stop, evt) ~ ", paste(wat, collapse="+"),"+cluster(id)", sep="")  #on ne met pas a_recode car les at couvre deja  toutes les perdiodes
     
     
@@ -2304,13 +2333,13 @@ cut_rep <- function(var, b, recode){
   print(var)
   s <- s_i[s_i$qui==var, ]
   s$time <- ifelse(s$del<0, 0, s$del) #del est le délai entre la date de receuil de la variable(date) et la date de vni (datevni). le del peut ê négatif pour les variables baseline
-  
   #en mois
   s$time <-(s$time/365.25*12) + 0.001 
   s$time.vni <- (s$time.vni /365.25*12) + 0.001 
   
   idu<-sort(unique(s$PATIENT))
   s[, "x"]<-as.numeric(as.character(s[, "x"]))
+  s <- s[!is.na(s$x), ]
   
   #La boucle suivante permet de réaliser ce que ferait automatiquement un survsplit mais en découpant chaque patient par ses valeurs uniquement
   for (id in idu) {
@@ -2376,12 +2405,12 @@ cut_rep <- function(var, b, recode){
   #------------------
   #si loglin non vérifiée, je recoupe à la médiane
   if (recode == TRUE) {
-    Dt$x <- ifelse(Dt$x < median(Dt$x), 0, 1)
-    .title <- paste0 ("RP of ", var, " superior to ", round(median(Dt$x),0))
+    Dt$x <- ifelse(Dt$x <= median(Dt[Dt$start == 0.001, "x"]), 0, 1)
+    .title <- paste0 ("RP of ", var, " superior to ", round(median(Dt[Dt$start == 0.001, "x"]),0))
   } else {
     .title <- paste0 ("RP of ", var)
   }
-  
+  #browser()
   #------------------
   #RP non vérifiés, ajout variable dépendante du temps
   

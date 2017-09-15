@@ -19,7 +19,7 @@ for (i in bdds){
 vnisla_dbl_pb <- readRDS( "data/vnisla_sans_modif.rds") #contient les doublons de bl et les incohérence de vni de bdd_dates
 vnisla_dbl <- readRDS("data/vnisla_sansvniinco.rds") #contient les doublons mais pas les incohérences de vni
 #toutes les dates (vni, dc etc..)
-bdd_dates_pb <- readRDS("data/bdd_dates_avecpbdates.rds")
+bdd_dates_pb <- readRDS("data/bdd_dates_avecpbdates.rds")#et avec doublons
 bdd_dates_dbl <- readRDS("data/bdd_dates_avecdoublons.rds")
 #toutes les baseline :
 bl_dbl <- readRDS("data/bl_avecdoublons.rds")
@@ -33,8 +33,9 @@ DC_2.df <- DC_2.df[DC_2.df$date_evt!="", ]
 
 #dr sans doublons mais avec les patients sans consultations de base
 dr_nodbl_ssbl <-  readRDS("data/df_rep_avecpatssbl.rds")
+bl_nodbl_ssbl <- readRDS("data/bl_avecpatssbl.rds")
 
-#bases sans doublon
+#bases sans doublonet avec bl
 vnisla <- readRDS("data/vnisla.rds")
 dr <- readRDS("data/df_rep.rds")
 bl <- readRDS("data/bl.rds")
@@ -45,7 +46,8 @@ dim(vnisla)
 dim(bdd_dates)
 
 #Liste des patients considérés comme ayant un suivi neuro (soit dans bdd9, soit repeché par JG, soit ayant date de décès dans bdd_dates(cad date de décès qqpart dans la base))
-pat.suiv <- c(bdd9$PATIENT, DC_2.df$PATIENT, bdd_dates$PATIENT[!is.na(bdd_dates$date_dc)])
+#pat.suiv <- c(bdd9$PATIENT, DC_2.df$PATIENT, bdd_dates$PATIENT[!is.na(bdd_dates$date_dc)])
+pat.suiv <- c(bdd9$PATIENT, DC_2.df$PATIENT, bdd_dates_pb$PATIENT[!is.na(bdd_dates_pb$date_dc)])
 
 #NB2 : certains patients sont dans bdd_dates alors que pas de suivi neuro ni dans base de JG : c'est parec qu'on les a gardé s'ils avaient une date de décès
 table(bdd_dates_pb$PATIENT %in% c(bdd9$PATIENT, DC_2.df$PATIENT))
@@ -57,6 +59,8 @@ table(bdd_dates_pb$PATIENT %in% c(bdd9$PATIENT, DC_2.df$PATIENT))
 
 #Patients prospectifs SLA (est-ce que tous les patients de la base sont bien SLA, meme ceux sans vni??)
 length(unique(pat.suiv))
+#4305
+#4308 apres avoir inclus dans pat.suiv les doublons et pb dates de bdd_dates
 
 #les patients rajoutés par JG ne sont pas dans bdd9
 table(DC_2.df$PATIENT %in% bdd9$PATIENT) 
@@ -66,6 +70,7 @@ table(DC_2.df$PATIENT %in% bdd9$PATIENT)
 #Patients vni et sla : attention :vnisla contient des patients sans suivi neuro 
 length (unique(vnisla_dbl_pb$PATIENT[vnisla_dbl_pb$PATIENT %in% pat.suiv])) #NB: pas de doublons dans vnisla, mais contient des patients qui sont doublons dans bl et avec pb de date vni
 #=> 779 patients avec vni et suivi neuro (ou repechage par JG ou date de deces)
+#782 apres avoir inclus dans pat.suiv les doublons et pb dates de bdd_dates
 
 
 #NB les patients rajoutés par JG sont tous dans vnisla_dbl_pb (ainsi que les patients de bdd_dates)
@@ -109,7 +114,13 @@ table(names_doublons %in% pat.suiv)
 
 
 #--------------------
+#PATIENTS sans baseline
+length(unique(bl_nodbl_ssbl$PATIENT)) - length(unique(bl$PATIENT))
+length(unique(dr_nodbl_ssbl$PATIENT)) - length(unique(dr$PATIENT))
 
+
+
+#--------------------
 #PATIENTS ANALYSES
 length(unique(vnisla$PATIENT[vnisla$PATIENT %in% pat.suiv])) 
 #ou
