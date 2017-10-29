@@ -13,6 +13,7 @@ for (i in bdds){
   assign(i,data)
 }
 
+bdd7 %>% select(contains("EFFET_ASSOC")) %>% colnames() #ok j'ai tout verifie bien change comme il faut
 #-----------------------------
 #-----------------------------
 #Yann recup VNI 
@@ -618,6 +619,14 @@ df_rep_nobl_pneumo <- do.call(rbind, .l)
 
 saveRDS(df_rep_nobl_pneumo, "data/df_rep_nobl_pneumo.rds") #non utilise ensuite mais bck up
 
+#rajouter une variable:
+lvar <- lvar[grep("EFFET", lvar)]
+.l <- lapply(lvar, get_var_suivi_nobl_pneumo)
+.l <- do.call(rbind, .l)
+df_rep_nobl_pneumo <- readRDS("data/df_rep_nobl_pneumo.rds")
+df_rep_nobl_pneumo <- rbind(df_rep_nobl_pneumo, .l)
+#df_rep_nobl_pneumo %>% filter(grepl("EFFET", df_rep_nobl_pneumo$qui))
+#saveRDS(df_rep_nobl_pneumo, "data/df_rep_nobl_pneumo.rds")
 
 #imputer bl
 #a deplacer apres creation de dr (car pb pour determiner qui a une baseline)
@@ -625,9 +634,12 @@ saveRDS(df_rep_nobl_pneumo, "data/df_rep_nobl_pneumo.rds") #non utilise ensuite 
 bl_imput <- c("SATISF_VENTIL_SV", "UTIL_VENTIL_DIURN_SV", "UTIL_VENTIL_NOCT_SV", "DUREE_SOMM_VENT_SV", "QUALIT_SOMM_VENT_SV",
               "EVOL_SOMM_VNI_SV","REVEIL_VENT_SV", "ORTHOPN_SV", "DYSPN_SVENT_SV", "DYSPN_SOUSVENT_SV", "OXYM_VNI_SV",
               "FUITE_VNI_SV", "EVT_OBSTR_SV", "ASYNCHR_SV", "MODIF_PARAM_SV", "MODIF_PARAM_ITEMS_1_SV", "MODIF_PARAM_ITEMS_2_SV",
-              "MODIF_PARAM_ITEMS_3_SV", "MODIF_PARAM_ITEMS_4_SV", "MODIF_PARAM_ITEMS_5_SV")
+              "MODIF_PARAM_ITEMS_3_SV", "MODIF_PARAM_ITEMS_4_SV", "MODIF_PARAM_ITEMS_5_SV", "EFFET_ASSOC_VNI_1_SV", 
+              "EFFET_ASSOC_VNI_2_SV", "EFFET_ASSOC_VNI_3_SV", "EFFET_ASSOC_VNI_4_SV", "EFFET_ASSOC_VNI_5_SV", "EFFET_ASSOC_VNI_6_SV", 
+              "EFFET_ASSOC_VNI_7_SV", "EFFET_ASSOC_VNI_8_SV", "EFFET_ASSOC_VNI_9_SV", "EFFET_ASSOC_VNI_10_SV", "EFFET_ASSOC_VNI_11_SV",
+              "EFFET_ASSOC_VNI_12_SV", "EFFET_ASSOC_VNI_13_SV", "EFFET_ASSOC_VNI_14_SV")
 
-tmp2 <- df_rep_nobl_pneumo %>% 
+df_rep_nobl_pneumo <- df_rep_nobl_pneumo %>% 
   #Je prend la premiere ligne de chaque patient et j'impute une baseline(si le patient n'a pas d'info du tout pour la variable, il n'aura pas de baseline)
   bind_rows(df_rep_nobl_pneumo %>% filter(qui =="SATISF_VENTIL_SV") %>%
               group_by(PATIENT) %>% filter(row_number()== 1) %>% 
@@ -674,25 +686,37 @@ tmp2 <- df_rep_nobl_pneumo %>%
   bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_SV") %>% #modif param VNI 1 oui 0 non
               group_by(PATIENT) %>% filter(row_number()== 1) %>% 
               mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>% #x=0 non
-  bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_ITEMS_1_SV") %>% #poursuite VNI 1 oui 0 non
+  bind_rows(df_rep_nobl_pneumo %>% filter(grepl("MODIF_PARAM_ITEMS", qui)) %>% #poursuite VNI 1 oui 0 non
               group_by(PATIENT) %>% filter(row_number()== 1) %>%
-              mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>%#x = 0 non :l'item n'est pas modifié
-  bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_ITEMS_2_SV") %>% #poursuite VNI 1 oui 0 non
-            group_by(PATIENT) %>% filter(row_number()== 1) %>%
-            mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>%#x = 0 non :l'item n'est pas modifié
-  bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_ITEMS_3_SV") %>% #poursuite VNI 1 oui 0 non
+              mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>% #x = 0 non :l'item n'est pas modifié
+  bind_rows(df_rep_nobl_pneumo %>% filter(grepl("EFFET_ASSOC", qui)) %>% #EFFET X ASSOCIE a la VNI avec X = 1 a 14 : 1 effet x present 0 absent
               group_by(PATIENT) %>% filter(row_number()== 1) %>%
-              mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>%#x = 0 non :l'item n'est pas modifié
-  bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_ITEMS_4_SV") %>% #poursuite VNI 1 oui 0 non
-              group_by(PATIENT) %>% filter(row_number()== 1) %>%
-              mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) %>%#x = 0 non :l'item n'est pas modifié
-  bind_rows(df_rep_nobl_pneumo %>% filter(qui =="MODIF_PARAM_ITEMS_5_SV") %>% #poursuite VNI 1 oui 0 non
-              group_by(PATIENT) %>% filter(row_number()== 1) %>%
-              mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0)) #x = 0 non :l'item n'est pas modifié
-  
+              mutate(date = datevni, x = 0, ext = "PV", f = 0, del = 0))
 
-df_rep_nobl_pneumo_imput <- tmp2
-saveRDS(tmp2, "data/df_rep_nobl_pneumo_imput.rds")
+
+#rassembler FUITE_VNI_SV et EFFET_ASSOC_VNI_1_SV
+essai <- df_rep_nobl_pneumo %>% filter(qui=="EFFET_ASSOC_VNI_1_SV" | qui == "FUITE_VNI_SV") %>% group_by(PATIENT, date) %>%
+  arrange(PATIENT, date) %>% filter(PATIENT == "ID1775") 
+essai %>% mutate(x = max(x))
+
+df_rep_nobl_pneumo <- df_rep_nobl_pneumo %>% 
+  mutate(qui = recode(qui, "EFFET_ASSOC_VNI_1_SV" = "FUITE_VNI_SV")) %>% 
+  group_by(PATIENT, date, qui) %>% 
+  mutate(x = ifelse(qui == "FUITE_VNI_SV", max(x), x)) %>%  #NB : jamais de NA dans cette base => 0 ou 1
+  #filter((qui == "FUITE_VNI_SV") & PATIENT == "ID1775") %>% arrange (date) %>% 
+  ungroup
+
+#rassembler ASYNCHR_SV et EFFET_ASSOC_VNI_9_SV
+df_rep_nobl_pneumo <- df_rep_nobl_pneumo %>% 
+  mutate(qui = recode(qui, "EFFET_ASSOC_VNI_9_SV" = "ASYNCHR_SV")) %>% 
+  group_by(PATIENT, date, qui) %>% 
+  mutate(x = ifelse(qui == "ASYNCHR_SV", max(x), x)) %>%  #NB : jamais de NA dans cette base => 0 ou 1
+  #filter((qui == "ASYNCHR_SV") & PATIENT == "ID7378") %>% arrange (date) %>% 
+  ungroup
+  
+#Les lignes en doubles seront eliminées à la toute fin avec distinct()
+
+saveRDS(df_rep_nobl_pneumo, "data/df_rep_nobl_pneumo_imput.rds")
 # 
 # df_rep_nobl_pneumo %>% filter(qui =="SPO2_EVEIL_SUR_SV") %>% group_by(x) %>% summarise(n())
 # lab_bdd7[lab_bdd7$var=="PAO2_SV_F1", ]
@@ -990,8 +1014,11 @@ bl <- bl[bl$PATIENT %in% bdd_dates$PATIENT, ] #bdd_datesne contient que des vnis
 saveRDS(bl, "data/bl_avecdoublons.rds")
 
 #merge des bases répétées
+df_rep_pneumo <- readRDS("data/df_rep_pneumo.rds")
+df_rep_neuro <- readRDS("data/df_rep_neuro.rds")
+df_rep_nobl_pneumo_imput <- readRDS("data/df_rep_nobl_pneumo_imput.rds")
+bdd_dates <- readRDS("data/bdd_dates_avecdoublons.rds")
 dr <- rbind(df_rep_neuro, df_rep_nobl_pneumo_imput, df_rep_pneumo)
-#bd_dat <- subset(bdd_dates, select =- datevni)
 dr <- merge(dr, bdd_dates[ ,! names(bdd_dates) %in% "datevni"], by="PATIENT", all=F)
 dr <- dr[order(dr$qui, dr$PATIENT, dr$date), ]
 #normalement inutile car all=F mais juste pour être sûr:
@@ -1053,13 +1080,23 @@ vnisla <- vnisla[!vnisla$PATIENT %in% names_doublons, ]
 bdd_dates <- bdd_dates[!bdd_dates$PATIENT %in% names_doublons, ]
 
 #NETTOYAGE BASE REPETEE
-#duplicats de dr: je les vire
-table(d<-duplicated(dr))#345 duplicats...
-dr <- dr[!d,]
+
+#duplicats de dr
+#certaines lignes sont des doubles identiques : je n'en garde qu'une
+dr %>% group_by(PATIENT, qui, date, x) %>% mutate(nr = n()) %>% filter(nr>1)
+dr <- dr %>% distinct()
+# table(d<-duplicated(dr))#345 duplicats...
+# dr <- dr[!d,]
+#certaines variables sont notées 2 fois(2 valeurs différentes ou ext différent) mais avec une même date : je garde la première
+dr %>% group_by(PATIENT, qui, date) %>% mutate(nr = n()) %>% filter(nr>1)
+dr <- dr %>% group_by(PATIENT, qui, date) %>% slice(1) %>% ungroup
+
 #Je supprime les dates incohérentes
 dr <- dr[dr$date<as_date("2016-01-01"), ]
 #si date de visite après décès, ce n'est pas un décès et time.vni(follow up time à partir de la vni) = max date de visite 
+dr <- as.data.frame(dr)
 pat_pb <- unique(dr[dr$date>dr$date_dc & !is.na(dr$date_dc), "PATIENT"])
+#NB : pour les patients ayant dat de visite apres tracheotomie, je retire juste les visites ulterieures a la tracheotomie
 for (i in pat_pb){
   dr[dr$PATIENT==i, "evt"] <- 0
   bdd_dates[bdd_dates$PATIENT==i, "evt"] <- 0
@@ -1091,6 +1128,13 @@ for (i in pat_pb[! pat_pb %in% fin_vni$PATIENT ]){
   bdd_dates[bdd_dates$PATIENT==i , "fin_vni"] <- max(dr[dr$PATIENT==i, "date"])
 }
 
+
+#J'applique les modifs des variables evt date_dc time.vni, ddn, dfin, fin_vni obtenus avec dr a l'etape ci dessus aux autres bases
+new_date <- dr %>% group_by(PATIENT) %>% slice(1) %>% select(PATIENT, datevni, ddn, date_dc, dfin, time.vni, evt)
+
+bl <- inner_join(bl %>% select(-c(datevni, ddn, date_dc, dfin, time.vni, evt)), new_date, by = "PATIENT") 
+bdd_dates <- inner_join(bdd_dates %>% select(-c(datevni, ddn, date_dc, dfin, time.vni, evt)), new_date, by = "PATIENT") 
+vnisla <- inner_join(vnisla %>% select(-c(datevni, ddn, date_dc, dfin, time.vni, evt)), new_date, by = "PATIENT") 
 
 #On garde les patients qui ont un suivi neuro ou dont la trace a ete retrouvee par JG ou ayant une date de deces
 bl <- bl[bl$PATIENT %in% bdd9$PATIENT | bl$PATIENT %in% DC_2.df$PATIENT | !is.na(bl$date_dc), ]
@@ -1141,8 +1185,10 @@ dr <- dr[dr$date<= dr$dfin, ]
 #data management
 bl$LIEUDEB_recode <- Recode(as.factor(bl$LIEUDEB), "1 = 'bulbar';2 = 'cervical'; 10:15 = 'lower limb'; 3 = 'respiratory'; 4:9 = 'upper limb'")
 bl$LIEUDEB_rec2 <- Recode(as.factor(bl$LIEUDEB), "1 = 'bulb'; 2 = 'cerv_ulimb'; 10:15 = 'llimb'; 3 = 'resp'; 4:9 = 'cerv_ulimb'")
+bl$LIEUDEB_rec3 <- Recode(as.factor(bl$LIEUDEB), "1 = 'bulb'; 2 = 'cerv_limb'; 10:15 = 'cerv_limb'; 3 = 'resp'; 4:9 = 'cerv_limb'") #ne pas rassembler 4:9 et 10:15, ça bug
+#recode de dplyr moins bien car on ne peut pas ecrire 10:15
+
 d <- bl #base avec les colonnes qui ne sont pas dans bdd_dates
-match(c("LIEUDEB", "DOB", "FIRSTSYMPTOM"), names(bl))
 dim(bl)
 dim(d)
 d$LIEUDEB <- NULL
